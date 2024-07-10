@@ -34,3 +34,17 @@ Every verification method has it's own python executable that works in a similar
 
 note that the experiments other than the one testing the number of mutations always use 5 mutations, so this 3rd parameter can be left out.
 
+## Acknowledgments
+
+Part of the development received funding through Prof. Tias Guns his European Research Council (ERC) Consolidator grant, under the European Union’s Horizon 2020 research and innovation programme (grant agreement No 101002802, [CHAT-Opt](https://people.cs.kuleuven.be/~tias.guns/chat-opt.html)).
+
+You can cite the HURRICANE as follows: "Vanroose, W., Bleukx, I., Devriendt, J., Tsouros, D., Verhaeghe, H., Guns, T. (2024). Mutational Fuzz Testing for Constraint Modeling Systems. Thirtieth International Conference on Principles and Practice of Constraint Programming, CP 2024."
+
+```
+@inproceedings{vanroose2024,
+    title={Mutational Fuzz Testing for Constraint Modeling Systems.},
+    author={Wout Vanroose, Ignace Bleukx, Jo Devriendt, Dimos Tsouros, Hélène Verhaeghe, and Tias Guns},
+    booktitle={Thirtieth International Conference on Principles and Practice of Constraint Programming (CP 2024)},
+    year={2024}
+}
+```
