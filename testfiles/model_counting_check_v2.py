@@ -112,17 +112,13 @@ def model_counting_check(testResults,current_amount_of_tests, current_error_tres
 
     for folder in folders:
         fmodels.extend(glob.glob(join(folder,'sat', "*")))
-    endtime = time.time() + 60 * hrs
     nb_of_models = 0
     errors = []
     amount_of_tests=0
 
-    while time.time() < endtime:
+    while current_error_treshold.value < max_error_treshold:
         random.shuffle(fmodels)
         for fmodel in fmodels:
-            #print("timeleft: ", endtime - time.time())
-            if time.time() > endtime:
-                break
             error = metamorphic_test(solver, iters, fmodel, exclude_dict)
             amount_of_tests+=1
             if not (error == None):
@@ -133,8 +129,6 @@ def model_counting_check(testResults,current_amount_of_tests, current_error_tres
                     current_error_treshold.value +=1
                 finally:
                     lock.release()  
-                if current_error_treshold.value >= max_error_treshold:
-                    endtime = 0
             nb_of_models += 1
 
             lock.acquire()

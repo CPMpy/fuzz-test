@@ -126,29 +126,22 @@ def optimization_test(testResults,current_amount_of_tests, current_error_treshol
     fmodels = []
     for folder in folders:
         fmodels.extend(glob.glob(join(folder,'optimization', "*")))
-    endtime = time.time() + 60 * hrs
     nb_of_models = 0
     errors = []
     amount_of_tests=0
 
-    while time.time() < endtime:
+    while current_error_treshold.value < max_error_treshold:
         random.shuffle(fmodels)
         for fmodel in fmodels:
-            #print('time left: ', time.time() - endtime)
-            if time.time() > endtime:
-                break
             error = metamorphic_test(solver, iters, fmodel, exclude_dict)
             amount_of_tests+=1
             if not (error == None):
                 errors.append(error)
-                # check if we reached our error treshold
                 lock.acquire()
                 try:
                     current_error_treshold.value +=1
                 finally:
                     lock.release()  
-                if current_error_treshold.value >= max_error_treshold:
-                    endtime = 0
                 
             nb_of_models += 1
 
