@@ -17,6 +17,8 @@ from testfiles.solution_check_v2 import solution_check
 from testfiles.optimization_test_v2 import optimization_test
 import signal
 import atexit
+import threading
+
 #from solution_check_v2 import solution_check
 #from optimization_test_v2 import optimization_test
 
@@ -33,6 +35,23 @@ solution check zelfde error
 ''' OMgezet
 solution
 '''
+
+'''writing the data every second, so we will not loose any date if the program should crash or gets closed'''
+def write_test_data(lock,output_dir,testResults):
+    while True:
+        lock.acquire()
+        try:    
+            with open(join(output_dir, 'output'), "wb") as ff:
+                pickle.dump(testResults, file=ff)  # log some stats
+
+            with open(join(output_dir, 'output.txt'), "w") as ff:
+                ff.write(str(testResults))
+        finally:
+            lock.release()  
+            time.sleep(1)
+
+
+
 
 if __name__ == '__main__':
     '''Getting and checking the input parameters'''
@@ -63,51 +82,49 @@ if __name__ == '__main__':
         max_error_treshold = 9999999999999999
 
 
+    # create the output dir if it does not yet exists
+    if not Path(args.output_dir).exists():
+        os.mkdir(args.output_dir)
 
-    '''Running all the tests'''
 
+    '''creating the vars for the multiprocessing'''
     manager = Manager()
     testResults = manager.dict()
     current_error_treshold = manager.Value("i",0)
     current_amount_of_tests = manager.Value("i",0)
+    is_exiting = manager.Value("b",False)
     lock = Lock()
 
-    solution_check_Process = Process(target=solution_check, args=(testResults,current_amount_of_tests, current_error_treshold, lock, args.minutes, args.solver, args.permutations ,models ,max_error_treshold))
-    solution_check_Process.start()
+    '''Running all the tests'''
+    processes = []
+    processes.append(Process(target=solution_check, args=(testResults,current_amount_of_tests, current_error_treshold, lock, args.minutes, args.solver, args.permutations ,models ,max_error_treshold)))
+    processes.append(Process(target=write_test_data,args=(lock,args.output_dir,testResults)))
+
+    for process in processes:
+        process.start()
 
     try:
-        solution_check_Process.join()
-
+        for process in processes:
+            process.join()
         #optimization_test_Process = Process(target=optimization_test, args=(testResults,current_amount_of_tests, current_error_treshold, lock, args.minutes, args.solver, args.permutations ,models ,max_error_treshold))
         #optimization_test_Process.start()
         
         #optimization_test_Process.join()
         
     except KeyboardInterrupt:
-        print("Keyboard interrupt in main")
-        
+        is_exiting.value = True        
 
     finally:
+        for process in processes:
+            process.terminate()
+
+        is_exiting.value = True
+        print("\n Quiting fuzz tests writing the data...\n")
         
-        print("Quiting fuzz tests writing the data...")
-        #solution_check_Process.join()
-        #optimization_test_Process.join()
-
-        '''writing the data'''
-        # create the output dir if it does not yet exists
-        if not Path(args.output_dir).exists():
-            os.mkdir(args.output_dir)
-
-        with open(join(args.output_dir, 'output'), "wb") as ff:
-            pickle.dump(testResults, file=ff)  # log some stats
-            
-        with open(join(args.output_dir, 'output.txt'), "w") as ff:
-            ff.write(str(testResults))
-
         if current_error_treshold.value == max_error_treshold:
-            print("\n reached error treshold stopped running futher test, executed "+str(current_amount_of_tests.value) +" tests")
+            print("\n Reached error treshold stopped running futher test, executed "+str(current_amount_of_tests.value) +" tests")
         else:
-            print("\n succesfully executed " +str(current_amount_of_tests.value) + " tests, "+str(current_error_treshold.value)+" tests failed")
+            print("\n Succesfully executed " +str(current_amount_of_tests.value) + " tests, "+str(current_error_treshold.value)+" tests failed")
 
 
 

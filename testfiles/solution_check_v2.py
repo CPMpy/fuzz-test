@@ -144,11 +144,11 @@ def solution_check(testResults,current_amount_of_tests, current_error_treshold, 
                     
                 nb_of_models += 1
 
-        lock.acquire()
-        try:
-            testResults["solution_check"] = {'nb_of_models' : nb_of_models, 'hours' : hrs, 'nb_of_errors' : len(errors), 'solver' : solver, 'testtype' : 'solutioncheck', 'iters' : iters, 'randomseed' : rseed,"errors" :errors}
-            current_amount_of_tests.value += amount_of_tests
-        finally:
-            lock.release()    
+                lock.acquire()
+                try:
+                    testResults["solution_check"] = {'nb_of_models' : nb_of_models, 'hours' : hrs, 'nb_of_errors' : len(errors), 'solver' : solver, 'testtype' : 'solutioncheck', 'iters' : iters, 'randomseed' : rseed,"errors" :errors}
+                    current_amount_of_tests.value += amount_of_tests
+                finally:
+                    lock.release()    
         
 
