@@ -80,75 +80,74 @@ def metamorphic_test(solver, iters,f,exclude_dict):
                 print('IE', end='', flush=True)
                 return {"type": "internalfunctioncrash","function":function, "argument": argument, "originalmodel": originalmodel, "exception": e, "mutators": mutators} # no need to solve model we didn't modify..
         
-            # enough mutations, time for solving
-            try:
-                model = cp.Model(toplevel_list([cons, solution]))
-                sat = model.solve(solver=solver, time_limit=200)
-                if model.status().runtime > 190:
-                    # timeout, skip
-                    print('s', end='', flush=True)
-                    return None
-                elif sat:
-                    # has to be sat
-                    print('.', end='', flush=True)
-                    return None
-                else:
-                    print('X', end='', flush=True)
-                    #print('morphs: ', mutators)
-            except Exception as e:
-                if isinstance(e,(CPMpyException, NotImplementedError)):
-                    #expected error message, ignore
-                    return None
-                print('E', end='', flush=True)
-                # if you got here, the model failed...
+        # enough mutations, time for solving
+        try:
+            model = cp.Model(toplevel_list([cons, solution]))
+            sat = model.solve(solver=solver, time_limit=200)
+            if model.status().runtime > 190:
+                # timeout, skip
+                print('s', end='', flush=True)
+                return None
+            elif sat:
+                # has to be sat
+                print('.', end='', flush=True)
+                return None
+            else:
+                print('X', end='', flush=True)
+                #print('morphs: ', mutators)
+        except Exception as e:
+            if isinstance(e,(CPMpyException, NotImplementedError)):
+                #expected error message, ignore
+                return None
+            print('E', end='', flush=True)
             
-            return {"model": model, "originalmodel": originalmodel, "mutators": mutators}
+        # if you got here, the model failed... 
+        return {"model": model, "originalmodel": originalmodel, "mutators": mutators}
 
 def solution_check(testResults,current_amount_of_tests, current_error_treshold, lock, hrs,solver,iters, folders, max_error_treshold):
-        rseed = 0
-        random.seed(rseed)
-        if Path('cpmpy-bigtest-private').exists():
-            os.chdir('cpmpy-bigtest-private')
+    rseed = 0
+    random.seed(rseed)
+    if Path('cpmpy-bigtest-private').exists():
+        os.chdir('cpmpy-bigtest-private')
 
-        exclude_dict = {}
+    exclude_dict = {}
 
-        fmodels = []
-        for folder in folders:
-            fmodels.extend(glob.glob(join(folder,'sat', "*")))
-        endtime = time.time() + 60 * hrs
-        nb_of_models = 0
-        errors = []
+    fmodels = []
+    for folder in folders:
+        fmodels.extend(glob.glob(join(folder,'sat', "*")))
+    endtime = time.time() + 60 * hrs
+    nb_of_models = 0
+    errors = []
 
-        amount_of_tests=0
+    amount_of_tests=0
 
-        while time.time() < endtime:
-            random.shuffle(fmodels)
-            for fmodel in fmodels:
-                #print("timeleft: ", endtime - time.time())
-                if time.time() > endtime:
-                    break
-                amount_of_tests+=1
-
-                error = metamorphic_test(solver, iters, fmodel, exclude_dict)
-                # check if we got an error
-                if not (error == None):
-                    errors.append(error)
-                    # check if we reached our error treshold
-                    lock.acquire()
-                    try:
-                        current_error_treshold.value +=1
-                    finally:
-                        lock.release()  
-                    if current_error_treshold.value >= max_error_treshold:
-                        endtime = 0
-                    
-                nb_of_models += 1
-
+    while time.time() < endtime:
+        random.shuffle(fmodels)
+        for fmodel in fmodels:
+            #print("timeleft: ", endtime - time.time())
+            if time.time() > endtime:
+                break
+            error = metamorphic_test(solver, iters, fmodel, exclude_dict)
+            amount_of_tests+=1
+            # check if we got an error
+            if not (error == None):
+                errors.append(error)
+                # check if we reached our error treshold
                 lock.acquire()
                 try:
-                    testResults["solution_check"] = {'nb_of_models' : nb_of_models, 'hours' : hrs, 'nb_of_errors' : len(errors), 'solver' : solver, 'testtype' : 'solutioncheck', 'iters' : iters, 'randomseed' : rseed,"errors" :errors}
-                    current_amount_of_tests.value += amount_of_tests
+                    current_error_treshold.value +=1
                 finally:
-                    lock.release()    
-        
+                    lock.release()  
+                if current_error_treshold.value >= max_error_treshold:
+                    endtime = 0
+                
+            nb_of_models += 1
+
+            lock.acquire()
+            try:
+                testResults["solution_check"] = {'nb_of_models' : nb_of_models, 'hours' : hrs, 'nb_of_errors' : len(errors), 'solver' : solver, 'testtype' : 'solutioncheck', 'iters' : iters, 'randomseed' : rseed,"errors" :errors}
+                current_amount_of_tests.value += amount_of_tests
+            finally:
+                lock.release()    
+    
 
