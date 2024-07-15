@@ -1,16 +1,12 @@
 import glob
 import os
 import pickle
-import time
 from os.path import join
 import sys
 from pathlib import Path
-
 sys.path.append('../cpmpy')
-
 import cpmpy as cp
 from cpmpy.exceptions import CPMpyException
-
 from mutators import *
 
 def metamorphic_test(solver, iters,f,exclude_dict):
@@ -114,7 +110,7 @@ def metamorphic_test(solver, iters,f,exclude_dict):
         # if you got here, the model failed...
         return {"model": model, "originalmodel": originalmodel, "mutators": mutators}
 
-def optimization_test(test_results,current_amount_of_tests, current_error_treshold, lock, hrs,solver,iters, folders, max_error_treshold):
+def optimization_tests(test_results,current_amount_of_tests, current_error_treshold, lock,solver,iters, folders, max_error_treshold):
     rseed = 0
     random.seed(rseed)
     
@@ -147,7 +143,7 @@ def optimization_test(test_results,current_amount_of_tests, current_error_tresho
 
             lock.acquire()
             try:
-                test_results["optimization_tests"] = {'nb_of_models' : nb_of_models, 'hours' : hrs, 'nb_of_errors' : len(errors), 'solver' : solver, 'testtype' : 'optimization_tests', 'iters' : iters, 'randomseed' : rseed,"errors" :errors}
+                test_results["optimization_tests"] = {'nb_of_models' : nb_of_models, 'nb_of_errors' : len(errors), 'solver' : solver, 'iters' : iters, 'randomseed' : rseed,"errors" :errors}
                 current_amount_of_tests.value += amount_of_tests
             finally:
                 lock.release()  
