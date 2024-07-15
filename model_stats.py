@@ -1,19 +1,21 @@
 import glob
 import os.path
+import ortools
 import pickle
 from os.path import join
-
-folder = 'pickle-test_constraints'
-folder = 'pickle_examples'
-folder = 'pickle_test_expression'
+#import faulthandler
+#faulthandler.enable()
+#folder = 'pickle-test_constraints'
+folder = 'pickle_examples\sat'
+#folder = 'pickle_test_expression/sat'
 #folder = 'pickle_test_globals'
 models = glob.glob(join('models',folder, "Pickle*"))
-
-
+print(models)
 for f in models:
     with open(f, 'rb') as pickl:
         model = pickle.load(pickl)
-        print(model.solve())
+        print(type(model))
+        #print(model.solve())
         if model.objective_ is not None:
             name = os.path.basename(f)
             pickl.close()

@@ -148,7 +148,7 @@ if __name__ == '__main__':
     fmodels = []
     for folder in folders:
         fmodels.extend(glob.glob(join(folder,'optimization', "*")))
-    endtime = time.time() + 3600 * hrs
+    endtime = time.time() + 60 * hrs
     nb_of_models = 0
     while time.time() < endtime:
         random.shuffle(fmodels)

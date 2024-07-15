@@ -1,5 +1,5 @@
 import argparse
-
+import math
 import glob
 import pickle
 import os
@@ -13,9 +13,10 @@ from cpmpy.exceptions import CPMpyException
 import cpmpy as cp
 from mutators import *
 from multiprocessing import Process, Lock, Manager, set_start_method
-from testfiles.solution_check_v2 import solution_check
-from testfiles.optimization_test_v2 import optimization_test
-from testfiles.model_counting_check_v2 import model_counting_check
+from testfiles.solution_test import solution_test
+from testfiles.optimization_test import optimization_test
+from testfiles.model_counting_test import model_counting_test
+from testfiles.equivalance_test import equivalance_test
 
 #from solution_check_v2 import solution_check
 #from optimization_test_v2 import optimization_test
@@ -35,26 +36,33 @@ solution
 '''
 
 '''writing the data every second, so we will not loose any date if the program should crash or gets closed'''
-def write_test_data(lock,output_dir,testResults):
-    while True:
-        lock.acquire()
-        try:    
-            with open(join(output_dir, 'output'), "wb") as ff:
-                pickle.dump(testResults, file=ff)  # log some stats
+def write_test_data(lock,output_dir,test_results):
+    try:
+        while True:
+            lock.acquire()
+            try:    
+                with open(join(output_dir, 'output'), "wb") as ff:
+                    pickle.dump(test_results, file=ff)  # log some stats
 
-            with open(join(output_dir, 'output.txt'), "w") as ff:
-                ff.write(str(testResults))
-        finally:
-            lock.release()  
-            time.sleep(1)
+                with open(join(output_dir, 'output.txt'), "w") as ff:
+                    ff.write(str(test_results))
+            finally:
+                lock.release()  
+                time.sleep(1)
+    except KeyboardInterrupt:
+        pass
 
 
 def time_out_process(hrs):
-    endtime = time.time() + 60 * hrs
-
-    while time.time() < endtime:
-        time.sleep(1)
-    print("\n runned tests for "+str(hrs)+" minutes")
+    start_time = time.time()
+    end_time = start_time + 60 * hrs
+    try: 
+        while time.time() < end_time:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("interrupting...")
+    finally: 
+        print("\n runned tests for "+str(math.floor((time.time()-start_time)/60))+" minutes")
 
 
 
@@ -94,17 +102,23 @@ if __name__ == '__main__':
     set_start_method("spawn")
     '''creating the vars for the multiprocessing'''
     manager = Manager()
-    testResults = manager.dict()
+    test_results = manager.dict()
     current_error_treshold = manager.Value("i",0)
     current_amount_of_tests = manager.Value("i",0)
     lock = Lock()
 
     '''Running all the tests'''
+
+
     processes = []
-    processes.append(Process(target=solution_check, args=(testResults,current_amount_of_tests, current_error_treshold, lock, args.minutes, args.solver, args.permutations ,models ,max_error_treshold)))
-    processes.append(Process(target=optimization_test, args=(testResults,current_amount_of_tests, current_error_treshold, lock, args.minutes, args.solver, args.permutations ,models ,max_error_treshold)))
-    processes.append(Process(target=model_counting_check, args=(testResults,current_amount_of_tests, current_error_treshold, lock, args.minutes, args.solver, args.permutations ,models ,max_error_treshold)))
-    processes.append(Process(target=write_test_data,args=(lock,args.output_dir,testResults)))
+    process_args = (test_results,current_amount_of_tests, current_error_treshold, lock, args.minutes, args.solver, args.permutations ,models ,max_error_treshold)
+    
+    """processes.append(Process(target=solution_test, args=process_args))
+    processes.append(Process(target=optimization_test, args=process_args))
+    processes.append(Process(target=model_counting_test, args=process_args))"""
+    processes.append(Process(target=equivalance_test,args=process_args))
+
+    processes.append(Process(target=write_test_data,args=(lock,args.output_dir,test_results)))
 
     timing_process = Process(target=time_out_process,args=(args.minutes,))
     

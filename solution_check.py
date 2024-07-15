@@ -14,7 +14,7 @@ from mutators import *
 
 
 def metamorphic_test(solver, iters,f,enb,exclude_dict):
-    # ist of mutators.
+    # List of mutators.
     mm_mutators = [xor_morph, and_morph, or_morph, implies_morph, not_morph,
                    linearize_constraint_morph,
                    flatten_morph,
@@ -131,6 +131,7 @@ if __name__ == '__main__':
                os.path.join(dirname, 'pickle_test_expression'), os.path.join(dirname, 'pickle_test_globals')]
     folders = [os.path.join(dirname, 'pickle-test_constraints'), os.path.join(dirname, 'pickle_test_expression'),
                os.path.join(dirname, 'pickle_test_globals')]
+    folders = [os.path.join(dirname, 'pickle-test_constraints')]
     fmodels = []
     for folder in folders:
         fmodels.extend(glob.glob(join(folder,'sat', "*")))

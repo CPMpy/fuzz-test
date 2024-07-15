@@ -10,39 +10,47 @@ sys.path.append('../cpmpy')
 from cpmpy.exceptions import CPMpyException
 import cpmpy as cp
 from mutators import *
+import signal
+import logging
+import atexit
+from multiprocessing.pool import ThreadPool
 
 
 
 def metamorphic_test(solver, iters,f,exclude_dict):
-    # list of mutators
     mm_mutators = [xor_morph, and_morph, or_morph, implies_morph, not_morph,
-                   linearize_constraint_morph,
-                   flatten_morph,
-                   only_numexpr_equality_morph,
-                   normalized_numexpr_morph,
-                   reify_rewrite_morph,
-                   only_bv_reifies_morph,
-                   only_positive_bv_morph,
-                   flat2cnf_morph,
-                   toplevel_list_morph,
-                   decompose_in_tree_morph,
-                   push_down_negation_morph,
-                   simplify_boolean_morph,
-                   canonical_comparison_morph,
-                   aritmetic_comparison_morph,
-                   semanticFusionCounting,
-                   semanticFusionCountingMinus,
-                   semanticFusionCountingwsum]
+                linearize_constraint_morph,
+                flatten_morph,
+                only_numexpr_equality_morph,
+                normalized_numexpr_morph,
+                reify_rewrite_morph,
+                only_bv_reifies_morph,
+                only_positive_bv_morph,
+                flat2cnf_morph,
+                toplevel_list_morph,
+                decompose_in_tree_morph,
+                push_down_negation_morph,
+                simplify_boolean_morph,
+                canonical_comparison_morph,
+                aritmetic_comparison_morph,
+                semanticFusion,
+                semanticFusionMinus,
+                semanticFusionwsum]
 
     originalmodel = f
+    #with open(f, 'rb') as fpcl:
+    
     with open(f, 'rb') as fpcl:
         cons = pickle.loads(fpcl.read()).constraints
+        
         #if compressed: cons = pickle.loads(brotli.decompress(fpcl.read())).constraints
         assert (len(cons)>0), f"{f} has no constraints"
         cons = toplevel_list(cons)
         assert (len(cons)>0), f"{f} has no constraints after l2conj"
-        sol_count = cp.Model(cons).solveAll(solver=solver,time_limit=250)
-        mutators = [copy.deepcopy(cons)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
+        vars = get_variables(cons)
+        Model(cons).solve()
+        solution = [var == var.value() for var in vars if var.value() is not None]
+        mutators = [copy.deepcopy(cons)] #keep track of list of cons alternated with random seed and mutators that transformed it into the next list of cons.
         for i in range(iters):
             # choose a metamorphic mutation, don't choose any from exclude_dict
             if f in exclude_dict:
@@ -54,11 +62,11 @@ def metamorphic_test(solver, iters,f,exclude_dict):
             random.seed(seed)
             mutators += [seed]
             # an error can occur in the transformations, so even before the solve call.
-            # log function and arguments in that case
+            # log randomseed, function and arguments in that case
             mutators += [m]
             try:
-                 cons += m(cons)  # apply a metamorphic mutation
-                 mutators += [copy.deepcopy(cons)]
+                cons += m(cons)  # apply a metamorphic mutation
+                mutators += [copy.deepcopy(cons)]
             except MetamorphicError as exc:
                 #add to exclude_dict, to avoid running into the same error
                 if f in exclude_dict:
@@ -71,17 +79,17 @@ def metamorphic_test(solver, iters,f,exclude_dict):
                     return None
                 print('IE', end='', flush=True)
                 return {"type": "internalfunctioncrash","function":function, "argument": argument, "originalmodel": originalmodel, "exception": e, "mutators": mutators} # no need to solve model we didn't modify..
-
+        
         # enough mutations, time for solving
         try:
-            model = cp.Model(cons)
-            new_count = model.solveAll(solver=solver, time_limit=200)
+            model = cp.Model(toplevel_list([cons, solution]))
+            sat = model.solve(solver=solver, time_limit=200)
             if model.status().runtime > 190:
                 # timeout, skip
                 print('s', end='', flush=True)
                 return None
-            elif sol_count == new_count:
-                # has to be same
+            elif sat:
+                # has to be sat
                 print('.', end='', flush=True)
                 return None
             else:
@@ -93,27 +101,23 @@ def metamorphic_test(solver, iters,f,exclude_dict):
                 return None
             print('E', end='', flush=True)
 
-
-        # if you got here, the model failed...
+        # if you got here, the model failed... 
         return {"model": model, "originalmodel": originalmodel, "mutators": mutators}
 
-
-
-def model_counting_check(testResults,current_amount_of_tests, current_error_treshold, lock, hrs,solver,iters, folders, max_error_treshold):
+def solution_test(test_results,current_amount_of_tests, current_error_treshold, lock, hrs,solver,iters, folders, max_error_treshold):
     rseed = 0
     random.seed(rseed)
-
     if Path('cpmpy-bigtest-private').exists():
         os.chdir('cpmpy-bigtest-private')
 
     exclude_dict = {}
 
     fmodels = []
-
     for folder in folders:
         fmodels.extend(glob.glob(join(folder,'sat', "*")))
     nb_of_models = 0
     errors = []
+
     amount_of_tests=0
 
     while current_error_treshold.value < max_error_treshold:
@@ -121,19 +125,22 @@ def model_counting_check(testResults,current_amount_of_tests, current_error_tres
         for fmodel in fmodels:
             error = metamorphic_test(solver, iters, fmodel, exclude_dict)
             amount_of_tests+=1
+            # check if we got an error
             if not (error == None):
                 errors.append(error)
-                # check if we reached our error treshold
                 lock.acquire()
                 try:
                     current_error_treshold.value +=1
                 finally:
                     lock.release()  
+                
             nb_of_models += 1
 
             lock.acquire()
             try:
-                testResults["model_counting_check"] = {'nb_of_models' : nb_of_models, 'hours' : hrs, 'nb_of_errors' : len(errors), 'solver' : solver, 'testtype' : 'optimization_tests', 'iters' : iters, 'randomseed' : rseed,"errors" :errors}
+                test_results["solution_test"] = {'nb_of_models' : nb_of_models, 'hours' : hrs, 'nb_of_errors' : len(errors), 'solver' : solver, 'testtype' : 'solutioncheck', 'iters' : iters, 'randomseed' : rseed,"errors" :errors}
                 current_amount_of_tests.value += amount_of_tests
             finally:
-                lock.release()   
+                lock.release()    
+    
+

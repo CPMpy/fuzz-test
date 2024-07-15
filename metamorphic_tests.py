@@ -40,6 +40,9 @@ def metamorphic_test(solver, iters,f,enb,consper, exclude_dict):
     # choose a random model
     originalmodel = f
     with open(f, 'rb') as fpcl:
+        pickle.dump(originalmodel)
+    
+    with open(f, 'rb') as fpcl:
         cons = pickle.loads(fpcl.read()).constraints
         #if compressed: cons = pickle.loads(brotli.decompress(fpcl.read())).constraints
         assert (len(cons)>0), f"{f} has no constraints"
