@@ -11,8 +11,6 @@ import cpmpy as cp
 from cpmpy.exceptions import CPMpyException
 from mutators import *
 
-
-
 def metamorphic_test(solver, iters,f, exclude_dict):
     # list of mutators.
     mm_mutators = [xor_morph, and_morph, or_morph, implies_morph, not_morph,
@@ -98,49 +96,53 @@ def metamorphic_test(solver, iters,f, exclude_dict):
                 return None
             print('E', end='', flush=True)
 
-
         # if you got here, the model failed...
-        return {"model": model, "originalmodel": originalmodel, "mutators": mutators}
+        return {"type": "failed_model","model": model, "originalmodel": originalmodel, "mutators": mutators}
 
 
-def metamorphic_tests(test_results,current_amount_of_tests, current_error_treshold, lock,solver,iters, folders, max_error_treshold):
-
-    rseed = 0
-    random.seed(rseed)
-
-    if Path('cpmpy-bigtest-private').exists():
-        os.chdir('cpmpy-bigtest-private')
-
-    exclude_dict = {}
-
-    fmodels = []
-
-    for folder in folders:
-        fmodels.extend(glob.glob(join(folder,'sat', "*")))
-
+def metamorphic_tests(test_results,current_amount_of_tests, current_amount_of_error, lock,solver,iters, folders, max_error_treshold):
     nb_of_models = 0
     errors = []
     amount_of_tests=0
+    rseed = 0
+    exclude_dict = {}
+    fmodels = []
+    try :
+        random.seed(rseed)
 
-    while current_error_treshold.value < max_error_treshold:
-        random.shuffle(fmodels)
-        for fmodel in fmodels:
-            error = metamorphic_test(solver, iters, fmodel, exclude_dict)
-            amount_of_tests+=1
+        if Path('cpmpy-bigtest-private').exists():
+            os.chdir('cpmpy-bigtest-private')
 
-            if not (error == None):
-                errors.append(error)
+        for folder in folders:
+            fmodels.extend(glob.glob(join(folder,'sat', "*")))
+
+        while current_amount_of_error.value < max_error_treshold:
+            random.shuffle(fmodels)
+            for fmodel in fmodels:
+                error = metamorphic_test(solver, iters, fmodel, exclude_dict)
+                amount_of_tests+=1
+
+                if not (error == None) and current_amount_of_error.value < max_error_treshold:
+                    errors.append(error)
+                    lock.acquire()
+                    try:
+                        current_amount_of_error.value +=1
+                    finally:
+                        lock.release()  
+                    
+                nb_of_models += 1
+
                 lock.acquire()
                 try:
-                    current_error_treshold.value +=1
+                    test_results["metamorphic_tests"] = {'amount_of_tests': amount_of_tests, 'nb_of_models' : nb_of_models, 'nb_of_errors' : len(errors), 'solver' : solver, 'iters' : iters, 'randomseed' : rseed,"errors" :errors}
+                    current_amount_of_tests.value += 1
                 finally:
                     lock.release()  
-                
-            nb_of_models += 1
-
-            lock.acquire()
-            try:
-                test_results["metamorphic_tests"] = {'nb_of_models' : nb_of_models, 'nb_of_errors' : len(errors), 'solver' : solver, 'iters' : iters, 'randomseed' : rseed,"errors" :errors}
-                current_amount_of_tests.value += amount_of_tests
-            finally:
-                lock.release()  
+    except Exception as e:
+        lock.acquire()
+        errors.append({"type": "fuzz_test_crash","exception":e})
+        try:
+            test_results["metamorphic_tests"] = {'amount_of_tests': amount_of_tests, 'nb_of_models' : nb_of_models, 'nb_of_errors' : len(errors), 'solver' : solver, 'iters' : iters, 'randomseed' : rseed,"errors" :errors}
+            current_amount_of_tests.value += 1
+        finally:
+            lock.release()

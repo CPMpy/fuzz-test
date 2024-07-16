@@ -10,9 +10,6 @@ from cpmpy.exceptions import CPMpyException
 import cpmpy as cp
 from mutators import *
 
-
-
-
 def metamorphic_test(solver, iters,f,exclude_dict):
     mm_mutators = [xor_morph, and_morph, or_morph, implies_morph, not_morph,
                 linearize_constraint_morph,
@@ -98,9 +95,9 @@ def metamorphic_test(solver, iters,f,exclude_dict):
             print('E', end='', flush=True)
 
         # if you got here, the model failed... 
-        return {"model": model, "originalmodel": originalmodel, "mutators": mutators}
+        return {"type": "failed_model","model": model, "originalmodel": originalmodel, "mutators": mutators}
 
-def solution_tests(test_results,current_amount_of_tests, current_error_treshold, lock,solver,iters, folders, max_error_treshold):
+def solution_tests(test_results,current_amount_of_tests, current_amount_of_error, lock,solver,iters, folders, max_error_treshold):
     rseed = 0
     random.seed(rseed)
     if Path('cpmpy-bigtest-private').exists():
@@ -116,17 +113,17 @@ def solution_tests(test_results,current_amount_of_tests, current_error_treshold,
 
     amount_of_tests=0
 
-    while current_error_treshold.value < max_error_treshold:
+    while current_amount_of_error.value < max_error_treshold:
         random.shuffle(fmodels)
         for fmodel in fmodels:
             error = metamorphic_test(solver, iters, fmodel, exclude_dict)
             amount_of_tests+=1
             # check if we got an error
-            if not (error == None):
+            if not (error == None) and current_amount_of_error.value < max_error_treshold:
                 errors.append(error)
                 lock.acquire()
                 try:
-                    current_error_treshold.value +=1
+                    current_amount_of_error.value +=1
                 finally:
                     lock.release()  
                 
@@ -134,9 +131,7 @@ def solution_tests(test_results,current_amount_of_tests, current_error_treshold,
 
             lock.acquire()
             try:
-                test_results["solution_tests"] = {'nb_of_models' : nb_of_models, 'nb_of_errors' : len(errors), 'solver' : solver, 'iters' : iters, 'randomseed' : rseed,"errors" :errors}
-                current_amount_of_tests.value += amount_of_tests
+                test_results["solution_tests"] = {'amount_of_tests': amount_of_tests,'nb_of_models' : nb_of_models, 'nb_of_errors' : len(errors), 'solver' : solver, 'iters' : iters, 'randomseed' : rseed,"errors" :errors}
+                current_amount_of_tests.value += 1
             finally:
                 lock.release()    
-    
-

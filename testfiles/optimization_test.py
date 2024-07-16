@@ -79,7 +79,6 @@ def metamorphic_test(solver, iters,f,exclude_dict):
                 #print(function)
                 return {"type": "internalfunctioncrash","function":function, "argument": argument, "originalmodel": originalmodel, "exception": e, "mutators": mutators} # no need to solve model we didn't modify..
 
-
         # enough mutations, time for solving
         try:
             newModel = cp.Model(cons)
@@ -105,12 +104,11 @@ def metamorphic_test(solver, iters,f,exclude_dict):
         except Exception as e:
             print("e")
             print('E', end='', flush=True)
-            #print(e)
 
         # if you got here, the model failed...
-        return {"model": model, "originalmodel": originalmodel, "mutators": mutators}
+        return {"type": "failed_model","model": model, "originalmodel": originalmodel, "mutators": mutators}
 
-def optimization_tests(test_results,current_amount_of_tests, current_error_treshold, lock,solver,iters, folders, max_error_treshold):
+def optimization_tests(test_results,current_amount_of_tests, current_amount_of_error, lock,solver,iters, folders, max_error_treshold):
     rseed = 0
     random.seed(rseed)
     
@@ -126,16 +124,16 @@ def optimization_tests(test_results,current_amount_of_tests, current_error_tresh
     errors = []
     amount_of_tests=0
 
-    while current_error_treshold.value < max_error_treshold:
+    while current_amount_of_error.value < max_error_treshold:
         random.shuffle(fmodels)
         for fmodel in fmodels:
             error = metamorphic_test(solver, iters, fmodel, exclude_dict)
             amount_of_tests+=1
-            if not (error == None):
+            if not (error == None) and current_amount_of_error.value < max_error_treshold:
                 errors.append(error)
                 lock.acquire()
                 try:
-                    current_error_treshold.value +=1
+                    current_amount_of_error.value +=1
                 finally:
                     lock.release()  
                 
@@ -143,8 +141,7 @@ def optimization_tests(test_results,current_amount_of_tests, current_error_tresh
 
             lock.acquire()
             try:
-                test_results["optimization_tests"] = {'nb_of_models' : nb_of_models, 'nb_of_errors' : len(errors), 'solver' : solver, 'iters' : iters, 'randomseed' : rseed,"errors" :errors}
-                current_amount_of_tests.value += amount_of_tests
+                test_results["optimization_tests"] = {'amount_of_tests': amount_of_tests,'nb_of_models' : nb_of_models, 'nb_of_errors' : len(errors), 'solver' : solver, 'iters' : iters, 'randomseed' : rseed,"errors" :errors}
+                current_amount_of_tests.value += 1
             finally:
                 lock.release()  
-
