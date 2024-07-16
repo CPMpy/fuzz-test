@@ -17,7 +17,7 @@ from testfiles.equivalance_test import equivalance_tests
 from testfiles.metamorphic_test import metamorphic_tests
 
 def create_output_text(test_results):
-    test_result_string = "Fuzz Test output: \nTest Parameters: \n\t\tTested the models: " + test_results["info"]["models"] + "\n\t\tUsed the " +  test_results["info"]["solver"] + " solver\n"
+    test_result_string = "Fuzz Test output: \nTest Parameters: \n\t\tTested the models: " + test_results["info"]["models"] + "\n\t\tUsed solver: " +  test_results["info"]["solver"] + " \n\t\tRandom seed: " + str(test_results["info"]["seed"]) +"\n"
     test_result_string += "\t\tFuzz test parameters: permutations=" + str(test_results["info"]["permutations"]) + ", skip_global_constraints="+str(test_results["info"]["skip_global_constraints"])
     test_result_string += "\n\nExecuted " + str(test_results["info"]["executed_tests"]) + " tests in " + str(test_results["info"]["execution_time"]) + " minutes,  " + str(test_results["info"]["passed_tests"]) + " tests passed " +  str(test_results["info"]["failed_tests"]) + " tests failed"
     for key, value in test_results.items():
@@ -47,12 +47,12 @@ def create_output_text(test_results):
     return test_result_string
 
 '''writing the data every second, so we will not loose any date if the program should crash or gets closed'''
-def write_test_data(lock,output_dir,test_results,start_time,current_amount_of_tests,current_amount_of_error,solver, models,permutations, skip_global_constraints):
+def write_test_data(lock,output_dir,test_results,start_time,current_amount_of_tests,current_amount_of_error,solver, models,permutations, skip_global_constraints,rseed):
     try:
         while True:
             lock.acquire()
             try:
-                test_results["info"] = {"execution_time":math.floor((time.time()-start_time)/60), "executed_tests": current_amount_of_tests.value, "passed_tests": current_amount_of_tests.value-current_amount_of_error.value, "failed_tests": current_amount_of_error.value,"solver":solver,"models": models,"permutations": permutations, "skip_global_constraints": skip_global_constraints }
+                test_results["info"] = {"execution_time":math.floor((time.time()-start_time)/60), "executed_tests": current_amount_of_tests.value, "passed_tests": current_amount_of_tests.value-current_amount_of_error.value, "failed_tests": current_amount_of_error.value,"solver":solver,"models": models,"permutations": permutations, "skip_global_constraints": skip_global_constraints, "seed":rseed }
                 
                 with open(join(output_dir, 'output'), "wb") as ff:
                     pickle.dump(test_results, file=ff)  # log some stats
@@ -74,7 +74,7 @@ def time_out_process(hrs,current_amount_of_error,max_error_treshold,start_time):
     except KeyboardInterrupt:
         print("interrupting...")
     finally: 
-        print("\n executed tests for "+str(math.floor((time.time()-start_time)/60))+" minutes")
+        print("\n executed tests for "+str(math.floor((time.time()-start_time)/60))+" minutes writing the data...")
 
 
 
@@ -102,10 +102,14 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     models = str.split(args.models,",")
+
     max_error_treshold = args.bug_treshold
     if max_error_treshold == 0:
         max_error_treshold = math.inf
 
+    for model in models:
+        if not Path(model).exists():
+            raise ValueError("path to "+model+" model doesn't exist, please check if the path is correct")
 
     # create the output dir if it does not yet exists
     if not Path(args.output_dir).exists():
@@ -120,11 +124,12 @@ if __name__ == '__main__':
     current_amount_of_tests = manager.Value("i",0)
 
     lock = Lock()
-
+    rseed = 0
+    
     '''Running all the tests'''
 
     processes = []
-    process_args = (test_results,current_amount_of_tests, current_amount_of_error, lock, args.solver, args.permutations ,models ,max_error_treshold)
+    process_args = (test_results,current_amount_of_tests, current_amount_of_error, lock, args.solver, args.permutations ,models ,max_error_treshold,rseed)
     
     processes.append(Process(target=solution_tests, args=process_args))
     processes.append(Process(target=optimization_tests, args=process_args))
@@ -132,7 +137,7 @@ if __name__ == '__main__':
     processes.append(Process(target=equivalance_tests,args=process_args))
     processes.append(Process(target=metamorphic_tests,args=process_args))
 
-    write_test_data_process = Process(target=write_test_data,args=(lock,args.output_dir,test_results,start_time,current_amount_of_tests,current_amount_of_error,args.solver,args.models,args.permutations, args.skip_global_constraints))
+    write_test_data_process = Process(target=write_test_data,args=(lock,args.output_dir,test_results,start_time,current_amount_of_tests,current_amount_of_error,args.solver,args.models,args.permutations, args.skip_global_constraints,rseed))
 
     timing_process = Process(target=time_out_process,args=(args.minutes,current_amount_of_error,max_error_treshold,start_time))
     
@@ -153,7 +158,7 @@ if __name__ == '__main__':
         #write_process.terminate()
         for process in processes:
             process.terminate()
-        print("\n Quiting fuzz tests writing the data...\n")
+        print("\n Quiting fuzz tests \n")
 
         time.sleep(3)
         write_test_data_process.terminate()

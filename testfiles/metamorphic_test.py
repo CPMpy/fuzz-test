@@ -100,16 +100,14 @@ def metamorphic_test(solver, iters,f, exclude_dict):
         return {"type": "failed_model","model": model, "originalmodel": originalmodel, "mutators": mutators}
 
 
-def metamorphic_tests(test_results,current_amount_of_tests, current_amount_of_error, lock,solver,iters, folders, max_error_treshold):
+def metamorphic_tests(test_results,current_amount_of_tests, current_amount_of_error, lock,solver,iters, folders, max_error_treshold,rseed):
     nb_of_models = 0
     errors = []
     amount_of_tests=0
-    rseed = 0
     exclude_dict = {}
     fmodels = []
+    random.seed(rseed)
     try :
-        random.seed(rseed)
-
         if Path('cpmpy-bigtest-private').exists():
             os.chdir('cpmpy-bigtest-private')
 
@@ -134,7 +132,7 @@ def metamorphic_tests(test_results,current_amount_of_tests, current_amount_of_er
 
                 lock.acquire()
                 try:
-                    test_results["metamorphic_tests"] = {'amount_of_tests': amount_of_tests, 'nb_of_models' : nb_of_models, 'nb_of_errors' : len(errors), 'solver' : solver, 'iters' : iters, 'randomseed' : rseed,"errors" :errors}
+                    test_results["metamorphic_tests"] = {'amount_of_tests': amount_of_tests, 'nb_of_models' : nb_of_models, 'nb_of_errors' : len(errors), 'solver' : solver, 'iters' : iters ,"errors" :errors}
                     current_amount_of_tests.value += 1
                 finally:
                     lock.release()  
@@ -142,7 +140,7 @@ def metamorphic_tests(test_results,current_amount_of_tests, current_amount_of_er
         lock.acquire()
         errors.append({"type": "fuzz_test_crash","exception":e})
         try:
-            test_results["metamorphic_tests"] = {'amount_of_tests': amount_of_tests, 'nb_of_models' : nb_of_models, 'nb_of_errors' : len(errors), 'solver' : solver, 'iters' : iters, 'randomseed' : rseed,"errors" :errors}
+            test_results["metamorphic_tests"] = {'amount_of_tests': amount_of_tests, 'nb_of_models' : nb_of_models, 'nb_of_errors' : len(errors), 'solver' : solver, 'iters' : iters ,"errors" :errors}
             current_amount_of_tests.value += 1
         finally:
             lock.release()

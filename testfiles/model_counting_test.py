@@ -94,40 +94,45 @@ def metamorphic_test(solver, iters,f,exclude_dict):
         # if you got here, the model failed...
         return {"type": "failed_model","model": model, "originalmodel": originalmodel, "mutators": mutators}
 
-def model_counting_tests(test_results,current_amount_of_tests, current_amount_of_error, lock,solver,iters, folders, max_error_treshold):
-    rseed = 0
-    random.seed(rseed)
-
-    if Path('cpmpy-bigtest-private').exists():
-        os.chdir('cpmpy-bigtest-private')
-
+def model_counting_tests(test_results,current_amount_of_tests, current_amount_of_error, lock,solver,iters, folders, max_error_treshold,rseed):
     exclude_dict = {}
-
     fmodels = []
-
-    for folder in folders:
-        fmodels.extend(glob.glob(join(folder,'sat', "*")))
     nb_of_models = 0
     errors = []
     amount_of_tests=0
+    random.seed(rseed)
 
-    while current_amount_of_error.value < max_error_treshold:
-        random.shuffle(fmodels)
-        for fmodel in fmodels:
-            error = metamorphic_test(solver, iters, fmodel, exclude_dict)
-            amount_of_tests+=1
-            if not (error == None) and current_amount_of_error.value < max_error_treshold:
-                errors.append(error)
+    try:
+        if Path('cpmpy-bigtest-private').exists():
+            os.chdir('cpmpy-bigtest-private')
+        for folder in folders:
+            fmodels.extend(glob.glob(join(folder,'sat', "*")))
+
+        while current_amount_of_error.value < max_error_treshold:
+            random.shuffle(fmodels)
+            for fmodel in fmodels:
+                error = metamorphic_test(solver, iters, fmodel, exclude_dict)
+                amount_of_tests+=1
+                if not (error == None) and current_amount_of_error.value < max_error_treshold:
+                    errors.append(error)
+                    lock.acquire()
+                    try:
+                        current_amount_of_error.value +=1
+                    finally:
+                        lock.release()  
+                nb_of_models += 1
+
                 lock.acquire()
                 try:
-                    current_amount_of_error.value +=1
+                    test_results["model_counting_tests"] = {'amount_of_tests': amount_of_tests,'nb_of_models' : nb_of_models, 'nb_of_errors' : len(errors), 'solver' : solver, 'iters' : iters ,"errors" :errors}
+                    current_amount_of_tests.value += 1
                 finally:
-                    lock.release()  
-            nb_of_models += 1
-
-            lock.acquire()
-            try:
-                test_results["model_counting_tests"] = {'amount_of_tests': amount_of_tests,'nb_of_models' : nb_of_models, 'nb_of_errors' : len(errors), 'solver' : solver, 'iters' : iters, 'randomseed' : rseed,"errors" :errors}
-                current_amount_of_tests.value += 1
-            finally:
-                lock.release()   
+                    lock.release()   
+    except Exception as e:
+        lock.acquire()
+        errors.append({"type": "fuzz_test_crash","exception":e})
+        try:
+            test_results["model_counting_tests"] = {'amount_of_tests': amount_of_tests, 'nb_of_models' : nb_of_models, 'nb_of_errors' : len(errors), 'solver' : solver, 'iters' : iters ,"errors" :errors}
+            current_amount_of_tests.value += 1
+        finally:
+            lock.release()
