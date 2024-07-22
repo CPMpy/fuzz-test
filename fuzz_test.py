@@ -91,7 +91,7 @@ def write_test_data(lock, output_dir: str, test_results: dict, start_time: float
         pass
 
 
-def time_out_process(mins : int, current_amount_of_error, max_error_treshold: int, start_time: float) -> None:
+def time_out_process(mins : int, current_amount_of_error, max_failed_tests: int, start_time: float) -> None:
     """ 
     A helper function which gets used to time and terminate the execution of the tests
     if the timout or the error treshold is reached the tests will get terminated
@@ -99,13 +99,13 @@ def time_out_process(mins : int, current_amount_of_error, max_error_treshold: in
     Args:
         mins (int): the amount of mins we want the tests to run
         current_amount_of_error (Value(int)): the value that stores the current amount of errors found
-        max_error_treshold (int): the maximimum errors that can be found before quitting the tests
+        max_failed_tests (int): the maximimum errors that can be found before quitting the tests
         start_time (float): the starting time when we started executing tests
 
     """
     end_time = start_time + 60 * mins
     try: 
-        while time.time() < end_time and current_amount_of_error.value < max_error_treshold:
+        while time.time() < end_time and current_amount_of_error.value < max_failed_tests:
             time.sleep(1)
     except KeyboardInterrupt:
         print("interrupting...")
@@ -137,31 +137,25 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = "A python application to fuzz_test your solver(s)")
     parser.add_argument("-s", "--solver", help = "The Solver to use", required = False,type=str,choices=available_solvers, default=available_solvers[0])
     parser.add_argument("-m", "--models", help = "The path to load the models", required=False, type=str, default="models")
-    parser.add_argument("-o", "--output-dir", help = "The directory to store the output (will be created if)", required=False, type=str, default="output")
+    parser.add_argument("-o", "--output-dir", help = "The directory to store the output (will be created if it does not exist).", required=False, type=str, default="output")
     parser.add_argument("-g", "--skip-global-constraints", help = "Skip the global constraints when testing", required=False, default = False)
-    parser.add_argument("--max-bugs", help = "The bug treshold when to quit", required=False, default=0 ,type=check_positive)
-    parser.add_argument("--max-minutes", help = "The time in minutes to run the tests", required=False, default=0 ,type=check_positive)
-    parser.add_argument("-mpm","--mutations-per-model", help = "The amount of mutations that be executed on every model", required=False, default=5 ,type=check_positive)
+    parser.add_argument("--max-failed-tests", help = "The maximum amount of test that may fail before quitting the application (by default an infinite amount of tests can fail). if the maximum amount is reached it will uit even if the max-minutes wasn't reached", required=False, default=math.inf ,type=check_positive)
+    parser.add_argument("--max-minutes", help = "The maximum time (in minutes) the tests should run (by default the tests will run forever). The tests will quit sooner if max-bugs was set and reached or an keyboardinterrupt occured", required=False, default=math.inf ,type=check_positive)
+    parser.add_argument("-mpm","--mutations-per-model", help = "The amount of mutations that will be executed on every model", required=False, default=5 ,type=check_positive)
 
 
     args = parser.parse_args()
     models = []
-    max_error_treshold = args.max_bugs
+    max_failed_tests = args.max_failed_tests
     max_minutes = args.max_minutes
 
-    # if no max error treshold is given set it to inf
-    if max_error_treshold == 0:
-        max_error_treshold = math.inf
 
-    # if no max minutes treshold is given set it to inf
-    if max_minutes == 0:
-        max_minutes = math.inf
 
     # create a list with all the directories
     for model in os.listdir(args.models):
         models.append(os.path.join(args.models, model))
 
-    # create the output dir if it does not yet exists
+    # output dir will be created if it does not exist
     if not Path(args.output_dir).exists():
         os.mkdir(args.output_dir)
 
@@ -180,7 +174,7 @@ if __name__ == '__main__':
     # creating processes to run all the tests
 
     processes = []
-    process_args = (test_results,current_amount_of_tests, current_amount_of_error, lock, args.solver, args.mutations_per_model ,models ,max_error_treshold,rseed)
+    process_args = (test_results,current_amount_of_tests, current_amount_of_error, lock, args.solver, args.mutations_per_model ,models ,max_failed_tests,rseed)
     
     processes.append(Process(target=solution_tests, args=process_args))
     processes.append(Process(target=optimization_tests, args=process_args))
@@ -190,7 +184,7 @@ if __name__ == '__main__':
 
     write_test_data_process = Process(target=write_test_data,args=(lock,args.output_dir,test_results,start_time,current_amount_of_tests,current_amount_of_error,args.solver,args.models,args.mutations_per_model, args.skip_global_constraints,rseed))
 
-    timing_process = Process(target=time_out_process,args=(max_minutes,current_amount_of_error,max_error_treshold,start_time))
+    timing_process = Process(target=time_out_process,args=(max_minutes,current_amount_of_error,max_failed_tests,start_time))
     
     
     # start the processes
@@ -216,7 +210,7 @@ if __name__ == '__main__':
         time.sleep(3)
         write_test_data_process.terminate()
 
-        if current_amount_of_error.value == max_error_treshold:
+        if current_amount_of_error.value == max_failed_tests:
             print("\n Reached error treshold stopped running futher test, executed "+str(current_amount_of_tests.value) +" tests, "+str(current_amount_of_error.value)+" tests failed")
         else:
             print("\n Succesfully executed " +str(current_amount_of_tests.value) + " tests, "+str(current_amount_of_error.value)+" tests failed")
