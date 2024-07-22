@@ -107,14 +107,14 @@ def time_out_process(mins : int, current_amount_of_error, max_failed_tests: int,
     try: 
         while time.time() < end_time and current_amount_of_error.value < max_failed_tests:
             time.sleep(1)
-    except KeyboardInterrupt:
-        print("interrupting...")
     finally: 
-        print("\n executed tests for "+str(math.floor((time.time()-start_time)/60))+" minutes")
+        print("Executed tests for "+str(math.floor((time.time()-start_time)/60))+" minutes",flush=True,end="\n")
 
 
 
 if __name__ == '__main__':
+    
+
     # Getting and checking the input parameters    
     def getsolvernames(solver) -> str:
         """
@@ -142,6 +142,7 @@ if __name__ == '__main__':
     parser.add_argument("--max-failed-tests", help = "The maximum amount of test that may fail before quitting the application (by default an infinite amount of tests can fail). if the maximum amount is reached it will uit even if the max-minutes wasn't reached", required=False, default=math.inf ,type=check_positive)
     parser.add_argument("--max-minutes", help = "The maximum time (in minutes) the tests should run (by default the tests will run forever). The tests will quit sooner if max-bugs was set and reached or an keyboardinterrupt occured", required=False, default=math.inf ,type=check_positive)
     parser.add_argument("-mpm","--mutations-per-model", help = "The amount of mutations that will be executed on every model", required=False, default=5 ,type=check_positive)
+    parser.add_argument("-p","--amount-of-processes", help = "The amount of processes that will be used to run the tests", required=False, default=5 ,type=check_positive)
 
 
     args = parser.parse_args()
@@ -159,7 +160,10 @@ if __name__ == '__main__':
     if not Path(args.output_dir).exists():
         os.mkdir(args.output_dir)
 
-    
+    # showing the info about the given params to the user
+    print("\nUsing solver '"+args.solver+"' with models in '"+args.models+"' and writing to '"+args.output_dir+"'." ,flush=True,end="\n\n")
+    print("Will use "+str(args.amount_of_processes)+ " parallel executions, starting...",flush=True,end="\n\n")
+
     # creating the vars for the multiprocessing
     set_start_method("spawn")
     start_time = time.time()
@@ -169,7 +173,7 @@ if __name__ == '__main__':
     current_amount_of_tests = manager.Value("i",0)
 
     lock = Lock()
-    rseed = 0
+    rseed = 0 # random.random()
     
     # creating processes to run all the tests
 
@@ -199,18 +203,18 @@ if __name__ == '__main__':
         timing_process.terminate()
         
     except KeyboardInterrupt:
-        print("interrupting...")
+        print("interrupting...",flush=True,end="\n")
     finally:
         # terminate all the test processes
         for process in processes:
             process.terminate()
-        print("\n Quiting fuzz tests \n")
+        print("Quiting fuzz tests \n",flush=True,end="\n")
 
         # wait 3 seconds before terminating the write_test_data_process so that we are sure that all the data is written
         time.sleep(3)
         write_test_data_process.terminate()
 
         if current_amount_of_error.value == max_failed_tests:
-            print("\n Reached error treshold stopped running futher test, executed "+str(current_amount_of_tests.value) +" tests, "+str(current_amount_of_error.value)+" tests failed")
+            print("Reached error treshold stopped running futher test, executed "+str(current_amount_of_tests.value) +" tests, "+str(current_amount_of_error.value)+" tests failed",flush=True,end="\n")
         else:
-            print("\n Succesfully executed " +str(current_amount_of_tests.value) + " tests, "+str(current_amount_of_error.value)+" tests failed")
+            print("Succesfully executed " +str(current_amount_of_tests.value) + " tests, "+str(current_amount_of_error.value)+" tests failed",flush=True,end="\n")
