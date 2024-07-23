@@ -44,8 +44,8 @@ if __name__ == '__main__':
         return solver[0]
     
     # get all the available solvers from cpympy
-    available_solvers = [solver[0] for solver in SolverLookup.base_solvers()]# list(map(getsolvernames, SolverLookup.base_solvers()))
-
+    available_solvers = [solver[0] for solver in SolverLookup.base_solvers()]
+    
     def check_positive(value):
         """
         Small helper function used in the argparser for checking if the input values are positive or not
