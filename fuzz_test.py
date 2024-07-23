@@ -10,7 +10,7 @@ sys.path.append('../cpmpy')
 from mutators import *
 from multiprocessing import Process, Lock, Manager, set_start_method,Pool, cpu_count
 
-from testfiles.verifier_runner import run_verifiers
+from verifiers.verifier_runner import run_verifiers
 
 def time_out_process(mins : int, current_amount_of_error, max_failed_tests: int, start_time: float) -> None:
     """ 
@@ -61,8 +61,7 @@ if __name__ == '__main__':
     parser.add_argument("--max-failed-tests", help = "The maximum amount of test that may fail before quitting the application (by default an infinite amount of tests can fail). if the maximum amount is reached it will uit even if the max-minutes wasn't reached", required=False, default=math.inf ,type=check_positive)
     parser.add_argument("--max-minutes", help = "The maximum time (in minutes) the tests should run (by default the tests will run forever). The tests will quit sooner if max-bugs was set and reached or an keyboardinterrupt occured", required=False, default=math.inf ,type=check_positive)
     parser.add_argument("-mpm","--mutations-per-model", help = "The amount of mutations that will be executed on every model", required=False, default=5 ,type=check_positive)
-    parser.add_argument("-p","--amount-of-processes", help = "The amount of processes that will be used to run the tests", required=False, default=cpu_count()-1 ,type=check_positive)
-
+    parser.add_argument("-p","--amount-of-processes", help = "The amount of processes that will be used to run the tests", required=False, default=cpu_count()-1 ,type=check_positive) # the -1 is for the main process
     args = parser.parse_args()
     models = []
     max_failed_tests = args.max_failed_tests
