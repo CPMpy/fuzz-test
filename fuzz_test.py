@@ -28,8 +28,10 @@ def time_out_process(mins : int, current_amount_of_error, max_failed_tests: int,
     try: 
         while time.time() < end_time and current_amount_of_error.value < max_failed_tests:
             time.sleep(1)
+    except KeyboardInterrupt:
+        pass
     finally: 
-        print("Executed tests for "+str(math.floor((time.time()-start_time)/60))+" minutes",flush=True,end="\n")
+        print("\nExecuted tests for "+str(math.floor((time.time()-start_time)/60))+" minutes",flush=True,end="\n")
 
 
 
@@ -42,7 +44,7 @@ if __name__ == '__main__':
         return solver[0]
     
     # get all the available solvers from cpympy
-    available_solvers = list(map(getsolvernames, SolverLookup.base_solvers()))
+    available_solvers = [solver[0] for solver in SolverLookup.base_solvers()]# list(map(getsolvernames, SolverLookup.base_solvers()))
 
     def check_positive(value):
         """
@@ -58,7 +60,7 @@ if __name__ == '__main__':
     parser.add_argument("-m", "--models", help = "The path to load the models", required=False, type=str, default="models")
     parser.add_argument("-o", "--output-dir", help = "The directory to store the output (will be created if it does not exist).", required=False, type=str, default="output")
     parser.add_argument("-g", "--skip-global-constraints", help = "Skip the global constraints when testing", required=False, default = False)
-    parser.add_argument("--max-failed-tests", help = "The maximum amount of test that may fail before quitting the application (by default an infinite amount of tests can fail). if the maximum amount is reached it will uit even if the max-minutes wasn't reached", required=False, default=math.inf ,type=check_positive)
+    parser.add_argument("--max-failed-tests", help = "The maximum amount of test that may fail before quitting the application (by default an infinite amount of tests can fail). if the maximum amount is reached it will quit even if the max-minutes wasn't reached", required=False, default=math.inf ,type=check_positive)
     parser.add_argument("--max-minutes", help = "The maximum time (in minutes) the tests should run (by default the tests will run forever). The tests will quit sooner if max-bugs was set and reached or an keyboardinterrupt occured", required=False, default=math.inf ,type=check_positive)
     parser.add_argument("-mpm","--mutations-per-model", help = "The amount of mutations that will be executed on every model", required=False, default=5 ,type=check_positive)
     parser.add_argument("-p","--amount-of-processes", help = "The amount of processes that will be used to run the tests", required=False, default=cpu_count()-1 ,type=check_positive) # the -1 is for the main process
@@ -83,7 +85,6 @@ if __name__ == '__main__':
     set_start_method("spawn")
     start_time = time.time()
     manager = Manager()
-    test_results = manager.dict()
     current_amount_of_error = manager.Value("i",0)
     current_amount_of_tests = manager.Value("i",0)
 

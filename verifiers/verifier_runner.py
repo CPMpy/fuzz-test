@@ -94,23 +94,20 @@ def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver
     exclude_dict = {}
     random_seed = random.random()
     random.seed(random_seed)
-    if Path('cpmpy-bigtest-private').exists():
-        os.chdir('cpmpy-bigtest-private')
     
     try:
         while current_amount_of_error.value < max_error_treshold:
-            random_verifier = verifiers[random.randint(0,len(verifiers)-1)]
+            random_verifier = random.choice(verifiers)
             fmodels = []
             for folder in folders:
                 fmodels.extend(glob.glob(join(folder,random_verifier.getType(), "*")))
                 
-            random.shuffle(fmodels)
-            fmodel = fmodels[0]
+            fmodel = random.choice(fmodels)
             start_time = time.time()
             error = random_verifier.run(solver, mutations_per_model, fmodel, exclude_dict)
             execution_time = math.floor(time.time() - start_time)
             # check if we got an error
-            if not (error == None) and current_amount_of_error.value < max_error_treshold:
+            if not (error == None):
                 lock.acquire()
                 try:
                     error_data = {'verifier':random_verifier.getName(),'solver' : solver, 'mutations_per_model' : mutations_per_model, "seed": random_seed, "execution_time": execution_time, "error" :error}
