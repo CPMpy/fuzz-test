@@ -26,14 +26,63 @@ run the metamorphic test with the specified solver, number of mutations per inpu
 (for each verification method, number of mutations(n=1, 2, 5, 10) and solver = {ortools, minizinc) )
 
 Every verification method has it's own python executable that works in a similar manner:
-- metamorphic_tests.py : Satisifiability check
-- equivalence check.py : All-Solutions check
-- model_counting.py    : Solution count check
-- optimization.py      : Optimisation check
-- solution_check.py    : 1-Solution check
+
 
 note that the experiments other than the one testing the number of mutations always use 5 mutations, so this 3rd parameter can be left out.
+## Usages guide
+### Installation
+```bash
+git clone https://github.com/CPMpy/fuzz-test.git # Clone the git repo
+pip install -r requirements.txt # install the necessary packages 
+```
+### Usage
+#### fuzz_test
+Run the fuzz_test.py (with or without parameters)
+The fuzz_test has 5 different verifiers:
+- metamorphic_verifie.py : Satisifiability check
+- equivalance_verifier.py : All-Solutions check
+- model_counting_verifier.py: Solution count check
+- optimization_verifier.py: Optimisation check
+- solution_check_verifier.py: 1-Solution check
 
+How does fuzz_test works? It works as follows: we take a random verifier, a random model, and random mutations on the chosen model. We will then run the chosen verifier on the chosen model with the random mutations and see if the checks hold. If the checks dont hold or an other error/bug occured the application will generate a log for each error separately in the output directory (can be set in the parameters). The logs will contain more details on how and why the error/bug occured.
+
+#### prameters
+fuzz_test.py takes multiple optional parameters:
+ - -s --solver : The solver to use to do the fuzz testing, these are all the solvers that are also availabe in cpmpy
+ - -m --models : The directory were the models are located that you want to test, note the models diretory needs to have the following structure: 
+ 
+      ```
+      ├──  models
+        ├──  pickle_examples
+          ├── sat
+            ├──  model1.pickle
+            ├──  model2.pickle
+            ├──  ...
+          ├── optimization
+            ├──  model1.pickle
+            ├──  model2.pickle
+            ├──  ...
+          ├──  ...
+        ├──  ...
+    ```
+ - -o --output-dir: the directory were to store the outputs
+ - -g --skip-global-constraints: an boolean value to determine if the global contraints will be skipped during the testing or not
+ - --max-failed-tests: a positive int number to determine if the application needs to quit testing if it reached X amount of failed tests (default there is no limit)
+ - --max-minutes: a positive int number to determine if the application needs to quit testing if it takes longer then X minutes (by default the tests run indefinitely). If the max-failed-tests was reached before max minutes the application will quit.
+ - -mpm --mutations-per-model: the amount of mutations to execute on each model
+ - -p --amount-of-processes: the amount of processes that will be used to run the tests
+
+#### example
+```bash
+py fuzz_test.py # it will run with the default parameters, it will take the models from the /models dir and store the output in the /output dir
+
+py fuzz_test.py --max-minutes 10 # the tests will run for 10 minutes and then the application will quit
+
+py fuzz_test.py --max-failed-tests 5 # The test will run until 5 tests failed, then the application quits
+
+py fuzz_test.py --max-minutes 15 --max-failed-tests 100 # the tests will run until 100 tests failed or until 15 minutes have passed
+```
 ## Acknowledgments
 
 Part of the development received funding through Prof. Tias Guns his European Research Council (ERC) Consolidator grant, under the European Union’s Horizon 2020 research and innovation programme (grant agreement No 101002802, [CHAT-Opt](https://people.cs.kuleuven.be/~tias.guns/chat-opt.html)).
