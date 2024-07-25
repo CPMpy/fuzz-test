@@ -13,16 +13,10 @@ from multiprocessing import Process, Lock, Manager, set_start_method,Pool, cpu_c
 from verifiers.verifier_runner import run_verifiers
 
 if __name__ == '__main__':
-    # Getting and checking the input parameters    
-    def getsolvernames(solver) -> str:
-        """
-        Small helper function for getting al the available solvers names from cpmpy
-        """
-        return solver[0]
-    
     # get all the available solvers from cpympy
-    available_solvers = [solver[0] for solver in SolverLookup.base_solvers()]
+    available_solvers = SolverLookup.solvernames()
     
+    # Getting and checking the input parameters    
     def check_positive(value):
         """
         Small helper function used in the argparser for checking if the input values are positive or not
