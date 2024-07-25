@@ -1,49 +1,39 @@
 import argparse
 import glob
+from itertools import repeat
 import os
 import pickle
 import sys
 from cpmpy import *
 from mutators import *
 
-from multiprocessing import Process, Lock, Manager, set_start_method,Pool, cpu_count
+from multiprocessing import Manager, set_start_method,Pool, cpu_count
 from os.path import join
 import traceback
 
 
-def solve_model(lock, current_index, model_files: list, solver: str, output_dir: str,failed_models) -> None:
+def solve_model(model_file: str, solver: str, output_dir: str) -> None:
     """
         a function that will solve a single model and check if an Exception occurs, if so then write the exception details to a file
 
         Args:
-            lock (Lock): the lock that gets used for the mutiprocessing
-            current_index (Value(int)): the current index of the model that we are solving
-            model_files ([string]): the directories of the models that we are checking
+            model_file (string): the file of the model that we are checking
             solver (string): the name of the solver that is getting used for the solving
-            output_dir (string): the directory were the error reports needs to be written to
-            failed_models (Value(int)): the amount of failed models
-    
+            output_dir (string): the directory were the error reports needs to be written to    
     """
     try:
-        while current_index.value < len(model_files)-1:
-            model_file = ""
-            lock.acquire(timeout=2)
-            try:
-                model_file = model_files[current_index.value]
-                current_index.value +=1
-            finally:
-                lock.release() 
-            try:
-                with open(model_file, 'rb') as fpcl:
-                        cons = pickle.loads(fpcl.read()).constraints
-                        assert (len(cons)>0), f"{model_file} has no constraints"
-                        cons = toplevel_list(cons)
-                        assert (len(cons)>0), f"{model_file} has no constraints after l2conj"
-                        Model(cons).solve(solver=solver,time_limit=100)
-                        print(".",flush=True,end="")
-            except Exception as e:
-                print("X",flush=True,end="")
-                error_text= """
+        with open(model_file, 'rb') as fpcl:
+                cons = pickle.loads(fpcl.read()).constraints
+                assert (len(cons)>0), f"{model_file} has no constraints"
+                cons = toplevel_list(cons)
+                assert (len(cons)>0), f"{model_file} has no constraints after l2conj"
+                Model(cons).solve(solver=solver,time_limit=100)
+                print(".",flush=True,end="")
+                fpcl.close()
+                return
+    except Exception as e:
+        print("X",flush=True,end="")
+        error_text= """
 \
 solved model: {model_file}
 
@@ -54,17 +44,11 @@ exeption: {exeption}
 stacktrace: {stacktrace}        
 \
                 """.format(model_file=model_file,solver=solver,exeption=e,stacktrace=traceback.format_exc())
-                with open(join(output_dir,model_file.replace("\\","_")+'_output.txt'), "w") as ff:
-                    ff.write(error_text)
-                    ff.close()
-                lock.acquire(timeout=2)
-                try:
-                    failed_models.value +=1
-                finally:
-                    lock.release() 
 
-    except Exception as e: 
-        pass
+        with open(join(output_dir,model_file.replace("\\","_")+'_output.txt'), "w") as ff:
+            ff.write(error_text)
+            ff.close()
+        return 1
 
 
 if __name__ == '__main__':
@@ -103,30 +87,25 @@ Solving the models ...
     set_start_method("spawn")
     processes = []
     manager = Manager()
-    current_index = manager.Value("i",0)
-    failed_models = manager.Value("i",0)
-    lock = Lock()
 
-    for x in range(cpu_count()-1):
-        processes.append(Process(target=solve_model,args=(lock,current_index,fmodels,args.solver,args.output_dir,failed_models)))
+    pool = Pool(cpu_count()-1)
+    result = pool.starmap(solve_model, zip(fmodels,repeat(args.solver),repeat(args.output_dir)))
+    
 
-    for process in processes:
-        process.start()
     try:
-        for process in processes:
-            process.join()
-        print("\nsucessfully checked all the models",flush=True ) 
+        pool.join()
     except KeyboardInterrupt:
         pass
     finally:
-        print("\nquiting the application",flush=True ) 
-        if failed_models.value == 0:
-            print("all models passed",flush=True ) 
+        pool.close()
+        pool.terminate()
+        amount_of_errors = result.count(1)
+        if amount_of_errors == 0:
+            print("\nall models passed",flush=True ) 
         else:
-            print(str(failed_models.value)+" models failed",flush=True ) 
+            print("\n"+str(amount_of_errors)+" models failed",flush=True ) 
 
-        for process in processes:
-            process.terminate()
-          
+
+        print("quiting the application",flush=True ) 
         sys.exit()
         
