@@ -71,14 +71,6 @@ if __name__ == '__main__':
 
     # get all the available solvers from cpympy
     available_solvers = [solver[0] for solver in SolverLookup.base_solvers()]
-    def check_positive(value):
-        """
-        Small helper function used in the argparser for checking if the input values are positive or not
-        """
-        ivalue = int(value)
-        if ivalue <= 0:
-            raise argparse.ArgumentTypeError("%s is an invalid positive int value" % value)
-        return ivalue
     
     parser = argparse.ArgumentParser(description = "A python application to simply check if all your models can be solved without errors")
     parser.add_argument("-s", "--solver", help = "The Solver to use", required = False,type=str,choices=available_solvers, default=available_solvers[0])
