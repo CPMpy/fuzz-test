@@ -32,15 +32,15 @@ def solve_model(lock,current_index,model_files,solver,output_dir):
             except Exception as e:
                 print("X",flush=True,end="")
                 error_text= """
-                \
-                solved model: {model_file}
+\
+solved model: {model_file}
 
-                With solver: {solver}
+With solver: {solver}
 
-                exeption: {exeption}
+exeption: {exeption}
 
-                stacktrace: {stacktrace}        
-                \
+stacktrace: {stacktrace}        
+\
                 """.format(model_file=model_file,solver=solver,exeption=e,stacktrace=traceback.format_exc())
                 with open(join(output_dir,model_file.replace("\\","_")+'_output.txt'), "w") as ff:
                     ff.write(error_text)
@@ -112,10 +112,11 @@ Solving the models ...
     try:
         for process in processes:
             process.join()
+        print("\nsucessfully checked all the models",flush=True ) 
     except KeyboardInterrupt:
         pass
     finally:
-        print("\nsucessfully checked the models",flush=True ) 
+        print("\nquiting the application",flush=True ) 
         for process in processes:
             process.terminate()
           
