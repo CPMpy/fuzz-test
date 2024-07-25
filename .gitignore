@@ -1,0 +1,5 @@
+__pycache__/*
+results/*
+output/*
+**/__pycache__/
+testfiles/__pycache__/*
