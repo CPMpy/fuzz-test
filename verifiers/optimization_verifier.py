@@ -1,4 +1,5 @@
 import pickle
+import time
 import cpmpy as cp
 from cpmpy.exceptions import CPMpyException
 from mutators import *
@@ -7,15 +8,16 @@ from .verifier import Verifier
 
 class Optimization_Verifier(Verifier):
 
-    def run(self, solver: str, mutations_per_model: int, model_file: str, exclude_dict: dict) -> dict:
+    def run(self,solver: str, mutations_per_model: int, model_file: str, exclude_dict: dict, max_duration: float) -> dict:
         """
-        This function that will execute a single optimization test
+        This function that will execute a single verifier test
 
         Args:
             solver (string): the name of the solver that is getting used for the tests
             mutations_per_model (int): the amount of permutations 
             model_file (string): the model file to open
             exclude_dict (dict): a dict of models we want to exclude
+            max_duration (float): the maximum timestamp that can be reached (no tests can exeed the duration of this timestamp)
         """
         try:
             # list of mutators
@@ -52,7 +54,7 @@ class Optimization_Verifier(Verifier):
                     model.minimize(objective)
                 else:
                     model.maximize(objective)
-                assert (model.solve()), f"{model_file} is not sat"
+                assert (model.solve(time_limit=max_duration-time.time())), f"{model_file} is not sat"
                 value_before = model.objective_value() #store objective value to compare after transformations
                 for i in range(mutations_per_model):
                     # choose a metamorphic mutation, don't choose any from exclude_dict
@@ -94,8 +96,9 @@ class Optimization_Verifier(Verifier):
                         newModel.minimize(objective)
                     else:
                         newModel.maximize(objective)
-                    sat = newModel.solve(solver=solver, time_limit=200)
-                    if newModel.status().runtime > 190:
+                        time_limit=min(200,max_duration-time.time())
+                    sat = newModel.solve(solver=solver, time_limit=time_limit)
+                    if newModel.status().runtime > time_limit-10:
                         # timeout, skip
                         print('s', end='', flush=True)
                         return None

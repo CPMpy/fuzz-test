@@ -12,29 +12,6 @@ from multiprocessing import Process, Lock, Manager, set_start_method,Pool, cpu_c
 
 from verifiers.verifier_runner import run_verifiers
 
-def time_out_process(mins : int, current_amount_of_error, max_failed_tests: int, start_time: float) -> None:
-    """ 
-    A helper function which gets used to time and terminate the execution of the tests
-    if the timout or the error treshold is reached the tests will get terminated
-
-    Args:
-        mins (int): the amount of mins we want the tests to run
-        current_amount_of_error (Value(int)): the value that stores the current amount of errors found
-        max_failed_tests (int): the maximimum errors that can be found before quitting the tests
-        start_time (float): the starting time when we started executing tests
-
-    """
-    end_time = start_time + 60 * mins
-    try: 
-        while time.time() < end_time and current_amount_of_error.value < max_failed_tests:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        pass
-    finally: 
-        print("\nExecuted tests for "+str(math.floor((time.time()-start_time)/60))+" minutes",flush=True,end="\n")
-
-
-
 if __name__ == '__main__':
     # Getting and checking the input parameters    
     def getsolvernames(solver) -> str:
@@ -84,6 +61,8 @@ if __name__ == '__main__':
     # creating the vars for the multiprocessing
     set_start_method("spawn")
     start_time = time.time()
+    max_time = start_time + 60* args.max_minutes
+
     manager = Manager()
     current_amount_of_error = manager.Value("i",0)
     current_amount_of_tests = manager.Value("i",0)
@@ -92,26 +71,25 @@ if __name__ == '__main__':
     
     # creating processes to run all the tests
     processes = []
-    process_args = (current_amount_of_tests, current_amount_of_error, lock, args.solver, args.mutations_per_model ,models ,max_failed_tests,args.output_dir)
+    process_args = (current_amount_of_tests, current_amount_of_error, lock, args.solver, args.mutations_per_model ,models ,max_failed_tests,args.output_dir, max_time)
 
     for x in range(args.amount_of_processes):
         processes.append(Process(target=run_verifiers,args=process_args))
 
-    timing_process = Process(target=time_out_process,args=(max_minutes,current_amount_of_error,max_failed_tests,start_time))
 
     # start the processes
-    timing_process.start()
     for process in processes:
         process.start()
 
     try:
         # only wait for the timing process to finish
-        timing_process.join()
-        timing_process.terminate()
+        for process in processes:
+            process.join()
         
     except KeyboardInterrupt:
         print("interrupting...",flush=True,end="\n")
     finally:
+        print("\nExecuted tests for "+str(math.floor((time.time()-start_time)/60))+" minutes",flush=True,end="\n")
         # terminate all the processes
         for process in processes:
             process.terminate()

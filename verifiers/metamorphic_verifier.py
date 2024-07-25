@@ -1,5 +1,6 @@
 import pickle
 import random
+import time
 import cpmpy as cp
 from cpmpy.exceptions import CPMpyException
 from mutators import *
@@ -7,15 +8,16 @@ from .verifier import Verifier
 import traceback
 class Metamorphic_Verifier(Verifier):
 
-    def run(self,solver: str, mutations_per_model: int, model_file: str, exclude_dict: dict) -> dict:
+    def run(self,solver: str, mutations_per_model: int, model_file: str, exclude_dict: dict, max_duration: float) -> dict:
         """
-        This function that will execute a single metamorphic test
+        This function that will execute a single verifier test
 
         Args:
             solver (string): the name of the solver that is getting used for the tests
             mutations_per_model (int): the amount of permutations 
             model_file (string): the model file to open
             exclude_dict (dict): a dict of models we want to exclude
+            max_duration (float): the maximum timestamp that can be reached (no tests can exeed the duration of this timestamp)
         """
         try:
 
@@ -48,7 +50,7 @@ class Metamorphic_Verifier(Verifier):
                 assert (len(cons)>0), f"{model_file} has no constraints"
                 cons = toplevel_list(cons)
                 assert (len(cons)>0), f"{model_file} has no constraints after l2conj"
-                assert (cp.Model(cons).solve()), f"{model_file} is not sat"
+                assert (cp.Model(cons).solve(time_limit=max_duration-time.time())), f"{model_file} is not sat"
                 mutators = [copy.deepcopy(cons)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
                 for i in range(mutations_per_model):
                     # choose a metamorphic mutation, don't choose any from exclude_dict
@@ -85,8 +87,9 @@ class Metamorphic_Verifier(Verifier):
                 # enough mutations, time for solving
                 try:
                     model = cp.Model(cons)
-                    sat = model.solve(solver=solver, time_limit=200)
-                    if model.status().runtime > 190:
+                    time_limit= min(200,max_duration-time.time())
+                    sat = model.solve(solver=solver, time_limit=time_limit)
+                    if model.status().runtime > time_limit-10:
                         # timeout, skip
                         print('s', end='', flush=True)
                         return None

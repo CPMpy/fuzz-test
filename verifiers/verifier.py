@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 class Verifier(ABC):
 
     @abstractmethod
-    def run(self,solver: str, iters: int, model_file: str, exclude_dict: dict) -> dict:
+    def run(self,solver: str, mutations_per_model: int, model_file: str, exclude_dict: dict, max_duration: float) -> dict:
         """
         This function that will execute a single verifier test
 
@@ -12,6 +12,7 @@ class Verifier(ABC):
             mutations_per_model (int): the amount of permutations 
             model_file (string): the model file to open
             exclude_dict (dict): a dict of models we want to exclude
+            max_duration (float): the maximum timestamp that can be reached (no tests can exeed the duration of this timestamp)
         """
         pass
 

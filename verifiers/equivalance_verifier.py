@@ -1,4 +1,5 @@
 import pickle
+import time
 from cpmpy.exceptions import CPMpyException
 import cpmpy as cp
 from mutators import *
@@ -6,15 +7,16 @@ from .verifier import Verifier
 import traceback
 
 class Equivalance_Verifier(Verifier):
-    def run(self,solver: str, mutations_per_model: int, model_file: str, exclude_dict: dict) -> dict:
+    def run(self,solver: str, mutations_per_model: int, model_file: str, exclude_dict: dict, max_duration: float) -> dict:
         """
-        This function that will execute a single equivalance test
+        This function that will execute a single verifier test
 
         Args:
             solver (string): the name of the solver that is getting used for the tests
             mutations_per_model (int): the amount of permutations 
             model_file (string): the model file to open
             exclude_dict (dict): a dict of models we want to exclude
+            max_duration (float): the maximum timestamp that can be reached (no tests can exeed the duration of this timestamp)
         """
         try:
             # list of mutators
@@ -46,7 +48,7 @@ class Equivalance_Verifier(Verifier):
                 assert (len(cons)>0), f"{model_file} has no constraints after l2conj"
                 original_vars = get_variables(cons)
                 original_sols = set()
-                cp.Model(cons).solveAll(solver=solver,time_limit=250, display=lambda: original_sols.add(tuple([v.value() for v in original_vars])))
+                cp.Model(cons).solveAll(solver=solver,time_limit=min(250,max_duration-time.time()), display=lambda: original_sols.add(tuple([v.value() for v in original_vars])))
                 mutators = [copy.deepcopy(cons)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
                 for i in range(mutations_per_model):
                     # choose a metamorphic mutation, don't choose any from exclude_dict
@@ -80,9 +82,10 @@ class Equivalance_Verifier(Verifier):
                 try:
                     model = cp.Model(cons)
                     new_sols = set()
-                    model.solveAll(solver=solver, time_limit=200, display=lambda: new_sols.add(tuple([v.value() for v in original_vars])))
+                    time_limit = min(200,max_duration-time.time())
+                    model.solveAll(solver=solver, time_limit=time_limit, display=lambda: new_sols.add(tuple([v.value() for v in original_vars])))
                     change = new_sols ^ original_sols
-                    if model.status().runtime > 190:
+                    if model.status().runtime > time_limit-10:
                         # timeout, skip
                         print('s', end='', flush=True)
                         return None
