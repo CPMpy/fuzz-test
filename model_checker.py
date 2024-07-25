@@ -11,7 +11,19 @@ from os.path import join
 import traceback
 
 
-def solve_model(lock,current_index,model_files,solver,output_dir):
+def solve_model(lock, current_index, model_files: list, solver: str, output_dir: str,failed_models) -> None:
+    """
+        a function that will solve a single model and check if an Exception occurs, if so then write the exception details to a file
+
+        Args:
+            lock (Lock): the lock that gets used for the mutiprocessing
+            current_index (Value(int)): the current index of the model that we are solving
+            model_files ([string]): the directories of the models that we are checking
+            solver (string): the name of the solver that is getting used for the solving
+            output_dir (string): the directory were the error reports needs to be written to
+            failed_models (Value(int)): the amount of failed models
+    
+    """
     try:
         while current_index.value < len(model_files)-1:
             model_file = ""
@@ -45,22 +57,20 @@ stacktrace: {stacktrace}
                 with open(join(output_dir,model_file.replace("\\","_")+'_output.txt'), "w") as ff:
                     ff.write(error_text)
                     ff.close()
+                lock.acquire(timeout=2)
+                try:
+                    failed_models.value +=1
+                finally:
+                    lock.release() 
 
     except Exception as e: 
         pass
 
 
 if __name__ == '__main__':
-    # Getting and checking the input parameters    
-    def getsolvernames(solver) -> str:
-        """
-        Small helper function for getting al the available solvers names from cpmpy
-        """
-        return solver[0]
-    
-    # get all the available solvers from cpympy
-    available_solvers = list(map(getsolvernames, SolverLookup.base_solvers()))
 
+    # get all the available solvers from cpympy
+    available_solvers = [solver[0] for solver in SolverLookup.base_solvers()]
     def check_positive(value):
         """
         Small helper function used in the argparser for checking if the input values are positive or not
@@ -70,7 +80,7 @@ if __name__ == '__main__':
             raise argparse.ArgumentTypeError("%s is an invalid positive int value" % value)
         return ivalue
     
-    parser = argparse.ArgumentParser(description = "A python application to fuzz_test your solver(s)")
+    parser = argparse.ArgumentParser(description = "A python application to simply check if all your models can be solved without errors")
     parser.add_argument("-s", "--solver", help = "The Solver to use", required = False,type=str,choices=available_solvers, default=available_solvers[0])
     parser.add_argument("-m", "--models", help = "The path to load the models", required=False, type=str, default="models")
     parser.add_argument("-o", "--output-dir", help = "The directory to store the output (will be created if it does not exist).", required=False, type=str, default="output")
@@ -102,10 +112,11 @@ Solving the models ...
     processes = []
     manager = Manager()
     current_index = manager.Value("i",0)
+    failed_models = manager.Value("i",0)
     lock = Lock()
 
     for x in range(cpu_count()-1):
-        processes.append(Process(target=solve_model,args=(lock,current_index,fmodels,args.solver,args.output_dir)))
+        processes.append(Process(target=solve_model,args=(lock,current_index,fmodels,args.solver,args.output_dir,failed_models)))
 
     for process in processes:
         process.start()
@@ -117,6 +128,11 @@ Solving the models ...
         pass
     finally:
         print("\nquiting the application",flush=True ) 
+        if failed_models.value == 0:
+            print("all models passed",flush=True ) 
+        else:
+            print(str(failed_models.value)+" models failed",flush=True ) 
+
         for process in processes:
             process.terminate()
           
