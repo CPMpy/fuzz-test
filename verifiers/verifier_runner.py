@@ -105,7 +105,7 @@ def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver
                 
             fmodel = random.choice(fmodels)
             start_time = time.time()
-            error = random_verifier.run(solver, mutations_per_model, fmodel, exclude_dict,max_duration)
+            error = random_verifier.run(solver, mutations_per_model, fmodel, exclude_dict,max_duration,random_seed)
             execution_time = math.floor(time.time() - start_time)
             # check if we got an error
             if not (error == None):
@@ -133,5 +133,3 @@ def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver
             current_amount_of_tests.value += 1
         finally:
             lock.release()
-    finally:
-        print("I",flush=True,end="")

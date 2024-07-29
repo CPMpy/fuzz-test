@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 class Verifier(ABC):
 
     @abstractmethod
-    def run(self,solver: str, mutations_per_model: int, model_file: str, exclude_dict: dict, max_duration: float) -> dict:
+    def run(self,solver: str, mutations_per_model: int, model_file: str, exclude_dict: dict, max_duration: float, seed: float) -> dict:
         """
         This function that will execute a single verifier test
 
