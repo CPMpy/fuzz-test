@@ -110,6 +110,109 @@ class Equivalance_Verifier(Verifier):
         
         except Exception as e:
             return {"type": "crashed_model", "originalmodel": originalmodel, "exeption": e,"stacktrace":traceback.format_exc()}
+    
+    
+    def rerun(self,solver: str, mutations_per_model: int, seed: float ,error: dict) -> dict:
+        try:
+            # list of mutators
+            mm_mutators = [xor_morph, and_morph, or_morph, implies_morph, not_morph,
+                        linearize_constraint_morph,
+                        flatten_morph,
+                        only_numexpr_equality_morph,
+                        normalized_numexpr_morph,
+                        reify_rewrite_morph,
+                        only_bv_reifies_morph,
+                        only_positive_bv_morph,
+                        flat2cnf_morph,
+                        toplevel_list_morph,
+                        decompose_in_tree_morph,
+                        push_down_negation_morph,
+                        simplify_boolean_morph,
+                        canonical_comparison_morph,
+                        aritmetic_comparison_morph,
+                        semanticFusionCounting,
+                        semanticFusionCountingMinus,
+                        semanticFusionCountingwsum]
+            exclude_dict = {}
+            originalmodel = error["originalmodel"]
+            with open(originalmodel, 'rb') as fpcl:
+                cons = pickle.loads(fpcl.read()).constraints
+                #if compressed: cons = pickle.loads(brotli.decompress(fpcl.read())).constraints
+                assert (len(cons)>0), f"{originalmodel} has no constraints"
+                cons = toplevel_list(cons)
+                assert (len(cons)>0), f"{originalmodel} has no constraints after l2conj"
+                original_vars = get_variables(cons)
+                original_sols = set()
+                cp.Model(cons).solveAll(solver=solver,time_limit=250, display=lambda: original_sols.add(tuple([v.value() for v in original_vars])))
+                mutators = [copy.deepcopy(cons)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
+                
+                random.seed(seed)
+                # if the error occured while generating mutations recreate the mutations
+                if error["type"] == "failed_model" or  error["type"] == "internalfunctioncrash" or error["type"] == "crashed_model":
+                    for i in range(mutations_per_model):
+                        # choose a metamorphic mutation, don't choose any from exclude_dict
+                        if originalmodel in exclude_dict:
+                            valid_mutators = list(set(mm_mutators) - set(exclude_dict[originalmodel]))
+                        else:
+                            valid_mutators = mm_mutators
+                        m = random.choice(valid_mutators)
+                        mutators += [seed]
+                        # an error can occur in the transformations, so even before the solve call.
+                        # log function and arguments in that case
+                        mutators += [m]
+                        try:
+                            cons += m(cons)  # apply a metamorphic mutation
+                            mutators += [copy.deepcopy(cons)]
+                        except MetamorphicError as exc:
+                            #add to exclude_dict, to avoid running into the same error
+                            if originalmodel in exclude_dict:
+                                exclude_dict[originalmodel] += [m]
+                            else:
+                                exclude_dict[originalmodel] = [m]
+
+                            function, argument, e = exc.args
+                            if isinstance(e,CPMpyException):
+                                #expected behavior if we throw a cpmpy exception, do not log
+                                return None
+                            print('I', end='', flush=True)
+                            return {"type": "internalfunctioncrash","function":function, "argument": argument, "originalmodel": originalmodel, "exception": e, "mutators": mutators,"stacktrace":traceback.format_exc()} # no need to solve model we didn't modify..
+                        
+                # if the error didnt occur during the mutations -> use the constraints from the error
+                else:
+                    cons = error["constraints"]
+                try:
+                    model = cp.Model(cons)
+                    new_sols = set()
+                    time_limit = 200
+                    if time_limit <= 1:
+                        return None
+                    model.solveAll(solver=solver, time_limit=time_limit, display=lambda: new_sols.add(tuple([v.value() for v in original_vars])))
+                    change = new_sols ^ original_sols
+                    if model.status().runtime > time_limit-10:
+                        # timeout, skip
+                        print('T', end='', flush=True)
+                        return None
+                    elif len(change) == 0:
+                        # has to be same
+                        print('.', end='', flush=True)
+                        return None
+                    else:
+                        print('X', end='', flush=True)
+                except Exception as e:
+                    if isinstance(e,(CPMpyException, NotImplementedError)):
+                        #expected error message, ignore
+                        return True
+                    print('E', end='', flush=True)
+                    return {"type": "internalcrash","model": model, "originalmodel": originalmodel, "mutators": mutators,"exception": e,"stacktrace":traceback.format_exc() }
+
+                # if you got here, the model failed...
+                return {"type": "failed_model","model": model, "originalmodel": originalmodel, "mutators": mutators }
+        
+        except:
+            return {"type": "crashed_model", "originalmodel": originalmodel, "exeption": e,"stacktrace":traceback.format_exc()}
+
+    
+    
     def getType(self) -> str:
         """This function is used for getting the type of the problem the verifier verifies"""
         return "sat"

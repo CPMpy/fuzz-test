@@ -206,9 +206,6 @@ class Optimization_Verifier(Verifier):
                 else:
                     cons = error["constraints"]
                 ## start solving
-                print("",flush=True)
-                print(mutators,flush=True)
-                print("",flush=True)
                 try:
                     newModel = cp.Model(cons)
                     if mininimize:
