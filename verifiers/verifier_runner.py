@@ -4,6 +4,7 @@ import pickle
 import random
 from os.path import join
 from pathlib import Path
+import sys
 from mutators import *
 from .metamorphic_verifier import Metamorphic_Verifier
 from .solution_verifier import Solution_Verifier
@@ -15,7 +16,7 @@ import warnings
 import traceback
 import time
 from datetime import datetime
-
+from numpy.random import RandomState
 
 def create_error_output_text(error_data: dict) -> str:
     """
@@ -90,25 +91,24 @@ def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver
             max_duration (float): the maximum timestamp that can be reached (no tests can exeed the duration of this timestamp)
     """
     warnings.filterwarnings("ignore")
-    #verifiers = [Solution_Verifier(),Optimization_Verifier(),Equivalance_Verifier(),Model_Count_Verifier(),Metamorphic_Verifier()]
-
 
     exclude_dict = {}
-    random_seed = random.random()
-    random.seed(random_seed)
+    random_seed = random.randint(0, 2**32 - 1) # the 2**32 - 1 is the max int
+    random_state = RandomState(random_seed)
+    
     verifier_args = [solver, mutations_per_model, exclude_dict, max_duration, random_seed]
-    verifiers = [Optimization_Verifier(*verifier_args)]
-    #verifiers = [Solution_Verifier(*verifier_args),Optimization_Verifier(*verifier_args),Equivalance_Verifier(*verifier_args),Model_Count_Verifier(*verifier_args),Metamorphic_Verifier(*verifier_args)]
-    #print(t-time.time(),flush=True)
+
+    verifiers = [Solution_Verifier(*verifier_args),Optimization_Verifier(*verifier_args),Equivalance_Verifier(*verifier_args),Model_Count_Verifier(*verifier_args),Metamorphic_Verifier(*verifier_args)]
+    execution_time = 0
     try:
         while time.time() < max_duration and current_amount_of_error.value < max_error_treshold:
-            random_verifier = random.choice(verifiers)
+            random_verifier = random_state.choice(verifiers)
             fmodels = []
             for folder in folders:
                 fmodels.extend(glob.glob(join(folder,random_verifier.getType(), "*")))
 
-            fmodel = random.choice(fmodels)
-            print(fmodel)
+            fmodel = random_state.choice(fmodels)
+            
             start_time = time.time()
             error = random_verifier.run(fmodel)
             execution_time = math.floor(time.time() - start_time)

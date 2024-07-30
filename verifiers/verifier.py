@@ -16,7 +16,7 @@ class Verifier():
         self.max_duration = max_duration
         self.seed = seed
         self.mm_mutators = None 
-    
+        self.mutators = None
 
 
     def generate_mutations(self):

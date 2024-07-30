@@ -28,7 +28,7 @@ def rerun_test(failed_model_file: str, output_dir: str ) -> None:
         if error_data["error"]["type"] != "fuzz_test_crash": # if it is a fuzz_test crash error we skip it
             
             verifier_args = [error_data["solver"], error_data["mutations_per_model"], {}, time.time()*3600, error_data["seed"]]
-            verifiers = {"solution verifier" : Solution_Verifier(*verifier_args)}#,"optimization verifier": Optimization_Verifier(verifier_args), "model count verifier": Model_Count_Verifier(verifier_args), "metamorphic verifier": Metamorphic_Verifier(verifier_args),"equivalance verifier":Equivalance_Verifier(verifier_args)}
+            verifiers = {"solution verifier" : Solution_Verifier(*verifier_args),"optimization verifier": Optimization_Verifier(*verifier_args), "model count verifier": Model_Count_Verifier(*verifier_args), "metamorphic verifier": Metamorphic_Verifier(*verifier_args),"equivalance verifier":Equivalance_Verifier(*verifier_args)}
             error = verifiers[error_data["verifier"]].rerun(error_data["error"])
             
             new_error_Data = error_data
