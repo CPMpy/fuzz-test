@@ -9,21 +9,9 @@ from .verifier import Verifier
 
 
 class Model_Count_Verifier(Verifier):
-
-    def run(self,solver: str, mutations_per_model: int, model_file: str, exclude_dict: dict, max_duration: float,seed: float) -> dict:
-        """
-        This function that will execute a single verifier test
-
-        Args:
-            solver (string): the name of the solver that is getting used for the tests
-            mutations_per_model (int): the amount of permutations 
-            model_file (string): the model file to open
-            exclude_dict (dict): a dict of models we want to exclude
-            max_duration (float): the maximum timestamp that can be reached (no tests can exeed the duration of this timestamp)
-        """
-        try:
-            # list of mutators
-            mm_mutators = [xor_morph, and_morph, or_morph, implies_morph, not_morph,
+    def __init__(self,solver, mutations_per_model, exclude_dict, max_duration, seed):
+        super().__init__("model count verifier", 'sat',solver,mutations_per_model,exclude_dict,max_duration,seed)
+        self.mm_mutators = [xor_morph, and_morph, or_morph, implies_morph, not_morph,
                         linearize_constraint_morph,
                         flatten_morph,
                         only_numexpr_equality_morph,
@@ -41,175 +29,43 @@ class Model_Count_Verifier(Verifier):
                         semanticFusionCounting,
                         semanticFusionCountingMinus,
                         semanticFusionCountingwsum]
-
-            originalmodel = model_file
-            with open(model_file, 'rb') as fpcl:
-                cons = pickle.loads(fpcl.read()).constraints
-                #if compressed: cons = pickle.loads(brotli.decompress(fpcl.read())).constraints
-                assert (len(cons)>0), f"{model_file} has no constraints"
-                cons = toplevel_list(cons)
-                assert (len(cons)>0), f"{model_file} has no constraints after l2conj"
-                sol_count = cp.Model(cons).solveAll(solver=solver,time_limit=min(250,max_duration-time.time()))
-                mutators = [copy.deepcopy(cons)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
-                
-                random.seed(seed)
-                for i in range(mutations_per_model):
-                    # choose a metamorphic mutation, don't choose any from exclude_dict
-                    if model_file in exclude_dict:
-                        valid_mutators = list(set(mm_mutators) - set(exclude_dict[model_file]))
-                    else:
-                        valid_mutators = mm_mutators
-                    m = random.choice(valid_mutators)
-                    mutators += [seed]
-                    # an error can occur in the transformations, so even before the solve call.
-                    # log function and arguments in that case
-                    mutators += [m]
-                    try:
-                        cons += m(cons)  # apply a metamorphic mutation
-                        mutators += [copy.deepcopy(cons)]
-                    except MetamorphicError as exc:
-                        #add to exclude_dict, to avoid running into the same error
-                        if model_file in exclude_dict:
-                            exclude_dict[model_file] += [m]
-                        else:
-                            exclude_dict[model_file] = [m]
-                        function, argument, e = exc.args
-                        if isinstance(e,CPMpyException):
-                            #expected behavior if we throw a cpmpy exception, do not log
-                            return None
-                        print('I', end='', flush=True)
-                        return {"type": "internalfunctioncrash","function":function, "argument": argument, "originalmodel": originalmodel, "exception": e, "mutators": mutators,"stacktrace":traceback.format_exc()} # no need to solve model we didn't modify..
-
-                # enough mutations, time for solving
-                try:
-                    model = cp.Model(cons)
-                    time_limit=min(200,max_duration-time.time())
-                    if time_limit <= 1:
-                        return None
-                    new_count = model.solveAll(solver=solver, time_limit=time_limit)
-                    if model.status().runtime > time_limit-10:
-                        # timeout, skip
-                        print('T', end='', flush=True)
-                        return None
-                    elif sol_count == new_count:
-                        # has to be same
-                        print('.', end='', flush=True)
-                        return None
-                    else:
-                        print('X', end='', flush=True)
-                        #print('morphs: ', mutators)
-                except Exception as e:
-                    if isinstance(e,(CPMpyException, NotImplementedError)):
-                        #expected error message, ignore
-                        return None
-                    print('E', end='', flush=True)
-                    return {"type": "internalcrash","model": model, "originalmodel": originalmodel, "mutators": mutators,"exception": e,"stacktrace":traceback.format_exc() }
-
-                # if you got here, the model failed...
-                return {"type": "failed_model","model": model, "originalmodel": originalmodel, "mutators": mutators }
-        
-        except Exception as e:
-            return {"type": "crashed_model", "originalmodel": originalmodel, "exeption": e,"stacktrace":traceback.format_exc()} 
     
-    
-    def rerun(self,solver: str, mutations_per_model: int, seed: float ,error: dict) -> dict:
-        try:
-            mm_mutators = [xor_morph, and_morph, or_morph, implies_morph, not_morph,
-                        linearize_constraint_morph,
-                        flatten_morph,
-                        only_numexpr_equality_morph,
-                        normalized_numexpr_morph,
-                        reify_rewrite_morph,
-                        only_bv_reifies_morph,
-                        only_positive_bv_morph,
-                        flat2cnf_morph,
-                        toplevel_list_morph,
-                        decompose_in_tree_morph,
-                        push_down_negation_morph,
-                        simplify_boolean_morph,
-                        canonical_comparison_morph,
-                        aritmetic_comparison_morph,
-                        semanticFusionCounting,
-                        semanticFusionCountingMinus,
-                        semanticFusionCountingwsum]
-            originalmodel = error["originalmodel"]
-            exclude_dict = {}
-            with open(originalmodel, 'rb') as fpcl:
-                cons = pickle.loads(fpcl.read()).constraints
-                #if compressed: cons = pickle.loads(brotli.decompress(fpcl.read())).constraints
-                assert (len(cons)>0), f"{originalmodel} has no constraints"
-                cons = toplevel_list(cons)
-                assert (len(cons)>0), f"{originalmodel} has no constraints after l2conj"
-                sol_count = cp.Model(cons).solveAll(solver=solver,time_limit=250)
-                mutators = [copy.deepcopy(cons)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
-                
-                random.seed(seed)
-            # if the error occured while generating mutations recreate the mutations
-            if error["type"] == "failed_model" or  error["type"] == "internalfunctioncrash" or error["type"] == "crashed_model":
-                for i in range(mutations_per_model):
-                    # choose a metamorphic mutation, don't choose any from exclude_dict
-                    if originalmodel in exclude_dict:
-                        valid_mutators = list(set(mm_mutators) - set(exclude_dict[originalmodel]))
-                    else:
-                        valid_mutators = mm_mutators
-                    m = random.choice(valid_mutators)
-                    mutators += [seed]
-                    # an error can occur in the transformations, so even before the solve call.
-                    # log function and arguments in that case
-                    mutators += [m]
-                    try:
-                        cons += m(cons)  # apply a metamorphic mutation
-                        mutators += [copy.deepcopy(cons)]
-                    except MetamorphicError as exc:
-                        #add to exclude_dict, to avoid running into the same error
-                        if originalmodel in exclude_dict:
-                            exclude_dict[originalmodel] += [m]
-                        else:
-                            exclude_dict[originalmodel] = [m]
-                        function, argument, e = exc.args
-                        if isinstance(e,CPMpyException):
-                            #expected behavior if we throw a cpmpy exception, do not log
-                            return None
-                        print('I', end='', flush=True)
-                        return {"type": "internalfunctioncrash","function":function, "argument": argument, "originalmodel": originalmodel, "exception": e, "mutators": mutators,"stacktrace":traceback.format_exc()} # no need to solve model we didn't modify..
-
-            # if the error didnt occur during the mutations -> use the constraints from the error
-            else:
-                cons = error["constraints"]
+    def initilize_run(self):
+        with open(self.model_file, 'rb') as fpcl:
+            self.cons = pickle.loads(fpcl.read()).constraints
+            #if compressed: cons = pickle.loads(brotli.decompress(fpcl.read())).constraints
+            assert (len(self.cons)>0), f"{self.model_file} has no constraints"
+            self.cons = toplevel_list(self.cons)
+            assert (len(self.cons)>0), f"{self.model_file} has no constraints after l2conj"
+            self.sol_count = cp.Model(self.cons).solveAll(solver=self.solver,time_limit=max(1,min(250,self.max_duration-time.time())))
+            self.mutators = [copy.deepcopy(self.cons)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
             
-            try:
-                model = cp.Model(cons)
-                time_limit=200
-                if time_limit <= 1:
-                    return None
-                new_count = model.solveAll(solver=solver, time_limit=time_limit)
-                if model.status().runtime > time_limit-10:
-                    # timeout, skip
-                    print('T', end='', flush=True)
-                    return None
-                elif sol_count == new_count:
-                    # has to be same
-                    print('.', end='', flush=True)
-                    return None
-                else:
-                    print('X', end='', flush=True)
-                    #print('morphs: ', mutators)
-            except Exception as e:
-                if isinstance(e,(CPMpyException, NotImplementedError)):
-                    #expected error message, ignore
-                    return None
-                print('E', end='', flush=True)
-                return {"type": "internalcrash","model": model, "originalmodel": originalmodel, "mutators": mutators,"exception": e,"stacktrace":traceback.format_exc() }
-            # if you got here, the model failed...
-            return {"type": "failed_model","model": model, "originalmodel": originalmodel, "mutators": mutators }
+    def solve_model(self):
+        try:
+            model = cp.Model(self.cons)
+            time_limit=max(1,min(200,self.max_duration-time.time()))
+
+            new_count = model.solveAll(solver=self.solver, time_limit=time_limit)
+            if model.status().runtime > time_limit-10:
+                # timeout, skip
+                print('T', end='', flush=True)
+                return None
+            elif self.sol_count == new_count:
+                # has to be same
+                print('.', end='', flush=True)
+                return None
+            else:
+                print('X', end='', flush=True)
+                #print('morphs: ', mutators)
+        except Exception as e:
+            if isinstance(e,(CPMpyException, NotImplementedError)):
+                #expected error message, ignore
+                return None
+            print('E', end='', flush=True)
+            return {"type": "internalcrash","model": model, "originalmodel": self.model_file, "mutators": self.mutators,"constraints":self.cons ,"exception": e,"stacktrace":traceback.format_exc() }
         
-        except:
-            return {"type": "crashed_model", "originalmodel": originalmodel, "exeption": e,"stacktrace":traceback.format_exc()}
+        # if you got here, the model failed...
+        return {"type": "failed_model","model": model, "originalmodel": self.model_file, "mutators": self.mutators, "constraints":self.cons }
+        
 
-    def getType(self) -> str:
-        """This function is used for getting the type of the problem the verifier verifies"""
-        return "sat"
 
-    def getName(self) -> str:
-        """This function is used for getting the name of the verifier"""
-        return "model count verifier"

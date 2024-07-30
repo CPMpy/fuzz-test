@@ -90,22 +90,27 @@ def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver
             max_duration (float): the maximum timestamp that can be reached (no tests can exeed the duration of this timestamp)
     """
     warnings.filterwarnings("ignore")
-    verifiers = [Solution_Verifier(),Optimization_Verifier(),Equivalance_Verifier(),Model_Count_Verifier(),Metamorphic_Verifier()]
-    
+    #verifiers = [Solution_Verifier(),Optimization_Verifier(),Equivalance_Verifier(),Model_Count_Verifier(),Metamorphic_Verifier()]
+
+
     exclude_dict = {}
     random_seed = random.random()
     random.seed(random_seed)
-    
+    verifier_args = [solver, mutations_per_model, exclude_dict, max_duration, random_seed]
+    verifiers = [Optimization_Verifier(*verifier_args)]
+    #verifiers = [Solution_Verifier(*verifier_args),Optimization_Verifier(*verifier_args),Equivalance_Verifier(*verifier_args),Model_Count_Verifier(*verifier_args),Metamorphic_Verifier(*verifier_args)]
+    #print(t-time.time(),flush=True)
     try:
         while time.time() < max_duration and current_amount_of_error.value < max_error_treshold:
             random_verifier = random.choice(verifiers)
             fmodels = []
             for folder in folders:
                 fmodels.extend(glob.glob(join(folder,random_verifier.getType(), "*")))
-                
+
             fmodel = random.choice(fmodels)
+            print(fmodel)
             start_time = time.time()
-            error = random_verifier.run(solver, mutations_per_model, fmodel, exclude_dict,max_duration,random_seed)
+            error = random_verifier.run(fmodel)
             execution_time = math.floor(time.time() - start_time)
             # check if we got an error
             if not (error == None):
@@ -123,7 +128,7 @@ def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver
                 lock.release()
 
     except Exception as e:
-        print(traceback.format_exc())
+        print(traceback.format_exc(),flush=True)
         error = {"type": "fuzz_test_crash","exception":e,"stacktrace":traceback.format_exc()}
         lock.acquire()
         try:

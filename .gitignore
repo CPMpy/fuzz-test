@@ -1,5 +1,6 @@
 __pycache__/*
 results/*
 output/*
+bug_output/*
 **/__pycache__/
 testfiles/__pycache__/*

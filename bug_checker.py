@@ -3,7 +3,10 @@ from itertools import repeat
 from multiprocessing import Lock, Manager, Pool, Process, cpu_count, set_start_method
 import os
 import pickle
+import random
 import sys
+import time
+import warnings
 from cpmpy import *
 from pathlib import Path
 from os.path import join
@@ -14,16 +17,20 @@ from verifiers.model_counting_verifier import Model_Count_Verifier
 from verifiers.metamorphic_verifier import Metamorphic_Verifier
 from verifiers.equivalance_verifier import Equivalance_Verifier
 
-verifiers = {"solution verifier" : Solution_Verifier(),"optimization verifier": Optimization_Verifier(), "model count verifier": Model_Count_Verifier(), "metamorphic verifier": Metamorphic_Verifier(),"equivalance verifier":Equivalance_Verifier()}
 
 def rerun_test(failed_model_file: str, output_dir: str ) -> None:
     #verifiers = {Solution_Verifier.getName() : Solution_Verifier(), Optimization_Verifier.getName(): Optimization_Verifier(),Equivalance_Verifier.getName(): Equivalance_Verifier(),Model_Count_Verifier.getName(): Model_Count_Verifier(), Metamorphic_Verifier.getName(): Metamorphic_Verifier()}
-
+    
     with open(failed_model_file, 'rb') as fpcl:
         error_data = pickle.loads(fpcl.read())
         fpcl.close()
+        random.seed(error_data["seed"])
         if error_data["error"]["type"] != "fuzz_test_crash": # if it is a fuzz_test crash error we skip it
-            error = verifiers[error_data["verifier"]].rerun(error_data["solver"],error_data["mutations_per_model"],error_data["seed"],error_data["error"])
+            
+            verifier_args = [error_data["solver"], error_data["mutations_per_model"], {}, time.time()*3600, error_data["seed"]]
+            verifiers = {"solution verifier" : Solution_Verifier(*verifier_args)}#,"optimization verifier": Optimization_Verifier(verifier_args), "model count verifier": Model_Count_Verifier(verifier_args), "metamorphic verifier": Metamorphic_Verifier(verifier_args),"equivalance verifier":Equivalance_Verifier(verifier_args)}
+            error = verifiers[error_data["verifier"]].rerun(error_data["error"])
+            
             new_error_Data = error_data
             new_error_Data["error"] = error
             if error != None:
@@ -35,6 +42,7 @@ def rerun_test(failed_model_file: str, output_dir: str ) -> None:
 
 
 def run_cmd(model: str,cmd : str, output_dir: str) -> None:
+    warnings.filterwarnings("ignore")
     if cmd == "rerun_test":
         rerun_test(model,output_dir) 
     elif cmd == "minimize_report":
@@ -63,7 +71,7 @@ if __name__ == '__main__':
   
     set_start_method("spawn")
 
-
+    
     pool = Pool(cpu_count()-1)
     result = pool.starmap(run_cmd, zip(files,repeat(args.cmd),repeat(args.output_dir)))
     
