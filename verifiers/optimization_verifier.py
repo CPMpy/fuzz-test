@@ -7,7 +7,7 @@ import traceback
 from .verifier import Verifier
 
 class Optimization_Verifier(Verifier):
-    def __init__(self,solver, mutations_per_model, exclude_dict, max_duration, seed):
+    def __init__(self,solver: str, mutations_per_model: int, exclude_dict: dict, max_duration: float, seed: int):
         super().__init__("optimization verifier", 'optimization',solver,mutations_per_model,exclude_dict,max_duration,seed)
         self.mm_mutators = [xor_morph, and_morph, or_morph, implies_morph, not_morph,
                         linearize_constraint_morph,
@@ -28,7 +28,7 @@ class Optimization_Verifier(Verifier):
                         semanticFusionMinus,
                         semanticFusionwsum]
     
-    def initilize_run(self):
+    def initilize_run(self) -> None:
         with open(self.model_file, 'rb') as fpcl:
                 model = pickle.loads(fpcl.read())
                 self.cons = model.constraints
@@ -46,7 +46,7 @@ class Optimization_Verifier(Verifier):
                 assert (model.solve(solver=self.solver, time_limit=max(self.max_duration-time.time(),1))), f"{self.model_file} is not sat"
                 self.value_before = model.objective_value() #store objective value to compare after transformations
                 
-    def solve_model(self):
+    def solve_model(self) -> dict:
         try:
             newModel = cp.Model(self.cons)
             if self.mininimize:

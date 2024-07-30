@@ -7,7 +7,7 @@ from mutators import *
 from .verifier import Verifier
 import traceback
 class Metamorphic_Verifier(Verifier):
-    def __init__(self,solver, mutations_per_model, exclude_dict, max_duration, seed):
+    def __init__(self,solver: str, mutations_per_model: int, exclude_dict: dict, max_duration: float, seed: int):
         super().__init__("metamorphic verifier", 'sat',solver,mutations_per_model,exclude_dict,max_duration,seed)
         self.mm_mutators = [xor_morph, and_morph, or_morph, implies_morph, not_morph,
                         linearize_constraint_morph,
@@ -29,7 +29,7 @@ class Metamorphic_Verifier(Verifier):
                         semanticFusionwsum]
         
 
-    def initilize_run(self):
+    def initilize_run(self) -> None:
         with open(self.model_file, 'rb') as fpcl:
             self.cons = pickle.loads(fpcl.read()).constraints
             #if compressed: cons = pickle.loads(brotli.decompress(fpcl.read())).constraints
@@ -40,7 +40,7 @@ class Metamorphic_Verifier(Verifier):
             assert (cp.Model(self.cons).solve(solver= self.solver, time_limit=time_limit)), f"{self.model_file} is not sat"
             self.mutators = [copy.deepcopy(self.cons)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
             
-    def solve_model(self):
+    def solve_model(self) -> dict:
         try:
             model = cp.Model(self.cons)
             time_limit= max(1,min(200,self.max_duration-time.time()))

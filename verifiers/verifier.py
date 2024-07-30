@@ -7,7 +7,12 @@ from mutators import *
 
 
 class Verifier():
-    def __init__(self, name: str, type: str,solver,mutations_per_model,exclude_dict,max_duration,seed):
+    """
+    The base class containing the base functions for each verifier.
+    """
+
+
+    def __init__(self, name: str, type: str, solver: str, mutations_per_model: int, exclude_dict: dict , max_duration: float, seed: int):
         self.name = name
         self.type = type
         self.solver = solver
@@ -19,7 +24,10 @@ class Verifier():
         self.mutators = None
 
 
-    def generate_mutations(self):
+    def generate_mutations(self) -> None:
+        """
+        Will generate random mutations based on mutations_per_model for the model
+        """
         for i in range(self.mutations_per_model):
             # choose a metamorphic mutation, don't choose any from exclude_dict
             if self.model_file in self.exclude_dict:
@@ -52,13 +60,26 @@ class Verifier():
                 return {"type": "internalfunctioncrash","function":function, "argument": argument, "originalmodel": self.model_file, "mutators": self.mutators,"constraints": self.cons, "exception": e,"stacktrace":traceback.format_exc()} # no need to solve model we didn't modify..
             return None
 
-    def initilize_run(self):
+    def initilize_run(self) -> None:
+        """
+        Abstract function that gets executed before generating the mutation,
+        This function is ued for getting the right data from the model.
+        Each verifier needs to implement this function
+        """
         pass
 
-    def solve_model(self):
+    def solve_model(self) -> dict:
+        """
+        Abstract function that will solve the newly created model with the mutations.
+        It will check if the test succeeded or not.
+        Each verifier needs to implement this function
+        """
         pass
 
     def run(self, model_file: str) -> dict:
+        """
+        This function will run a single tests on the given model
+        """
         try:
             self.model_file = model_file
             self.initilize_run()
@@ -77,6 +98,9 @@ class Verifier():
         
 
     def rerun(self,error: dict) -> dict:
+        """
+        This function will rerun a previous failed test
+        """
         try:
             self.model_file = error["originalmodel"]
             self.exclude_dict = {}
