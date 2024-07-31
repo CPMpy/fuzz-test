@@ -78,6 +78,8 @@ if __name__ == '__main__':
     set_start_method("spawn")
     processes = []
     
+    # on linux this will work fine when a keyboardinterrupt occurs
+    # on windows it will freeze the application and the processes will keep running in the backgroud and need to be manually killed
     with Pool(args.amount_of_processes) as pool:
         result = pool.starmap(solve_model, zip(fmodels,repeat(args.solver),repeat(args.output_dir)))
 
