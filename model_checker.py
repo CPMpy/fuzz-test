@@ -27,25 +27,34 @@ def solve_model(model_file: str, solver: str, output_dir: str) -> None:
                 Model(cons).solve(solver=solver,time_limit=100)
                 print(".",flush=True,end="")
                 return
+        
     except Exception as e:
         print("X",flush=True,end="")
         error_text= "\nsolved model: {model_file}\n\nWith solver: {solver}\n\nexeption: {exeption}\n\nstacktrace: {stacktrace}".format(model_file=model_file,solver=solver,exeption=e,stacktrace=traceback.format_exc())
 
         with open(os.path.join(output_dir,model_file.replace("\\","_")+'_output.txt'), "w") as ff:
             ff.write(error_text)
-            ff.close()
         return 1
 
 
 if __name__ == '__main__':
 
+    def check_positive(value):
+        """
+        Small helper function used in the argparser for checking if the input values are positive or not
+        """
+        ivalue = int(value)
+        if ivalue <= 0:
+            raise argparse.ArgumentTypeError("%s is an invalid positive int value" % value)
+        return ivalue
+    
     # get all the available solvers from cpympy
     available_solvers = [solver[0] for solver in cp.SolverLookup.base_solvers()]
-    
-    parser = argparse.ArgumentParser(description = "A python application to simply check if all your models can be solved without errors")
-    parser.add_argument("-s", "--solver", help = "The Solver to use", required = False,type=str,choices=available_solvers, default=available_solvers[0])
+    parser = argparse.ArgumentParser(description = "A Python script for running a batch of CPMpy models on a specified solver and logging any runtime-errors")
+    parser.add_argument("-s", "--solver", help = "The solver to use", required = False,type=str,choices=available_solvers, default=available_solvers[0]) # available_solvers[0] is the default cpmpy solver (ortools)
     parser.add_argument("-m", "--models", help = "Directory containing pickled CPMpy model(s)", required=False, type=str, default="models")
     parser.add_argument("-o", "--output-dir", help = "The directory to store the output (will be created if it does not exist).", required=False, type=str, default="output")
+    parser.add_argument("-p","--amount-of-processes", help = "The amount of processes that will be used to check the models", required=False, default=cpu_count()-1 ,type=check_positive) # the -1 is for the main process
     args = parser.parse_args()
     folders = []
 
@@ -53,17 +62,15 @@ if __name__ == '__main__':
     print("Checking models in {models}\n\nwith solver: {solver}\n\nwriting results to {output_dir}\n\nSolving the models ...".format(models=args.models,solver=args.solver,output_dir=args.output_dir),flush=True)
 
     # create a list with all the directories
-    for model in os.listdir(args.models):
-        folders.append(os.path.join(args.models, model))
 
     fmodels = []
-    for folder in folders:
-        fmodels.extend(glob.glob(os.path.join(folder,"*", "*")))
-    
+    # fetch all the pickle files from the dir and all the subdirs
+    fmodels.extend(glob.glob(os.path.join(args.models,"**", "*.pickle"),recursive=True))
+
     set_start_method("spawn")
     processes = []
-
-    pool = Pool(cpu_count()-1)
+    
+    pool = Pool(args.amount_of_processes)
 
     try:
         result = pool.starmap(solve_model, zip(fmodels,repeat(args.solver),repeat(args.output_dir)))
