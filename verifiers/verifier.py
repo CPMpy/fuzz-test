@@ -93,7 +93,7 @@ class Verifier():
             
         except Exception as e:
             print('C', end='', flush=True)
-            return {"type": "crashed_model", "originalmodel": self.model_file, "mutators": self.mutators,"constraints": self.cons, "exeption": e,"stacktrace":traceback.format_exc()}
+            return {"type": "crashed_model", "originalmodel": self.model_file, "mutators": self.mutators,"constraints": self.cons, "exception": e,"stacktrace":traceback.format_exc()}
     
         
 
@@ -113,7 +113,7 @@ class Verifier():
         
         except Exception as e:
             print('C', end='', flush=True)
-            return {"type": "crashed_model", "originalmodel": self.model_file, "exeption": e,"stacktrace":traceback.format_exc()}
+            return {"type": "crashed_model", "originalmodel": self.model_file, "exception": e,"stacktrace":traceback.format_exc()}
 
 
         

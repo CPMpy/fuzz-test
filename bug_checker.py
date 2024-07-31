@@ -1,4 +1,5 @@
 import argparse
+import copy
 from itertools import repeat
 from multiprocessing import Lock, Manager, Pool, Process, cpu_count, set_start_method
 import os
@@ -23,7 +24,6 @@ def rerun_test(failed_model_file: str, output_dir: str ) -> None:
     
     with open(failed_model_file, 'rb') as fpcl:
         error_data = pickle.loads(fpcl.read())
-        fpcl.close()
         random.seed(error_data["seed"])
         if error_data["error"]["type"] != "fuzz_test_crash": # if it is a fuzz_test crash error we skip it
             
@@ -33,12 +33,41 @@ def rerun_test(failed_model_file: str, output_dir: str ) -> None:
             
             new_error_Data = error_data
             new_error_Data["error"] = error
+            
             if error != None:
                     with open(join(output_dir, os.path.basename(failed_model_file)), "wb") as ff:
                         pickle.dump(new_error_Data, file=ff) 
-                        ff.close()
+                        
                 
 #
+
+def mimnimize_bug(failed_model_file,output_dir):
+    
+    with open(failed_model_file, 'rb') as fpcl:
+        error_data = pickle.loads(fpcl.read())
+        original_error = error_data["error"]
+        original_cons = error_data["error"]["constraints"]
+        print(len(original_cons),flush=True)
+        verifier_args = [error_data["solver"], error_data["mutations_per_model"], {}, time.time()*3600, error_data["seed"]]
+        verifiers = {"solution verifier" : Solution_Verifier(*verifier_args),"optimization verifier": Optimization_Verifier(*verifier_args), "model count verifier": Model_Count_Verifier(*verifier_args), "metamorphic verifier": Metamorphic_Verifier(*verifier_args),"equivalance verifier":Equivalance_Verifier(*verifier_args)}
+            
+
+        new_cons = []
+        for con in original_cons:
+            test_cons = original_error["constraints"]
+            test_cons.remove(con)
+            new_error_dict = copy.deepcopy(original_error)
+
+            new_error = verifiers[error_data["verifier"]].rerun(new_error_dict)
+            print(new_error,flush=True)   
+            if new_error != None:
+                new_cons.append(con)
+        error_data["error"]["constraints"] = new_cons    
+       
+        print(len(new_cons),flush=True)
+        with open(join(output_dir, os.path.basename(failed_model_file)), "wb") as ff:
+            pickle.dump(error_data, file=ff) 
+
 
 
 def run_cmd(model: str,cmd : str, output_dir: str) -> None:
@@ -46,7 +75,7 @@ def run_cmd(model: str,cmd : str, output_dir: str) -> None:
     if cmd == "rerun_test":
         rerun_test(model,output_dir) 
     elif cmd == "minimize_report":
-        pass
+        mimnimize_bug(model,output_dir)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = "A python application to fuzz test your model(s)")
