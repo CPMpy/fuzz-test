@@ -79,10 +79,8 @@ if __name__ == '__main__':
     try:
         result = pool.starmap(solve_model, zip(fmodels,repeat(args.solver),repeat(args.output_dir)))
         pool.close()
-    except KeyboardInterrupt:
-        pass
+
     finally:
-        pool.join()
         pool.terminate()
         amount_of_errors = result.count(1)
         print("\n\nchecked {amount_models} models".format(amount_models=str(len(result))))
