@@ -4,17 +4,15 @@ from itertools import repeat
 import os
 import pickle
 import sys
-from cpmpy import *
+import cpmpy as cp
 from mutators import *
-
-from multiprocessing import Manager, set_start_method,Pool, cpu_count
-from os.path import join
+from multiprocessing import set_start_method,Pool, cpu_count
 import traceback
-
 
 def solve_model(model_file: str, solver: str, output_dir: str) -> None:
     """
-        a function that will solve a single model and check if an Exception occurs, if so then write the exception details to a file
+        A wrapper function for solving a CPMPy model given in a `.pickle` file using a specified solver.
+        The function catches any runtime-error and writes the error to a file  in `output_dir`.
 
         Args:
             model_file (string): the file of the model that we are checking
@@ -26,26 +24,14 @@ def solve_model(model_file: str, solver: str, output_dir: str) -> None:
                 cons = pickle.loads(fpcl.read()).constraints
                 assert (len(cons)>0), f"{model_file} has no constraints"
                 cons = toplevel_list(cons)
-                assert (len(cons)>0), f"{model_file} has no constraints after l2conj"
                 Model(cons).solve(solver=solver,time_limit=100)
                 print(".",flush=True,end="")
-                fpcl.close()
                 return
     except Exception as e:
         print("X",flush=True,end="")
-        error_text= """
-\
-solved model: {model_file}
+        error_text= "\nsolved model: {model_file}\n\nWith solver: {solver}\n\nexeption: {exeption}\n\nstacktrace: {stacktrace}".format(model_file=model_file,solver=solver,exeption=e,stacktrace=traceback.format_exc())
 
-With solver: {solver}
-
-exeption: {exeption}
-
-stacktrace: {stacktrace}        
-\
-                """.format(model_file=model_file,solver=solver,exeption=e,stacktrace=traceback.format_exc())
-
-        with open(join(output_dir,model_file.replace("\\","_")+'_output.txt'), "w") as ff:
+        with open(os.path.join(output_dir,model_file.replace("\\","_")+'_output.txt'), "w") as ff:
             ff.write(error_text)
             ff.close()
         return 1
@@ -54,27 +40,17 @@ stacktrace: {stacktrace}
 if __name__ == '__main__':
 
     # get all the available solvers from cpympy
-    available_solvers = [solver[0] for solver in SolverLookup.base_solvers()]
+    available_solvers = [solver[0] for solver in cp.SolverLookup.base_solvers()]
     
     parser = argparse.ArgumentParser(description = "A python application to simply check if all your models can be solved without errors")
     parser.add_argument("-s", "--solver", help = "The Solver to use", required = False,type=str,choices=available_solvers, default=available_solvers[0])
-    parser.add_argument("-m", "--models", help = "The path to load the models", required=False, type=str, default="models")
+    parser.add_argument("-m", "--models", help = "Directory containing pickled CPMpy model(s)", required=False, type=str, default="models")
     parser.add_argument("-o", "--output-dir", help = "The directory to store the output (will be created if it does not exist).", required=False, type=str, default="output")
     args = parser.parse_args()
     folders = []
 
     # showing the info about the given params to the user
-    print("""
-    \
-        
-Checking models in {models}
-with solver: {solver}
-writing results to {output_dir}
-
-Solving the models ...
-
-    \
-    """.format(models=args.models,solver=args.solver,output_dir=args.output_dir),flush=True)
+    print("Checking models in {models}\n\nwith solver: {solver}\n\nwriting results to {output_dir}\n\nSolving the models ...".format(models=args.models,solver=args.solver,output_dir=args.output_dir),flush=True)
 
     # create a list with all the directories
     for model in os.listdir(args.models):
@@ -82,28 +58,27 @@ Solving the models ...
 
     fmodels = []
     for folder in folders:
-        fmodels.extend(glob.glob(join(folder,"*", "*")))
+        fmodels.extend(glob.glob(os.path.join(folder,"*", "*")))
     
     set_start_method("spawn")
     processes = []
-    manager = Manager()
 
     pool = Pool(cpu_count()-1)
-    result = pool.starmap(solve_model, zip(fmodels,repeat(args.solver),repeat(args.output_dir)))
-    
 
     try:
-        pool.join()
+        result = pool.starmap(solve_model, zip(fmodels,repeat(args.solver),repeat(args.output_dir)))
+        pool.close()
     except KeyboardInterrupt:
         pass
     finally:
-        pool.close()
+        pool.join()
         pool.terminate()
         amount_of_errors = result.count(1)
+        print("\n\nchecked {amount_models} models".format(amount_models=str(len(result))))
         if amount_of_errors == 0:
-            print("\nall models passed",flush=True ) 
+            print("all models passed",flush=True ) 
         else:
-            print("\n"+str(amount_of_errors)+" models failed",flush=True ) 
+            print("{amount_errors} models failed".format(amount_errors=str(amount_of_errors)),flush=True ) 
 
 
         print("quiting the application",flush=True ) 
