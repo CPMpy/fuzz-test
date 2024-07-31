@@ -22,7 +22,8 @@ def solve_model(model_file: str, solver: str, output_dir: str) -> None:
     """
     try:
         with open(model_file, 'rb') as fpcl:
-                cons = pickle.loads(fpcl.read()).constraints
+                model = pickle.loads(fpcl.read())
+                cons = model.constraints
                 assert (len(cons)>0), f"{model_file} has no constraints"
                 cons = toplevel_list(cons)
                 Model(cons).solve(solver=solver,time_limit=100)
@@ -31,13 +32,13 @@ def solve_model(model_file: str, solver: str, output_dir: str) -> None:
         
     except Exception as e:
         print("X",flush=True,end="")
-        error_text= "\nsolved model: {model_file}\n\nWith solver: {solver}\n\nexception: {exception}\n\nstacktrace: {stacktrace}".format(model_file=model_file,solver=solver,exception=e,stacktrace=traceback.format_exc())
+        error_text= "\nsolved model file: {model_file}\n\nmodel: {model}\n\nWith solver: {solver}\n\nexception: {exception}\n\nstacktrace: {stacktrace}".format(model_file=model_file, model=model,solver=solver,exception=e,stacktrace=traceback.format_exc())
         
         with open(os.path.join(output_dir, Path(model_file).stem+'_output.txt'), "w") as ff: 
             ff.write(error_text)
 
         with open(os.path.join(output_dir, Path(model_file).stem+'_output.pickle'), "wb") as ff:
-            pickle.dump({"model_file": model_file,"solver":solver,"exception":e,"stacktrace":traceback.format_exc() }, file=ff) 
+            pickle.dump({"model_file": model_file,"model":model,"solver":solver,"exception":e,"stacktrace":traceback.format_exc() }, file=ff) 
         
         return 1
 
