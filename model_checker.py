@@ -8,6 +8,7 @@ import cpmpy as cp
 from mutators import *
 from multiprocessing import set_start_method,Pool, cpu_count
 import traceback
+from pathlib import Path
 
 def solve_model(model_file: str, solver: str, output_dir: str) -> None:
     """
@@ -61,7 +62,10 @@ if __name__ == '__main__':
     # showing the info about the given params to the user
     print("Checking models in {models}\n\nwith solver: {solver}\n\nwriting results to {output_dir}\n\nSolving the models ...".format(models=args.models,solver=args.solver,output_dir=args.output_dir),flush=True)
 
-    # create a list with all the directories
+    # output dir will be created if it does not exist
+    if not Path(args.output_dir).exists():
+        os.mkdir(args.output_dir)
+
 
     fmodels = []
     # fetch all the pickle files from the dir and all the subdirs
