@@ -9,7 +9,7 @@ from mutators import *
 from multiprocessing import set_start_method,Pool, cpu_count
 import traceback
 from pathlib import Path
-
+ 
 def solve_model(model_file: str, solver: str, output_dir: str) -> None:
     """
         A wrapper function for solving a CPMPy model given in a `.pickle` file using a specified solver.
@@ -31,10 +31,14 @@ def solve_model(model_file: str, solver: str, output_dir: str) -> None:
         
     except Exception as e:
         print("X",flush=True,end="")
-        error_text= "\nsolved model: {model_file}\n\nWith solver: {solver}\n\nexeption: {exeption}\n\nstacktrace: {stacktrace}".format(model_file=model_file,solver=solver,exeption=e,stacktrace=traceback.format_exc())
-
-        with open(os.path.join(output_dir,model_file.replace("\\","_")+'_output.txt'), "w") as ff:
+        error_text= "\nsolved model: {model_file}\n\nWith solver: {solver}\n\nexception: {exception}\n\nstacktrace: {stacktrace}".format(model_file=model_file,solver=solver,exception=e,stacktrace=traceback.format_exc())
+        
+        with open(os.path.join(output_dir, Path(model_file).stem+'_output.txt'), "w") as ff: 
             ff.write(error_text)
+
+        with open(os.path.join(output_dir, Path(model_file).stem+'_output.pickle'), "wb") as ff:
+            pickle.dump({"model_file": model_file,"solver":solver,"exception":e,"stacktrace":traceback.format_exc() }, file=ff) 
+        
         return 1
 
 
