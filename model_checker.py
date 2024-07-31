@@ -74,14 +74,9 @@ if __name__ == '__main__':
     set_start_method("spawn")
     processes = []
     
-    pool = Pool(args.amount_of_processes)
-
-    try:
+    with Pool(args.amount_of_processes) as pool:
         result = pool.starmap(solve_model, zip(fmodels,repeat(args.solver),repeat(args.output_dir)))
-        pool.close()
 
-    finally:
-        pool.terminate()
         amount_of_errors = result.count(1)
         print("\n\nchecked {amount_models} models".format(amount_models=str(len(result))))
         if amount_of_errors == 0:
