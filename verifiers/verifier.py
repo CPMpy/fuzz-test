@@ -1,5 +1,4 @@
 import random
-import time
 import traceback
 from cpmpy.exceptions import CPMpyException
 from mutators import *
@@ -97,11 +96,11 @@ class Verifier():
                 type = "unsat_model"
             elif "has no constraints" in str(e):
                 type = "no_constraints_model"
-            return {"type": type, "originalmodel": self.model_file, "exception": e,"stacktrace":traceback.format_exc()}
+            return {"type": type, "originalmodel": self.model_file,"constraints":self.cons, "exception": e,"stacktrace":traceback.format_exc()}
     
         except Exception as e:
             print('C', end='', flush=True)
-            return {"type": "crashed_model", "originalmodel": self.model_file, "mutators": self.mutators,"constraints": self.cons, "exception": e,"stacktrace":traceback.format_exc()}
+            return {"type": "crashed_model", "originalmodel": self.model_file,"constraints":self.cons, "mutators": self.mutators,"constraints": self.cons, "exception": e,"stacktrace":traceback.format_exc()}
     
         
 
@@ -125,11 +124,11 @@ class Verifier():
                 type = "unsat_model"
             elif "has no constraints" in str(e):
                 type = "no_constraints_model"
-            return {"type": type, "originalmodel": self.model_file, "exception": e,"stacktrace":traceback.format_exc()}
+            return {"type": type, "originalmodel": self.model_file,"constraints":self.cons, "exception": e,"stacktrace":traceback.format_exc()}
     
         except Exception as e:
             print('C', end='', flush=True)
-            return {"type": "crashed_model", "originalmodel": self.model_file, "exception": e,"stacktrace":traceback.format_exc()}
+            return {"type": "crashed_model", "originalmodel": self.model_file,"constraints":self.cons, "exception": e,"stacktrace":traceback.format_exc()}
 
 
         

@@ -1,14 +1,14 @@
 import argparse
 import copy
 from itertools import repeat
-from multiprocessing import Lock, Manager, Pool, Process, cpu_count, set_start_method
+from multiprocessing import Pool, cpu_count, set_start_method
 import os
 import pickle
 import random
 import sys
 import time
 import warnings
-from cpmpy import *
+import cpmpy as cp
 from pathlib import Path
 from os.path import join
 from glob import glob
@@ -17,11 +17,10 @@ from verifiers.optimization_verifier import Optimization_Verifier
 from verifiers.model_counting_verifier import Model_Count_Verifier
 from verifiers.metamorphic_verifier import Metamorphic_Verifier
 from verifiers.equivalance_verifier import Equivalance_Verifier
-
+from cpmpy.transformations.get_variables import get_variables
+from utils.output_writer import create_error_output_text
 
 def rerun_test(failed_model_file: str, output_dir: str ) -> None:
-    #verifiers = {Solution_Verifier.getName() : Solution_Verifier(), Optimization_Verifier.getName(): Optimization_Verifier(),Equivalance_Verifier.getName(): Equivalance_Verifier(),Model_Count_Verifier.getName(): Model_Count_Verifier(), Metamorphic_Verifier.getName(): Metamorphic_Verifier()}
-    
     with open(failed_model_file, 'rb') as fpcl:
         error_data = pickle.loads(fpcl.read())
         random.seed(error_data["seed"])
@@ -35,39 +34,44 @@ def rerun_test(failed_model_file: str, output_dir: str ) -> None:
             new_error_Data["error"] = error
             
             if error != None:
-                    with open(join(output_dir, os.path.basename(failed_model_file)), "wb") as ff:
-                        pickle.dump(new_error_Data, file=ff) 
+                with open(join(output_dir, os.path.basename(failed_model_file)), "wb") as ff:
+                    pickle.dump(new_error_Data, file=ff) 
                         
                 
 #
+
 
 def mimnimize_bug(failed_model_file,output_dir):
     
     with open(failed_model_file, 'rb') as fpcl:
         error_data = pickle.loads(fpcl.read())
         original_error = error_data["error"]
-        original_cons = error_data["error"]["constraints"]
-        print(len(original_cons),flush=True)
-        verifier_args = [error_data["solver"], error_data["mutations_per_model"], {}, time.time()*3600, error_data["seed"]]
-        verifiers = {"solution verifier" : Solution_Verifier(*verifier_args),"optimization verifier": Optimization_Verifier(*verifier_args), "model count verifier": Model_Count_Verifier(*verifier_args), "metamorphic verifier": Metamorphic_Verifier(*verifier_args),"equivalance verifier":Equivalance_Verifier(*verifier_args)}
+        original_cons = sorted(error_data["error"]["constraints"], key=lambda c: -len(get_variables(c)))
+
+        if len(original_cons) == 1:
+            with open(join(output_dir, "minimized_"+os.path.basename(failed_model_file)), "wb") as ff:
+                pickle.dump(error_data, file=ff) 
+        else:
+            print(len(original_cons),flush=True)
+            verifier_args = [error_data["solver"], error_data["mutations_per_model"], {}, time.time()*3600, error_data["seed"]]
+            verifiers = {"solution verifier" : Solution_Verifier(*verifier_args),"optimization verifier": Optimization_Verifier(*verifier_args), "model count verifier": Model_Count_Verifier(*verifier_args), "metamorphic verifier": Metamorphic_Verifier(*verifier_args),"equivalance verifier":Equivalance_Verifier(*verifier_args)}
             
+            new_cons = []
+            for con in original_cons:
+                test_cons = original_error["constraints"]
+                test_cons.remove(con)
+                new_error_dict = copy.deepcopy(original_error)
+                
+                new_error = verifiers[error_data["verifier"]].rerun(new_error_dict)  
+                if new_error != None: 
+                    # if we still get the error than the constraint is responsible so we keep it
+                    new_cons.append(con)
+            error_data["error"]["constraints"] = new_cons    
 
-        new_cons = []
-        for con in original_cons:
-            test_cons = original_error["constraints"]
-            test_cons.remove(con)
-            new_error_dict = copy.deepcopy(original_error)
-
-            new_error = verifiers[error_data["verifier"]].rerun(new_error_dict)
-            print(new_error,flush=True)   
-            if new_error != None:
-                new_cons.append(con)
-        error_data["error"]["constraints"] = new_cons    
-       
-        print(len(new_cons),flush=True)
-        with open(join(output_dir, os.path.basename(failed_model_file)), "wb") as ff:
-            pickle.dump(error_data, file=ff) 
-
+            with open(join(output_dir, "minimized_"+os.path.basename(failed_model_file)), "wb") as ff:
+                pickle.dump(error_data, file=ff) 
+            with open(join(output_dir, "minimized_"+Path(os.path.basename(failed_model_file)).stem+".txt"), "w") as ff:
+                    ff.write(create_error_output_text(error_data))
 
 
 def run_cmd(model: str,cmd : str, output_dir: str) -> None:
