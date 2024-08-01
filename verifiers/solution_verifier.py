@@ -32,10 +32,8 @@ class Solution_Verifier(Verifier):
     def initilize_run(self) -> None:
         with open(self.model_file, 'rb') as fpcl:
             self.cons = pickle.loads(fpcl.read()).constraints
-            fpcl.close()
             assert (len(self.cons)>0), f"{self.model_file} has no constraints"
             self.cons = toplevel_list(self.cons)
-            assert (len(self.cons)>0), f"{self.model_file} has no constraints after l2conj"
             vars = get_variables(self.cons)
             Model(self.cons).solve(solver=self.solver, time_limit=max(1,self.max_duration-time.time()))
             self.solution = [var == var.value() for var in vars if var.value() is not None]

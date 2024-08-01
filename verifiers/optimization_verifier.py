@@ -1,7 +1,6 @@
 import pickle
 import time
 import cpmpy as cp
-from cpmpy.exceptions import CPMpyException
 from mutators import *
 import traceback
 from .verifier import Verifier

@@ -1,4 +1,3 @@
-import math
 import pickle
 from os.path import join
 from mutators import *
@@ -55,8 +54,6 @@ def write_error(error_data: dict, output_dir: str) -> None:
     date_text = datetime.now().strftime('%Y-%m-%d_%H-%M-%S-%f')
     with open(join(output_dir, date_text+'.pickle'), "wb") as ff:
         pickle.dump(error_data, file=ff) 
-        ff.close()
 
     with open(join(output_dir, date_text+'.txt'), "w") as ff:
         ff.write(create_error_output_text(error_data))
-        ff.close()

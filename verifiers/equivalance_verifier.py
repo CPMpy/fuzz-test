@@ -33,10 +33,8 @@ class Equivalance_Verifier(Verifier):
     def initilize_run(self) -> None:
         with open(self.model_file, 'rb') as fpcl:
             self.cons = pickle.loads(fpcl.read()).constraints
-            #if compressed: cons = pickle.loads(brotli.decompress(fpcl.read())).constraints
             assert (len(self.cons)>0), f"{self.model_file} has no constraints"
             self.cons = toplevel_list(self.cons)
-            assert (len(self.cons)>0), f"{self.model_file} has no constraints after l2conj"
             self.original_vars = get_variables(self.cons)
             self.original_sols = set()
             cp.Model(self.cons).solveAll(solver=self.solver,time_limit=max(1,min(250,self.max_duration-time.time())), display=lambda: self.original_sols.add(tuple([v.value() for v in self.original_vars])))

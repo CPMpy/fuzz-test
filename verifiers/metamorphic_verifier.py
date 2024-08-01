@@ -1,5 +1,4 @@
 import pickle
-import random
 import time
 import cpmpy as cp
 from cpmpy.exceptions import CPMpyException
@@ -32,10 +31,8 @@ class Metamorphic_Verifier(Verifier):
     def initilize_run(self) -> None:
         with open(self.model_file, 'rb') as fpcl:
             self.cons = pickle.loads(fpcl.read()).constraints
-            #if compressed: cons = pickle.loads(brotli.decompress(fpcl.read())).constraints
             assert (len(self.cons)>0), f"{self.model_file} has no constraints"
             self.cons = toplevel_list(self.cons)
-            assert (len(self.cons)>0), f"{self.model_file} has no constraints after l2conj"
             time_limit = max(self.max_duration-time.time(),1)
             assert (cp.Model(self.cons).solve(solver= self.solver, time_limit=time_limit)), f"{self.model_file} is not sat"
             self.mutators = [copy.deepcopy(self.cons)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
