@@ -90,7 +90,15 @@ class Verifier():
                 return self.solve_model()
             else:
                 return gen_mutations_error
-            
+        except AssertionError as e:
+            print("A", end='',flush=True)
+            type = "crashed_model"
+            if "is not sat" in str(e):
+                type = "unsat_model"
+            elif "has no constraints" in str(e):
+                type = "no_constraints_model"
+            return {"type": type, "originalmodel": self.model_file, "exception": e,"stacktrace":traceback.format_exc()}
+    
         except Exception as e:
             print('C', end='', flush=True)
             return {"type": "crashed_model", "originalmodel": self.model_file, "mutators": self.mutators,"constraints": self.cons, "exception": e,"stacktrace":traceback.format_exc()}
@@ -110,7 +118,15 @@ class Verifier():
 
             self.cons = error["constraints"]
             return self.solve_model()
-        
+        except AssertionError as e:
+            print("A", end='',flush=True)
+            type = "crashed_model"
+            if "is not sat" in str(e):
+                type = "unsat_model"
+            elif "has no constraints" in str(e):
+                type = "no_constraints_model"
+            return {"type": type, "originalmodel": self.model_file, "exception": e,"stacktrace":traceback.format_exc()}
+    
         except Exception as e:
             print('C', end='', flush=True)
             return {"type": "crashed_model", "originalmodel": self.model_file, "exception": e,"stacktrace":traceback.format_exc()}
