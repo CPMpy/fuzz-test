@@ -1,6 +1,5 @@
 import pickle
 from os.path import join
-from mutators import *
 from datetime import datetime
 
 def create_error_output_text(error_data: dict) -> str:

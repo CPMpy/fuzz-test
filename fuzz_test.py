@@ -7,7 +7,7 @@ from cpmpy import *
 import sys
 sys.path.append('../cpmpy')
 
-from mutators import *
+
 from multiprocessing import Process, Lock, Manager, set_start_method,Pool, cpu_count
 
 from verifiers.verifier_runner import run_verifiers

@@ -2,7 +2,7 @@ import pickle
 import time
 from cpmpy.exceptions import CPMpyException
 import cpmpy as cp
-from mutators import *
+from fuzz_test_utils.mutators import *
 import traceback
 from .verifier import Verifier
 

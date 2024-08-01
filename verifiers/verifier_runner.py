@@ -1,7 +1,7 @@
 import glob
 import random
 from os.path import join
-from mutators import *
+from fuzz_test_utils.mutators import *
 from .metamorphic_verifier import Metamorphic_Verifier
 from .solution_verifier import Solution_Verifier
 from .model_counting_verifier import Model_Count_Verifier
@@ -12,7 +12,7 @@ import warnings
 import traceback
 import time
 from numpy.random import RandomState
-from utils.output_writer import write_error
+from fuzz_test_utils.output_writer import write_error
 
 def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver: str, mutations_per_model: int, folders: list, max_error_treshold: int, output_dir: str, max_duration: float) -> None:
     """

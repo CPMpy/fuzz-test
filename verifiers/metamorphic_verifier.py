@@ -1,8 +1,10 @@
 import pickle
+
 import time
 import cpmpy as cp
 from cpmpy.exceptions import CPMpyException
-from mutators import *
+
+from fuzz_test_utils.mutators import *
 from .verifier import Verifier
 import traceback
 class Metamorphic_Verifier(Verifier):
