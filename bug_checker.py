@@ -26,6 +26,19 @@ def rerun_test(failed_model_file: str, output_dir: str ) -> None:
             output_dir (string): the directory were the error reports needs to be written to
     """
     with open(failed_model_file, 'rb') as fpcl:
+        """ The error data is a dict with the following keys:
+                solver: the used solver
+                verifier: the verifier that got used
+                mutations_per_model: the amount of mutations that were used
+                seed: the used seed
+                error: a dict containing:
+                    type: the type of error that occured
+                    model: the newly mutated model that failed/crashed
+                    originalmodel: the name of the model file that was used
+                    mutators: a list with executed mutations
+                    constraints: the constraints that made the model fail/crash
+        """
+
         error_data = pickle.loads(fpcl.read())
         random.seed(error_data["seed"])
         if error_data["error"]["type"] != "fuzz_test_crash": # if it is a fuzz_test crash error we skip it
@@ -53,6 +66,18 @@ def mimnimize_bug(failed_model_file:str ,output_dir: str) -> None:
             output_dir (string): the directory were the error reports needs to be written to
     """
     with open(failed_model_file, 'rb') as fpcl:
+        """ The error data is a dict with the following keys:
+                solver: the used solver
+                verifier: the verifier that got used
+                mutations_per_model: the amount of mutations that were used
+                seed: the used seed
+                error: a dict containing:
+                    type: the type of error that occured
+                    model: the newly mutated model that failed/crashed
+                    originalmodel: the name of the model file that was used
+                    mutators: a list with executed mutations
+                    constraints: the constraints that made the model fail/crash
+        """
         error_data = pickle.loads(fpcl.read())
         original_error = error_data["error"]
         original_cons = error_data["error"]["constraints"]
