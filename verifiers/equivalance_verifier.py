@@ -38,11 +38,15 @@ class Equivalance_Verifier(Verifier):
         try:
             model = cp.Model(self.cons)
             new_sols = set()
-            time_limit = max(1,min(200,self.time_limit-time.time()))
-            if time_limit <= 1:
-                return None
-            model.solveAll(solver=self.solver, time_limit=time_limit, display=lambda: new_sols.add(tuple([v.value() for v in self.original_vars])))
-            change = new_sols ^ self.original_sols
+            time_limit = max(1,min(200,self.time_limit-time.time())) # set the max time limit to the given time limit or to 1 if the self.time_limit-time.time() would be smaller then 1
+
+            model.solveAll(
+                solver=self.solver, 
+                time_limit=time_limit, 
+                display=lambda: new_sols.add(tuple([v.value() for v in self.original_vars])))
+            
+            change = new_sols.symmetric_difference(self.original_sols)
+            
             if model.status().runtime > time_limit-10:
                 # timeout, skip
                 print('T', end='', flush=True)

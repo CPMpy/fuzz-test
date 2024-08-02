@@ -29,7 +29,10 @@ class Solution_Verifier(Verifier):
             assert (len(self.cons)>0), f"{self.model_file} has no constraints"
             self.cons = toplevel_list(self.cons)
             vars = get_variables(self.cons)
-            Model(self.cons).solve(solver=self.solver, time_limit=max(1,self.time_limit-time.time()))
+            Model(self.cons).solve(
+                solver=self.solver, 
+                time_limit=max(1,self.time_limit-time.time())) # set the max time limit to the given time limit or to 1 if the self.time_limit-time.time() would be smaller then 1
+            
             self.solution = [var == var.value() for var in vars if var.value() is not None]
             self.mutators = [copy.deepcopy(self.cons)] #keep track of list of cons alternated with random seed and mutators that transformed it into the next list of cons.
                 

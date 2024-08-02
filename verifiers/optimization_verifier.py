@@ -48,7 +48,7 @@ class Optimization_Verifier(Verifier):
             else:
                 newModel.maximize(self.objective)
 
-            time_limit=max(min(200,self.time_limit-time.time()),1)
+            time_limit=max(min(200,self.time_limit-time.time()),1) # set the max time limit to the given time limit or to 1 if the self.time_limit-time.time() would be smaller then 1
             
             sat = newModel.solve(solver=self.solver, time_limit=time_limit)
             if newModel.status().runtime > time_limit-10:

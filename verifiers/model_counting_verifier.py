@@ -33,7 +33,7 @@ class Model_Count_Verifier(Verifier):
     def verify_model(self) -> dict:
         try:
             model = cp.Model(self.cons)
-            time_limit=max(1,min(200,self.time_limit-time.time()))
+            time_limit=max(1,min(200,self.time_limit-time.time())) # set the max time limit to the given time limit or to 1 if the self.time_limit-time.time() would be smaller then 1
 
             new_count = model.solveAll(solver=self.solver, time_limit=time_limit)
             if model.status().runtime > time_limit-10:
