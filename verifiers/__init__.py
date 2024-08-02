@@ -1,11 +1,12 @@
 import pickle
 import time
-from cpmpy.exceptions import CPMpyException
-import cpmpy as cp
-from fuzz_test_utils import *
 import traceback
 import random
 
+from cpmpy.exceptions import CPMpyException
+import cpmpy as cp
+
+from fuzz_test_utils import *
 from .verifier import Verifier
 from .metamorphic_verifier import Metamorphic_Verifier
 from .solution_verifier import Solution_Verifier

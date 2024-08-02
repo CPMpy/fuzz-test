@@ -6,14 +6,15 @@ import random
 import sys
 import time
 import warnings
-
 from pathlib import Path
 from os.path import join
 from glob import glob
 from itertools import repeat
 from multiprocessing import Pool, cpu_count, set_start_method
-from verifiers import *
+
 from cpmpy.transformations.get_variables import get_variables
+
+from verifiers import *
 from fuzz_test_utils import create_error_output_text
 
 def rerun_test(failed_model_file: str, output_dir: str ) -> None:

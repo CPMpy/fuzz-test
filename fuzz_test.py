@@ -3,18 +3,15 @@ import math
 import os
 from pathlib import Path
 import time
-from cpmpy import *
-import sys
-sys.path.append('../cpmpy')
-
-
 from multiprocessing import Process, Lock, Manager, set_start_method,Pool, cpu_count
+
+import cpmpy as cp
 
 from verifiers.verifier_runner import run_verifiers
 
 if __name__ == '__main__':
     # get all the available solvers from cpympy
-    available_solvers = SolverLookup.solvernames()
+    available_solvers = cp.SolverLookup.solvernames()
     
     # Getting and checking the input parameters    
     def check_positive(value):
