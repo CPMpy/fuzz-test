@@ -6,13 +6,13 @@ class Verifier():
     """
 
 
-    def __init__(self, name: str, type: str, solver: str, mutations_per_model: int, exclude_dict: dict , max_duration: float, seed: int):
+    def __init__(self, name: str, type: str, solver: str, mutations_per_model: int, exclude_dict: dict , time_limit: float, seed: int):
         self.name = name
         self.type = type
         self.solver = solver
         self.mutations_per_model = mutations_per_model
         self.exclude_dict = exclude_dict
-        self.max_duration = max_duration
+        self.time_limit = time_limit
         self.seed = seed
         self.mm_mutators = None 
         self.mutators = None
@@ -62,7 +62,7 @@ class Verifier():
         """
         pass
 
-    def solve_model(self) -> dict:
+    def verify_model(self) -> dict:
         """
         Abstract function that will solve the newly created model with the mutations.
         It will check if the test succeeded or not.
@@ -81,7 +81,7 @@ class Verifier():
 
             # check if no error occured while generation the mutations
             if gen_mutations_error == None:
-                return self.solve_model()
+                return self.verify_model()
             else:
                 return gen_mutations_error
         except AssertionError as e:
@@ -111,7 +111,7 @@ class Verifier():
 
 
             self.cons = error["constraints"]
-            return self.solve_model()
+            return self.verify_model()
         except AssertionError as e:
             print("A", end='',flush=True)
             type = "crashed_model"

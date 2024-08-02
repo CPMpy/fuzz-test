@@ -44,7 +44,7 @@ def rerun_test(failed_model_file: str, output_dir: str ) -> None:
         random.seed(error_data["seed"])
         if error_data["error"]["type"] != "fuzz_test_crash": # if it is a fuzz_test crash error we skip it
             
-            verifier_kwargs = {'solver': error_data["solver"], "mutations_per_model": error_data["mutations_per_model"], "exclude_dict": {}, "max_duration": time.time()*3600, "seed": error_data["seed"]}
+            verifier_kwargs = {'solver': error_data["solver"], "mutations_per_model": error_data["mutations_per_model"], "exclude_dict": {}, "time_limit": time.time()*3600, "seed": error_data["seed"]}
 
             error = lookup_verifier(error_data["verifier"])(**verifier_kwargs).rerun(error_data["error"])
             
@@ -88,7 +88,7 @@ def mimnimize_bug(failed_model_file:str ,output_dir: str) -> None:
                 pickle.dump(error_data, file=ff) 
         else:
             print(len(original_cons),flush=True)
-            verifier_kwargs = {'solver': error_data["solver"], "mutations_per_model": error_data["mutations_per_model"], "exclude_dict": {}, "max_duration": time.time()*3600, "seed": error_data["seed"]}
+            verifier_kwargs = {'solver': error_data["solver"], "mutations_per_model": error_data["mutations_per_model"], "exclude_dict": {}, "time_limit": time.time()*3600, "seed": error_data["seed"]}
                         
             new_cons = []
 
@@ -163,7 +163,7 @@ if __name__ == '__main__':
     with Pool(args.amount_of_processes) as pool: 
         try:
             result = pool.starmap(run_cmd, zip(files,repeat(args.cmd),repeat(args.output_dir)))
-            print("sucessfully checked all the models",flush=True ) 
+            print("\nsucessfully checked all the models",flush=True ) 
         except KeyboardInterrupt:
             pass
         finally:

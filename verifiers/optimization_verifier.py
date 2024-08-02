@@ -1,8 +1,8 @@
 from verifiers import *
 
 class Optimization_Verifier(Verifier):
-    def __init__(self,solver: str, mutations_per_model: int, exclude_dict: dict, max_duration: float, seed: int):
-        super().__init__("optimization verifier", 'optimization',solver,mutations_per_model,exclude_dict,max_duration,seed)
+    def __init__(self,solver: str, mutations_per_model: int, exclude_dict: dict, time_limit: float, seed: int):
+        super().__init__("optimization verifier", 'optimization',solver,mutations_per_model,exclude_dict,time_limit,seed)
         self.mm_mutators = [xor_morph, and_morph, or_morph, implies_morph, not_morph,
                         linearize_constraint_morph,
                         flatten_morph,
@@ -37,10 +37,10 @@ class Optimization_Verifier(Verifier):
                     model.minimize(self.objective)
                 else:
                     model.maximize(self.objective)
-                assert (model.solve(solver=self.solver, time_limit=max(self.max_duration-time.time(),1))), f"{self.model_file} is not sat"
+                assert (model.solve(solver=self.solver, time_limit=max(self.time_limit-time.time(),1))), f"{self.model_file} is not sat"
                 self.value_before = model.objective_value() #store objective value to compare after transformations
                 
-    def solve_model(self) -> dict:
+    def verify_model(self) -> dict:
         try:
             newModel = cp.Model(self.cons)
             if self.mininimize:
@@ -48,7 +48,7 @@ class Optimization_Verifier(Verifier):
             else:
                 newModel.maximize(self.objective)
 
-            time_limit=max(min(200,self.max_duration-time.time()),1)
+            time_limit=max(min(200,self.time_limit-time.time()),1)
             
             sat = newModel.solve(solver=self.solver, time_limit=time_limit)
             if newModel.status().runtime > time_limit-10:

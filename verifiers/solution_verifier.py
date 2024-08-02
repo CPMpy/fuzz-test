@@ -1,8 +1,8 @@
 from verifiers import *
 
 class Solution_Verifier(Verifier):
-    def __init__(self,solver: str, mutations_per_model: int, exclude_dict: dict, max_duration: float, seed: int):
-        super().__init__("solution verifier", 'sat',solver,mutations_per_model,exclude_dict,max_duration,seed)
+    def __init__(self,solver: str, mutations_per_model: int, exclude_dict: dict, time_limit: float, seed: int):
+        super().__init__("solution verifier", 'sat',solver,mutations_per_model,exclude_dict,time_limit,seed)
         self.mm_mutators = [xor_morph, and_morph, or_morph, implies_morph, not_morph,
                         linearize_constraint_morph,
                         flatten_morph,
@@ -29,14 +29,14 @@ class Solution_Verifier(Verifier):
             assert (len(self.cons)>0), f"{self.model_file} has no constraints"
             self.cons = toplevel_list(self.cons)
             vars = get_variables(self.cons)
-            Model(self.cons).solve(solver=self.solver, time_limit=max(1,self.max_duration-time.time()))
+            Model(self.cons).solve(solver=self.solver, time_limit=max(1,self.time_limit-time.time()))
             self.solution = [var == var.value() for var in vars if var.value() is not None]
             self.mutators = [copy.deepcopy(self.cons)] #keep track of list of cons alternated with random seed and mutators that transformed it into the next list of cons.
                 
-    def solve_model(self) -> dict:
+    def verify_model(self) -> dict:
         try:
             model = cp.Model(toplevel_list([self.cons, self.solution]))
-            time_limit = max(min(200,self.max_duration-time.time()),1)
+            time_limit = max(min(200,self.time_limit-time.time()),1)
             sat = model.solve(solver=self.solver, time_limit=time_limit)
             if model.status().runtime > time_limit-10:
                 # timeout, skip

@@ -2,8 +2,8 @@ from verifiers import *
 
 class Equivalance_Verifier(Verifier):
 
-    def __init__(self,solver: str, mutations_per_model: int, exclude_dict: dict, max_duration: float, seed: int):
-        super().__init__("equivalance verifier", 'sat',solver,mutations_per_model,exclude_dict,max_duration,seed)
+    def __init__(self,solver: str, mutations_per_model: int, exclude_dict: dict, time_limit: float, seed: int):
+        super().__init__("equivalance verifier", 'sat',solver,mutations_per_model,exclude_dict,time_limit,seed)
         self.mm_mutators = [xor_morph, and_morph, or_morph, implies_morph, not_morph,
                         linearize_constraint_morph,
                         flatten_morph,
@@ -31,14 +31,14 @@ class Equivalance_Verifier(Verifier):
             self.cons = toplevel_list(self.cons)
             self.original_vars = get_variables(self.cons)
             self.original_sols = set()
-            cp.Model(self.cons).solveAll(solver=self.solver,time_limit=max(1,min(250,self.max_duration-time.time())), display=lambda: self.original_sols.add(tuple([v.value() for v in self.original_vars])))
+            cp.Model(self.cons).solveAll(solver=self.solver,time_limit=max(1,min(250,self.time_limit-time.time())), display=lambda: self.original_sols.add(tuple([v.value() for v in self.original_vars])))
             self.mutators = [copy.deepcopy(self.cons)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
             
-    def solve_model(self) -> dict:
+    def verify_model(self) -> dict:
         try:
             model = cp.Model(self.cons)
             new_sols = set()
-            time_limit = max(1,min(200,self.max_duration-time.time()))
+            time_limit = max(1,min(200,self.time_limit-time.time()))
             if time_limit <= 1:
                 return None
             model.solveAll(solver=self.solver, time_limit=time_limit, display=lambda: new_sols.add(tuple([v.value() for v in self.original_vars])))

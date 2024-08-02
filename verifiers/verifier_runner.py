@@ -10,7 +10,7 @@ from verifiers import *
 def get_all_verifiers() -> list:
     return [Solution_Verifier,Optimization_Verifier,Model_Count_Verifier,Metamorphic_Verifier,Equivalance_Verifier]
 
-def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver: str, mutations_per_model: int, folders: list, max_error_treshold: int, output_dir: str, max_duration: float) -> None:
+def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver: str, mutations_per_model: int, folders: list, max_error_treshold: int, output_dir: str, time_limit: float) -> None:
     """
         This function will be used to run different verifiers
 
@@ -23,7 +23,7 @@ def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver
             folders ([string]): the directories of the models that we are testing
             max_error_treshold (int): the maximimum errors that can be found before quitting the tests
             output_dir (string): the directory were the error reports needs to be written to
-            max_duration (float): the maximum timestamp that can be reached (no tests can exeed the duration of this timestamp)
+            time_limit (float): the maximum timestamp that can be reached (no tests can exeed the duration of this timestamp)
     """
     warnings.filterwarnings("ignore")
 
@@ -31,11 +31,11 @@ def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver
     random_seed = random.randint(0, 2**32 - 1) # the 2**32 - 1 is the max int
     random_state = RandomState(random_seed)
     
-    verifier_kwargs = {"solver":solver, "mutations_per_model":mutations_per_model, "exclude_dict":exclude_dict,"max_duration": max_duration, "seed":random_seed}
+    verifier_kwargs = {"solver":solver, "mutations_per_model":mutations_per_model, "exclude_dict":exclude_dict,"time_limit": time_limit, "seed":random_seed}
 
     execution_time = 0
     try:
-        while time.time() < max_duration and current_amount_of_error.value < max_error_treshold:
+        while time.time() < time_limit and current_amount_of_error.value < max_error_treshold:
             random_verifier = random_state.choice(get_all_verifiers())(**verifier_kwargs)
             fmodels = []
             for folder in folders:
