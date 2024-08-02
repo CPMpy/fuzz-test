@@ -5,7 +5,6 @@ class Verifier():
     The base class containing the base functions for each verifier.
     """
 
-
     def __init__(self, name: str, type: str, solver: str, mutations_per_model: int, exclude_dict: dict , time_limit: float, seed: int):
         self.name = name
         self.type = type
@@ -14,8 +13,28 @@ class Verifier():
         self.exclude_dict = exclude_dict
         self.time_limit = time_limit
         self.seed = seed
-        self.mm_mutators = None 
-        self.mutators = None
+        self.mm_mutators = [xor_morph, and_morph, or_morph, implies_morph, not_morph,
+                        linearize_constraint_morph,
+                        flatten_morph,
+                        only_numexpr_equality_morph,
+                        normalized_numexpr_morph,
+                        reify_rewrite_morph,
+                        only_bv_reifies_morph,
+                        only_positive_bv_morph,
+                        flat2cnf_morph,
+                        toplevel_list_morph,
+                        decompose_in_tree_morph,
+                        push_down_negation_morph,
+                        simplify_boolean_morph,
+                        canonical_comparison_morph,
+                        aritmetic_comparison_morph,
+                        semanticFusionCounting,
+                        semanticFusionCountingMinus,
+                        semanticFusionCountingwsum,
+                        semanticFusionCounting,
+                        semanticFusionCountingMinus,
+                        semanticFusionCountingwsum] 
+        self.mutators = []
 
 
     def generate_mutations(self) -> None:
@@ -60,7 +79,7 @@ class Verifier():
         This function is ued for getting the right data from the model.
         Each verifier needs to implement this function
         """
-        pass
+        raise NotImplementedError(f"method 'initilize_run' is not implemented for class {type(self)}")
 
     def verify_model(self) -> dict:
         """
@@ -68,7 +87,8 @@ class Verifier():
         It will check if the test succeeded or not.
         Each verifier needs to implement this function
         """
-        pass
+        raise NotImplementedError(f"method 'verify_model' is not implemented for class {type(self)}")
+
 
     def run(self, model_file: str) -> dict:
         """

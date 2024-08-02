@@ -1,6 +1,10 @@
 from verifiers import *
 
 class Metamorphic_Verifier(Verifier):
+    """
+        The Metamorphic Verifier will verify if amount of model is still Satisifiability after running multiple mutations
+    """
+    
     def __init__(self,solver: str, mutations_per_model: int, exclude_dict: dict, time_limit: float, seed: int):
         super().__init__("metamorphic verifier", 'sat',solver,mutations_per_model,exclude_dict,time_limit,seed)
         self.mm_mutators = [xor_morph, and_morph, or_morph, implies_morph, not_morph,

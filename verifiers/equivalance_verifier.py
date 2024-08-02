@@ -1,6 +1,9 @@
 from verifiers import *
 
 class Equivalance_Verifier(Verifier):
+    """
+        The Equivalance Verifier will verify if all the solution are the same after running multiple mutations
+    """
 
     def __init__(self,solver: str, mutations_per_model: int, exclude_dict: dict, time_limit: float, seed: int):
         super().__init__("equivalance verifier", 'sat',solver,mutations_per_model,exclude_dict,time_limit,seed)
