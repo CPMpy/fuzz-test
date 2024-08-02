@@ -6,6 +6,9 @@ from os.path import join
 from numpy.random import RandomState
 from verifiers import *
 
+def get_all_verifiers() -> list:
+    return [Solution_Verifier,Optimization_Verifier,Model_Count_Verifier,Metamorphic_Verifier,Equivalance_Verifier]
+
 def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver: str, mutations_per_model: int, folders: list, max_error_treshold: int, output_dir: str, max_duration: float) -> None:
     """
         This function will be used to run different verifiers
@@ -27,13 +30,12 @@ def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver
     random_seed = random.randint(0, 2**32 - 1) # the 2**32 - 1 is the max int
     random_state = RandomState(random_seed)
     
-    verifier_args = [solver, mutations_per_model, exclude_dict, max_duration, random_seed]
+    verifier_kwargs = {"solver":solver, "mutations_per_model":mutations_per_model, "exclude_dict":exclude_dict,"max_duration": max_duration, "seed":random_seed}
 
-    verifiers = [Solution_Verifier(*verifier_args),Optimization_Verifier(*verifier_args),Equivalance_Verifier(*verifier_args),Model_Count_Verifier(*verifier_args),Metamorphic_Verifier(*verifier_args)]
     execution_time = 0
     try:
         while time.time() < max_duration and current_amount_of_error.value < max_error_treshold:
-            random_verifier = random_state.choice(verifiers)
+            random_verifier = random_state.choice(get_all_verifiers())(**verifier_kwargs)
             fmodels = []
             for folder in folders:
                 fmodels.extend(glob.glob(join(folder,random_verifier.getType(), "*")))

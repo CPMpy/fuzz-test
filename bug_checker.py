@@ -30,9 +30,9 @@ def rerun_test(failed_model_file: str, output_dir: str ) -> None:
         random.seed(error_data["seed"])
         if error_data["error"]["type"] != "fuzz_test_crash": # if it is a fuzz_test crash error we skip it
             
-            verifier_args = [error_data["solver"], error_data["mutations_per_model"], {}, time.time()*3600, error_data["seed"]]
-            verifiers = {"solution verifier" : Solution_Verifier(*verifier_args),"optimization verifier": Optimization_Verifier(*verifier_args), "model count verifier": Model_Count_Verifier(*verifier_args), "metamorphic verifier": Metamorphic_Verifier(*verifier_args),"equivalance verifier":Equivalance_Verifier(*verifier_args)}
-            error = verifiers[error_data["verifier"]].rerun(error_data["error"])
+            verifier_kwargs = {'solver': error_data["solver"], "mutations_per_model": error_data["mutations_per_model"], "exclude_dict": {}, "max_duration": time.time()*3600, "seed": error_data["seed"]}
+
+            error = lookup_verifier(error_data["verifier"])(**verifier_kwargs).rerun(error_data["error"])
             
             new_error_Data = error_data
             new_error_Data["error"] = error
@@ -63,16 +63,15 @@ def mimnimize_bug(failed_model_file:str ,output_dir: str) -> None:
                 pickle.dump(error_data, file=ff) 
         else:
             print(len(original_cons),flush=True)
-            verifier_args = [error_data["solver"], error_data["mutations_per_model"], {}, time.time()*3600, error_data["seed"]]
-            verifiers = {"solution verifier" : Solution_Verifier(*verifier_args),"optimization verifier": Optimization_Verifier(*verifier_args), "model count verifier": Model_Count_Verifier(*verifier_args), "metamorphic verifier": Metamorphic_Verifier(*verifier_args),"equivalance verifier":Equivalance_Verifier(*verifier_args)}
-            
+            verifier_kwargs = {'solver': error_data["solver"], "mutations_per_model": error_data["mutations_per_model"], "exclude_dict": {}, "max_duration": time.time()*3600, "seed": error_data["seed"]}
+                        
             new_cons = []
             for con in original_cons:
                 test_cons = original_error["constraints"]
                 test_cons.remove(con)
                 new_error_dict = copy.deepcopy(original_error)
                 
-                new_error = verifiers[error_data["verifier"]].rerun(new_error_dict)  
+                new_error = lookup_verifier(error_data["verifier"])(**verifier_kwargs).rerun(new_error_dict)  
                 if new_error != None: 
                     # if we still get the error than the constraint is responsible so we keep it
                     new_cons.append(con)
