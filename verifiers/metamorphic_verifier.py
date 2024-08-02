@@ -55,7 +55,8 @@ class Metamorphic_Verifier(Verifier):
                 print('s', end='', flush=True)
                 return None
             print('E', end='', flush=True)
-            return {"type": "internalcrash","model": model, "originalmodel": self.model_file, "mutators": self.mutators,"constraints":self.cons ,"exception": e,"stacktrace":traceback.format_exc() }
+            return dict(type="internalcrash",model=model, originalmodel=self.model_file, mutators=self.mutators,constraints=self.cons ,exception=e,stacktrace=traceback.format_exc())
         
         # if you got here, the model failed...
-        return {"type": "failed_model","model": model, "originalmodel": self.model_file, "mutators": self.mutators, "constraints":self.cons }
+        return dict(type="failed_model",model=model, originalmodel=self.model_file, mutators=self.mutators, constraints=self.cons)
+        

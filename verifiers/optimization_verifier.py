@@ -67,7 +67,8 @@ class Optimization_Verifier(Verifier):
                 #print('morphs: ', mutators)
         except Exception as e:
             print('E', end='', flush=True)
-            return {"type": "internalcrash","model": newModel, "originalmodel": self.model_file, "mutators": self.mutators, "constraints":self.cons ,"exception": e,"stacktrace":traceback.format_exc() }
-
+            return dict(type="internalcrash",model=newModel, originalmodel=self.model_file, mutators=self.mutators,constraints=self.cons ,exception=e,stacktrace=traceback.format_exc())
+        
         # if you got here, the model failed...
-        return {"type": "failed_model","model": newModel, "originalmodel": self.model_file, "mutators": self.mutators, "constraints":self.cons  }
+        return dict(type="failed_model",model=newModel, originalmodel=self.model_file, mutators=self.mutators, constraints=self.cons)
+        

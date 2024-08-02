@@ -51,7 +51,7 @@ class Verifier():
                     #don't log semanticfusion crash
                     
                 print('I', end='', flush=True)
-                return {"type": "internalfunctioncrash","function":function, "argument": argument, "originalmodel": self.model_file, "mutators": self.mutators,"constraints": self.cons, "exception": e,"stacktrace":traceback.format_exc()} # no need to solve model we didn't modify..
+                return dict(type="internalfunctioncrash",function=function, argument=argument, originalmodel=self.model_file, mutators=self.mutators,constraints=self.cons, exception=e,stacktrace=traceback.format_exc()) # no need to solve model we didn't modify..
             return None
 
     def initilize_run(self) -> None:
@@ -91,11 +91,11 @@ class Verifier():
                 type = "unsat_model"
             elif "has no constraints" in str(e):
                 type = "no_constraints_model"
-            return {"type": type, "originalmodel": self.model_file,"constraints":self.cons, "exception": e,"stacktrace":traceback.format_exc()}
+            return dict(type=type, originalmodel=self.model_file,constraints=self.cons, exception=e,stacktrace=traceback.format_exc())
     
         except Exception as e:
             print('C', end='', flush=True)
-            return {"type": "crashed_model", "originalmodel": self.model_file,"constraints":self.cons, "mutators": self.mutators,"constraints": self.cons, "exception": e,"stacktrace":traceback.format_exc()}
+            return dict(type="crashed_model", originalmodel=self.model_file,constraints=self.cons, mutators=self.mutators, exception=e,stacktrace=traceback.format_exc())
     
         
 
@@ -106,12 +106,10 @@ class Verifier():
         try:
             self.model_file = error["originalmodel"]
             self.exclude_dict = {}
-
             self.initilize_run()
-
-
             self.cons = error["constraints"]
             return self.verify_model()
+        
         except AssertionError as e:
             print("A", end='',flush=True)
             type = "crashed_model"
@@ -119,11 +117,11 @@ class Verifier():
                 type = "unsat_model"
             elif "has no constraints" in str(e):
                 type = "no_constraints_model"
-            return {"type": type, "originalmodel": self.model_file,"constraints":self.cons, "exception": e,"stacktrace":traceback.format_exc()}
+            return dict(type=type, originalmodel=self.model_file,constraints=self.cons, exception=e,stacktrace=traceback.format_exc())
     
         except Exception as e:
             print('C', end='', flush=True)
-            return {"type": "crashed_model", "originalmodel": self.model_file,"constraints":self.cons, "exception": e,"stacktrace":traceback.format_exc()}
+            return dict(type="crashed_model", originalmodel=self.model_file,constraints=self.cons, exception=e,stacktrace=traceback.format_exc())
 
 
         
