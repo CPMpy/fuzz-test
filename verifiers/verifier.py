@@ -70,7 +70,7 @@ class Verifier():
                     #don't log semanticfusion crash
                     
                 print('I', end='', flush=True)
-                return dict(type="internalfunctioncrash",function=function, argument=argument, originalmodel=self.model_file, mutators=self.mutators,constraints=self.cons, exception=e,stacktrace=traceback.format_exc()) # no need to solve model we didn't modify..
+                return dict(type=Fuzz_Test_ErrorTypes.internalfunctioncrash,function=function, argument=argument, originalmodel=self.model_file, mutators=self.mutators,constraints=self.cons, exception=e,stacktrace=traceback.format_exc()) # no need to solve model we didn't modify..
             return None
 
     def initilize_run(self) -> None:
@@ -106,16 +106,16 @@ class Verifier():
                 return gen_mutations_error
         except AssertionError as e:
             print("A", end='',flush=True)
-            type = "crashed_model"
+            type = Fuzz_Test_ErrorTypes.crashed_model
             if "is not sat" in str(e):
-                type = "unsat_model"
+                type = Fuzz_Test_ErrorTypes.unsat_model
             elif "has no constraints" in str(e):
-                type = "no_constraints_model"
+                type = Fuzz_Test_ErrorTypes.no_constraints_model
             return dict(type=type, originalmodel=self.model_file,constraints=self.cons, exception=e,stacktrace=traceback.format_exc())
     
         except Exception as e:
             print('C', end='', flush=True)
-            return dict(type="crashed_model", originalmodel=self.model_file,constraints=self.cons, mutators=self.mutators, exception=e,stacktrace=traceback.format_exc())
+            return dict(type=Fuzz_Test_ErrorTypes.crashed_model, originalmodel=self.model_file,constraints=self.cons, mutators=self.mutators, exception=e,stacktrace=traceback.format_exc())
     
         
 
@@ -132,16 +132,16 @@ class Verifier():
         
         except AssertionError as e:
             print("A", end='',flush=True)
-            type = "crashed_model"
+            type = Fuzz_Test_ErrorTypes.crashed_model
             if "is not sat" in str(e):
-                type = "unsat_model"
+                type = Fuzz_Test_ErrorTypes.unsat_model
             elif "has no constraints" in str(e):
-                type = "no_constraints_model"
+                type = Fuzz_Test_ErrorTypes.no_constraints_model
             return dict(type=type, originalmodel=self.model_file,constraints=self.cons, exception=e,stacktrace=traceback.format_exc())
     
         except Exception as e:
             print('C', end='', flush=True)
-            return dict(type="crashed_model", originalmodel=self.model_file,constraints=self.cons, exception=e,stacktrace=traceback.format_exc())
+            return dict(type=Fuzz_Test_ErrorTypes.crashed_model, originalmodel=self.model_file,constraints=self.cons, exception=e,stacktrace=traceback.format_exc())
 
 
         

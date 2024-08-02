@@ -65,8 +65,8 @@ class Equivalance_Verifier(Verifier):
                 #expected error message, ignore
                 return True
             print('E', end='', flush=True)
-            return dict(type="internalcrash",model=model, originalmodel=self.model_file, mutators=self.mutators,constraints=self.cons ,exception=e,stacktrace=traceback.format_exc())
+            return dict(type=Fuzz_Test_ErrorTypes.internalcrash,model=model, originalmodel=self.model_file, mutators=self.mutators,constraints=self.cons ,exception=e,stacktrace=traceback.format_exc())
         
         # if you got here, the model failed...
-        return dict(type="failed_model",model=model, originalmodel=self.model_file, mutators=self.mutators, constraints=self.cons)
+        return dict(type=Fuzz_Test_ErrorTypes.failed_model,model=model, originalmodel=self.model_file, mutators=self.mutators, constraints=self.cons)
         

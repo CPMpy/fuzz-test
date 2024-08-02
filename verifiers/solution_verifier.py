@@ -4,7 +4,7 @@ class Solution_Verifier(Verifier):
     """
         The Solution Verifier will verify if a single solution is kept after running multiple mutations
     """
-    
+
     def __init__(self,solver: str, mutations_per_model: int, exclude_dict: dict, time_limit: float, seed: int):
         super().__init__("solution verifier", 'sat',solver,mutations_per_model,exclude_dict,time_limit,seed)
         self.mm_mutators = [xor_morph, and_morph, or_morph, implies_morph, not_morph,
@@ -61,10 +61,10 @@ class Solution_Verifier(Verifier):
                 #expected error message, ignore
                 return None
             print('E', end='', flush=True)
-            return dict(type="internalcrash",model=model, originalmodel=self.model_file, mutators=self.mutators,constraints=self.cons ,exception=e,stacktrace=traceback.format_exc())
+            return dict(type=Fuzz_Test_ErrorTypes.internalcrash,model=model, originalmodel=self.model_file, mutators=self.mutators,constraints=self.cons ,exception=e,stacktrace=traceback.format_exc())
         
         # if you got here, the model failed...
-        return dict(type="failed_model",model=model, originalmodel=self.model_file, mutators=self.mutators, constraints=self.cons)
+        return dict(type=Fuzz_Test_ErrorTypes.failed_model,model=model, originalmodel=self.model_file, mutators=self.mutators, constraints=self.cons)
         
  
  
