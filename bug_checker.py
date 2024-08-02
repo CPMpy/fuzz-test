@@ -55,7 +55,7 @@ def mimnimize_bug(failed_model_file:str ,output_dir: str) -> None:
     with open(failed_model_file, 'rb') as fpcl:
         error_data = pickle.loads(fpcl.read())
         original_error = error_data["error"]
-        original_cons = sorted(error_data["error"]["constraints"], key=lambda c: -len(get_variables(c)))
+        original_cons = error_data["error"]["constraints"]
 
         if len(original_cons) == 1:
             with open(join(output_dir, "minimized_"+os.path.basename(failed_model_file)), "wb") as ff:
@@ -65,7 +65,8 @@ def mimnimize_bug(failed_model_file:str ,output_dir: str) -> None:
             verifier_kwargs = {'solver': error_data["solver"], "mutations_per_model": error_data["mutations_per_model"], "exclude_dict": {}, "max_duration": time.time()*3600, "seed": error_data["seed"]}
                         
             new_cons = []
-            for con in original_cons:
+
+            for con in toplevel_list(original_cons):
                 test_cons = original_error["constraints"]
                 test_cons.remove(con)
                 new_error_dict = copy.deepcopy(original_error)
@@ -95,6 +96,8 @@ def run_cmd(failed_model_file: str,cmd : str, output_dir: str) -> None:
         rerun_test(failed_model_file,output_dir) 
     elif cmd == "minimize_report":
         mimnimize_bug(failed_model_file,output_dir)
+    else:
+        raise ValueError("Error command is not supported, please use: 'rerun_test' or 'minimize_report'")
 
 if __name__ == '__main__':
     def check_positive(value):
@@ -118,7 +121,7 @@ if __name__ == '__main__':
 
     # create the output dir if it does not yet exist
     if not Path(args.output_dir).exists():
-        os.mkdir(args.output_dir)
+        os.makedirs(args.output_dir)
 
     # check if we need to run a single test or run multiple 
     files = []
