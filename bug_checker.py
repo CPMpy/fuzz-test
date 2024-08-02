@@ -134,18 +134,13 @@ if __name__ == '__main__':
     set_start_method("spawn")
 
     with Pool(args.amount_of_processes) as pool: 
-        result = pool.starmap(run_cmd, zip(files,repeat(args.cmd),repeat(args.output_dir)))
-
         try:
-            pool.join()
+            result = pool.starmap(run_cmd, zip(files,repeat(args.cmd),repeat(args.output_dir)))
             print("sucessfully checked all the models",flush=True ) 
         except KeyboardInterrupt:
             pass
         finally:
             print("quiting the application",flush=True ) 
-
-            
-            pool.terminate()
             
             sys.exit()
         
