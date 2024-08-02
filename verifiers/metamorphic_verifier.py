@@ -1,12 +1,5 @@
-import pickle
+from verifiers import *
 
-import time
-import cpmpy as cp
-from cpmpy.exceptions import CPMpyException
-
-from fuzz_test_utils.mutators import *
-from .verifier import Verifier
-import traceback
 class Metamorphic_Verifier(Verifier):
     def __init__(self,solver: str, mutations_per_model: int, exclude_dict: dict, max_duration: float, seed: int):
         super().__init__("metamorphic verifier", 'sat',solver,mutations_per_model,exclude_dict,max_duration,seed)

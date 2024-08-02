@@ -1,23 +1,20 @@
 import argparse
 import copy
-from itertools import repeat
-from multiprocessing import Pool, cpu_count, set_start_method
 import os
 import pickle
 import random
 import sys
 import time
 import warnings
+
 from pathlib import Path
 from os.path import join
 from glob import glob
-from verifiers.solution_verifier import Solution_Verifier
-from verifiers.optimization_verifier import Optimization_Verifier
-from verifiers.model_counting_verifier import Model_Count_Verifier
-from verifiers.metamorphic_verifier import Metamorphic_Verifier
-from verifiers.equivalance_verifier import Equivalance_Verifier
+from itertools import repeat
+from multiprocessing import Pool, cpu_count, set_start_method
+from verifiers import *
 from cpmpy.transformations.get_variables import get_variables
-from fuzz_test_utils.output_writer import create_error_output_text
+from fuzz_test_utils import create_error_output_text
 
 def rerun_test(failed_model_file: str, output_dir: str ) -> None:
     """
@@ -102,11 +99,23 @@ def run_cmd(failed_model_file: str,cmd : str, output_dir: str) -> None:
         mimnimize_bug(failed_model_file,output_dir)
 
 if __name__ == '__main__':
+    def check_positive(value):
+        """
+        Small helper function used in the argparser for checking if the input values are positive or not
+        """
+        ivalue = int(value)
+        if ivalue <= 0:
+            raise argparse.ArgumentTypeError("%s is an invalid positive int value" % value)
+        return ivalue
+    
     parser = argparse.ArgumentParser(description = "A Python script for rerunning previous failed models (rerun_test) and minimizing the constraints (minimize_report)")
     
     parser.add_argument("-m", "--models", help = "The path to a single pickle file or the path to a directory containing multiple pickle files", required=False, type=str, default="output")
     parser.add_argument("-c", "--cmd", help = "The cmd to execute rerun_test = rerun the failed model(s) minimize_report= minimize the constraints of the failed model(s)  ", required=False, type=str,choices=["rerun_test","minimize_report"], default="rerun_test")
     parser.add_argument("-o", "--output-dir", help = "The directory to store the output (will be created if it does not exist).", required=False, type=str, default="bug_output")
+    parser.add_argument("-p","--amount-of-processes", help = "The amount of processes that will be used to check the models", required=False, default=cpu_count()-1 ,type=check_positive) # the -1 is for the main process
+
+    
     args = parser.parse_args()
 
     # create the output dir if it does not yet exist
@@ -124,20 +133,19 @@ if __name__ == '__main__':
   
     set_start_method("spawn")
 
-    
-    pool = Pool(cpu_count()-1)
-    result = pool.starmap(run_cmd, zip(files,repeat(args.cmd),repeat(args.output_dir)))
-    
-    try:
-        pool.join()
-        print("sucessfully checked all the models",flush=True ) 
-    except KeyboardInterrupt:
-        pass
-    finally:
-        print("quiting the application",flush=True ) 
+    with Pool(args.amount_of_processes) as pool: 
+        result = pool.starmap(run_cmd, zip(files,repeat(args.cmd),repeat(args.output_dir)))
 
-        pool.close()
-        pool.terminate()
-          
-        sys.exit()
+        try:
+            pool.join()
+            print("sucessfully checked all the models",flush=True ) 
+        except KeyboardInterrupt:
+            pass
+        finally:
+            print("quiting the application",flush=True ) 
+
+            
+            pool.terminate()
+            
+            sys.exit()
         

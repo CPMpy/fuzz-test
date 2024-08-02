@@ -1,7 +1,4 @@
-import random
-import traceback
-from cpmpy.exceptions import CPMpyException
-from fuzz_test_utils.mutators import *
+from verifiers import *
 
 class Verifier():
     """
