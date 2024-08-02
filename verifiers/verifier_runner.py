@@ -46,7 +46,7 @@ def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver
             error = random_verifier.run(fmodel)
             execution_time = math.floor(time.time() - start_time)
             # check if we got an error
-            if not (error == None):
+            if error is not None:
                 lock.acquire()
                 try:
                     error_data = {'verifier':random_verifier.getName(),'solver' : solver, 'mutations_per_model' : mutations_per_model, "seed": random_seed, "execution_time": execution_time, "error" :error}

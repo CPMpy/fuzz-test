@@ -18,7 +18,7 @@ from fuzz_test_utils import create_error_output_text
 
 def rerun_test(failed_model_file: str, output_dir: str ) -> None:
     """
-        function to rerun a previously failed model to see if the error is still present or not
+        function to rerun a previously failed fuzz-tested model to see if the error is still present or not
         if its still present new output files will be generated in the output_dir
         if the error is fixed there will be no output file
         Args:
@@ -34,12 +34,11 @@ def rerun_test(failed_model_file: str, output_dir: str ) -> None:
 
             error = lookup_verifier(error_data["verifier"])(**verifier_kwargs).rerun(error_data["error"])
             
-            new_error_Data = error_data
-            new_error_Data["error"] = error
+            error_data["error"] = error
             
-            if error != None:
+            if error is not None:
                 with open(join(output_dir, os.path.basename(failed_model_file)), "wb") as ff:
-                    pickle.dump(new_error_Data, file=ff) 
+                    pickle.dump(error_data, file=ff) 
                         
                 
 
@@ -72,7 +71,7 @@ def mimnimize_bug(failed_model_file:str ,output_dir: str) -> None:
                 new_error_dict = copy.deepcopy(original_error)
                 
                 new_error = lookup_verifier(error_data["verifier"])(**verifier_kwargs).rerun(new_error_dict)  
-                if new_error != None: 
+                if new_error is not None: 
                     # if we still get the error than the constraint is responsible so we keep it
                     new_cons.append(con)
             error_data["error"]["constraints"] = new_cons    
