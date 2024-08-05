@@ -1,11 +1,11 @@
 import inspect
 
 import cpmpy
-from cpmpy import Model, SolverLookup, BoolVal
+import fuzz_test_utils as fu
+from cpmpy import SolverLookup, BoolVal
 from cpmpy.expressions.globalconstraints import *
 from cpmpy.expressions.globalfunctions import *
 
-from save_test_model import save_test_model, save_test_constraints
 import pytest
 
 # CHANGE THIS if you want test a different solver
@@ -276,12 +276,11 @@ def test_bool_constaints(solver, constraint):
     """
         Tests boolean constraint by posting it to the solver and checking the value after solve.
     """
-    save_test_constraints(constraint)
     if ALL_SOLS:
-        n_sols = SolverLookup.get(solver, Model(constraint)).solveAll(display=lambda: verify(constraint))
+        n_sols = SolverLookup.get(solver, fu.Model(constraint)).solveAll(display=lambda: verify(constraint))
         assert n_sols >= 1
     else:
-        assert SolverLookup.get(solver, Model(constraint)).solve()
+        assert SolverLookup.get(solver, fu.Model(constraint)).solve()
         assert argval(constraint)
         assert constraint.value()
 
@@ -291,12 +290,11 @@ def test_comparison_constraints(solver, constraint):
     """
         Tests comparison constraint by posting it to the solver and checking the value after solve.
     """
-    save_test_constraints(constraint)
     if ALL_SOLS:
-        n_sols = SolverLookup.get(solver, Model(constraint)).solveAll(display= lambda: verify(constraint))
+        n_sols = SolverLookup.get(solver, fu.Model(constraint)).solveAll(display= lambda: verify(constraint))
         assert n_sols >= 1
     else:
-        assert SolverLookup.get(solver,Model(constraint)).solve()
+        assert SolverLookup.get(solver,fu.Model(constraint)).solve()
         assert argval(constraint)
         assert constraint.value()
 
@@ -306,11 +304,10 @@ def test_reify_imply_constraints(solver, constraint):
     """
         Tests boolean expression by posting it to solver and checking the value after solve.
     """
-    save_test_constraints(constraint)
     if ALL_SOLS:
-        n_sols = SolverLookup.get(solver, Model(constraint)).solveAll(display=lambda: verify(constraint))
+        n_sols = SolverLookup.get(solver, fu.Model(constraint)).solveAll(display=lambda: verify(constraint))
         assert n_sols >= 1
     else:
-        assert SolverLookup.get(solver, Model(constraint)).solve()
+        assert SolverLookup.get(solver, fu.Model(constraint)).solve()
         assert argval(constraint)
         assert constraint.value()
