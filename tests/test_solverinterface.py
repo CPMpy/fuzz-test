@@ -10,6 +10,7 @@ from cpmpy.transformations.flatten_model import flatten_constraint
 
 SOLVER_CLASS = CPM_ortools  # Replace by your own solver class
 
+import fuzz_test_utils as fu
 
 class TestInterface(unittest.TestCase):
 

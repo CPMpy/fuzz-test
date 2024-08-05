@@ -5,6 +5,7 @@ import cpmpy as cp
 from cpmpy.tools import mss_opt
 from cpmpy.tools.explain import mus, mus_naive, quickxplain, quickxplain_naive, mss, mcs
 
+import fuzz_test_utils as fu
 
 class MusTests(TestCase):
 
@@ -81,10 +82,10 @@ class MusTests(TestCase):
         #self.assertEqual(set(mus(cons)), set(cons[1:3]))
         ms = self.mus_func(cons)
         self.assertLess(len(ms), len(cons))
-        self.assertFalse(cp.Model(ms).solve())
+        self.assertFalse(fu.Model(ms).solve())
         ms = self.naive_func(cons)
         self.assertLess(len(ms), len(cons))
-        self.assertFalse(cp.Model(ms).solve())
+        self.assertFalse(fu.Model(ms).solve())
         # self.assertEqual(set(self.naive_func(cons)), set(cons[:2]))
 
 

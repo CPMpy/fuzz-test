@@ -4,6 +4,9 @@ import tempfile
 import cpmpy as cp
 from cpmpy.tools.dimacs import read_dimacs, write_dimacs
 from cpmpy.transformations.get_variables import get_variables_model
+
+import fuzz_test_utils as fu
+
 class CNFTool(unittest.TestCase):
 
 
@@ -75,7 +78,7 @@ class CNFTool(unittest.TestCase):
 
         a,b,c = [cp.boolvar(name=n) for n in "abc"]
 
-        m = cp.Model()
+        m = fu.Model()
         m += cp.any([a,b,c])
         m += b.implies(~c)
         m += a <= 0

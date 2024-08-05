@@ -6,6 +6,7 @@ import pytest
 from cpmpy import *
 from cpmpy.solvers import CPM_gurobi, CPM_pysat, CPM_minizinc, CPM_pysdd, CPM_z3, CPM_exact, CPM_choco
 
+import fuzz_test_utils as fu
 
 class TestDirectORTools(unittest.TestCase):
 

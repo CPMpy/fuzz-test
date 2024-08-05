@@ -4,6 +4,7 @@ from cpmpy import *
 from cpmpy.transformations.flatten_model import flatten_constraint
 from cpmpy.transformations.decompose_global import decompose_in_tree
 from cpmpy.expressions.variables import _IntVarImpl, _BoolVarImpl  # to reset counters
+import fuzz_test_utils as fu
 
 
 class TestTransfDecomp(unittest.TestCase):

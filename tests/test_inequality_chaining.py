@@ -1,5 +1,6 @@
 from cpmpy import *
 import unittest
+import fuzz_test_utils as fu
 
 class TestInequalityChaining(unittest.TestCase):
     def test_chaining_lt(self):

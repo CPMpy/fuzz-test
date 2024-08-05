@@ -2,6 +2,7 @@ import unittest
 import pytest
 from cpmpy import *
 from cpmpy.solvers import CPM_pysat
+import fuzz_test_utils as fu
 
 def frietkot():
     # Construct the model.

@@ -12,6 +12,7 @@ from cpmpy.solvers.choco import CPM_choco
 
 
 from cpmpy.exceptions import MinizincNameException
+import fuzz_test_utils as fu
 
 class TestSolvers(unittest.TestCase):
     def test_installed_solvers(self):
@@ -19,7 +20,7 @@ class TestSolvers(unittest.TestCase):
         v = cp.boolvar(3)
         x,y,z = v
 
-        model = cp.Model(
+        model = fu.Model(
                     x.implies(y & z),
                     y | z,
                     ~ z
@@ -46,7 +47,7 @@ class TestSolvers(unittest.TestCase):
         v = cp.boolvar(3)
         x,y,z = v
 
-        model = cp.Model(
+        model = fu.Model(
                     x.implies(y & z),
                     y | z
                 )
@@ -75,7 +76,7 @@ class TestSolvers(unittest.TestCase):
         # sum over all elements in 2D matrix
         objective = (x*distance_matrix).sum()
 
-        model = cp.Model(constraint, minimize=objective)
+        model = fu.Model(constraint, minimize=objective)
         self.assertTrue(model.solve())
         self.assertEqual(model.objective_value(), 214)
         self.assertEqual(x.value().tolist(),
@@ -92,26 +93,26 @@ class TestSolvers(unittest.TestCase):
 
         # reifiability (automatic handling in case of !=)
         # TODO, side-effect that his work...
-        #self.assertTrue( cp.Model(b.implies((x[0]*x[1]) == x[2])).solve() )
-        #self.assertTrue( cp.Model(b.implies((x[0]*x[1]) != x[2])).solve() )
-        #self.assertTrue( cp.Model(((x[0]*x[1]) == x[2]).implies(b)).solve() )
-        #self.assertTrue( cp.Model(((x[0]*x[1]) != x[2]).implies(b)).solve() )
-        #self.assertTrue( cp.Model(((x[0]*x[1]) == x[2]) == b).solve() )
-        #self.assertTrue( cp.Model(((x[0]*x[1]) != x[2]) == b).solve() )
+        #self.assertTrue( fu.Model(b.implies((x[0]*x[1]) == x[2])).solve() )
+        #self.assertTrue( fu.Model(b.implies((x[0]*x[1]) != x[2])).solve() )
+        #self.assertTrue( fu.Model(((x[0]*x[1]) == x[2]).implies(b)).solve() )
+        #self.assertTrue( fu.Model(((x[0]*x[1]) != x[2]).implies(b)).solve() )
+        #self.assertTrue( fu.Model(((x[0]*x[1]) == x[2]) == b).solve() )
+        #self.assertTrue( fu.Model(((x[0]*x[1]) != x[2]) == b).solve() )
         
         # table
         t = cp.Table([x[0],x[1]], [[2,6],[7,3]])
 
-        m = cp.Model(t, minimize=x[0])
+        m = fu.Model(t, minimize=x[0])
         self.assertTrue(m.solve())
         self.assertEqual( m.objective_value(), 2 )
 
-        m = cp.Model(t, maximize=x[0])
+        m = fu.Model(t, maximize=x[0])
         self.assertTrue(m.solve())
         self.assertEqual( m.objective_value(), 7 )
 
         # modulo
-        self.assertTrue( cp.Model([ x[0] == x[1] % x[2] ]).solve() )
+        self.assertTrue( fu.Model([ x[0] == x[1] % x[2] ]).solve() )
 
     def test_ortools_inverse(self):
         from cpmpy.solvers.ortools import CPM_ortools
@@ -124,7 +125,7 @@ class TestSolvers(unittest.TestCase):
         # Inverse of the above
         expected_inverse = [8, 4, 3, 5, 1, 9, 7, 2, 6, 0]
 
-        model = cp.Model(cp.Inverse(fwd, rev), fwd == fixed_fwd)
+        model = fu.Model(cp.Inverse(fwd, rev), fwd == fixed_fwd)
 
         solver = CPM_ortools(model)
         self.assertTrue(solver.solve())
@@ -142,7 +143,7 @@ class TestSolvers(unittest.TestCase):
 
         # standard use
         x = cp.intvar(0,3, shape=2)
-        m = cp.Model([x[0] > x[1]])
+        m = fu.Model([x[0] > x[1]])
         self.assertTrue(m.solve())
         self.assertGreater(*x.value())
 
@@ -163,7 +164,7 @@ class TestSolvers(unittest.TestCase):
         # direct ways of setting params/sol enum now
         # advanced solver params
         x = cp.intvar(0,3, shape=2)
-        m = cp.Model([x[0] > x[1]])
+        m = fu.Model([x[0] > x[1]])
         s = CPM_ortools(m)
         s.ort_solver.parameters.linearization_level = 2 # more linearisation heuristics
         s.ort_solver.parameters.num_search_workers = 8 # nr of concurrent threads
@@ -182,7 +183,7 @@ class TestSolvers(unittest.TestCase):
         cb = ORT_solcount()
 
         x = cp.intvar(0,3, shape=2)
-        m = cp.Model([x[0] > x[1]])
+        m = fu.Model([x[0] > x[1]])
         s = CPM_ortools(m)
         s.ort_solver.parameters.enumerate_all_solutions=True
         cpm_status = s.solve(solution_callback=cb)
@@ -209,7 +210,7 @@ class TestSolvers(unittest.TestCase):
         cb = ORT_myprint(s._varmap, x)
 
         x = cp.intvar(0,3, shape=2)
-        m = cp.Model([x[0] > x[1]])
+        m = fu.Model([x[0] > x[1]])
         s = CPM_ortools(m)
         s.ort_solver.parameters.enumerate_all_solutions=True
         cpm_status = s.solve(solution_callback=cb)
@@ -218,7 +219,7 @@ class TestSolvers(unittest.TestCase):
 
 
         # intermediate solutions
-        m_opt = cp.Model([x[0] > x[1]], maximize=sum(x))
+        m_opt = fu.Model([x[0] > x[1]], maximize=sum(x))
         s = CPM_ortools(m_opt)
         cpm_status = s.solve(solution_callback=cb)
         self.assertEqual(s.objective_value(), 5.0)
@@ -229,7 +230,7 @@ class TestSolvers(unittest.TestCase):
 
         # manually enumerating solutions
         x = cp.intvar(0,3, shape=2)
-        m = cp.Model([x[0] > x[1]])
+        m = fu.Model([x[0] > x[1]])
         s = CPM_ortools(m)
         solcount = 0
         while(s.solve()):
@@ -253,7 +254,7 @@ class TestSolvers(unittest.TestCase):
         bv = cp.boolvar(shape=3)
         iv = cp.intvar(0,9, shape=3)
         # circular 'bigger then', UNSAT
-        m = cp.Model([
+        m = fu.Model([
             bv[0].implies(iv[0] > iv[1]),
             bv[1].implies(iv[1] > iv[2]),
             bv[2].implies(iv[2] > iv[0])
@@ -270,7 +271,7 @@ class TestSolvers(unittest.TestCase):
 
         bv1, bv2, bv3 = [cp.boolvar(name=f"bv{i}") for i in range(1,4)]
 
-        model = cp.Model()
+        model = fu.Model()
 
         model += b != 1
         model += b != 2
@@ -321,7 +322,7 @@ class TestSolvers(unittest.TestCase):
 
         allwishes = [Nora, Leander, Benjamin, Behrouz, Guy, Daan, Celine, Anton, Danny, Luc]
 
-        model = cp.Model(allwishes)
+        model = fu.Model(allwishes)
 
         # any solver
         self.assertTrue(model.solve())
@@ -331,7 +332,7 @@ class TestSolvers(unittest.TestCase):
         self.assertTrue(ps.solve())
         self.assertEqual([False, True, False, True, False], [v.value() for v in [mayo, ketchup, curry, andalouse, samurai]])
 
-        indmodel = cp.Model()
+        indmodel = fu.Model()
         inds = cp.boolvar(shape=len(model.constraints))
         for i,c in enumerate(model.constraints):
             indmodel += [c | ~inds[i]] # implication
@@ -354,26 +355,26 @@ class TestSolvers(unittest.TestCase):
         x = cp.intvar(1,13, shape=3)
 
         # reifiability (automatic handling in case of !=)
-        self.assertTrue( cp.Model(b.implies((x[0]*x[1]) == x[2])).solve(solver="minizinc") )
-        self.assertTrue( cp.Model(b.implies((x[0]*x[1]) != x[2])).solve(solver="minizinc") )
-        self.assertTrue( cp.Model(((x[0]*x[1]) == x[2]).implies(b)).solve(solver="minizinc") )
-        self.assertTrue( cp.Model(((x[0]*x[1]) != x[2]).implies(b)).solve(solver="minizinc") )
-        self.assertTrue( cp.Model(((x[0]*x[1]) == x[2]) == b).solve(solver="minizinc") )
-        self.assertTrue( cp.Model(((x[0]*x[1]) != x[2]) == b).solve(solver="minizinc") )
+        self.assertTrue( fu.Model(b.implies((x[0]*x[1]) == x[2])).solve(solver="minizinc") )
+        self.assertTrue( fu.Model(b.implies((x[0]*x[1]) != x[2])).solve(solver="minizinc") )
+        self.assertTrue( fu.Model(((x[0]*x[1]) == x[2]).implies(b)).solve(solver="minizinc") )
+        self.assertTrue( fu.Model(((x[0]*x[1]) != x[2]).implies(b)).solve(solver="minizinc") )
+        self.assertTrue( fu.Model(((x[0]*x[1]) == x[2]) == b).solve(solver="minizinc") )
+        self.assertTrue( fu.Model(((x[0]*x[1]) != x[2]) == b).solve(solver="minizinc") )
         
         # table
         t = cp.Table([x[0],x[1]], [[2,6],[7,3]])
 
-        m = cp.Model(t, minimize=x[0])
+        m = fu.Model(t, minimize=x[0])
         self.assertTrue(m.solve(solver="minizinc"))
         self.assertEqual( m.objective_value(), 2 )
 
-        m = cp.Model(t, maximize=x[0])
+        m = fu.Model(t, maximize=x[0])
         self.assertTrue(m.solve(solver="minizinc"))
         self.assertEqual( m.objective_value(), 7 )
 
         # modulo
-        self.assertTrue( cp.Model([ x[0] == x[1] % x[2] ]).solve(solver="minizinc") )
+        self.assertTrue( fu.Model([ x[0] == x[1] % x[2] ]).solve(solver="minizinc") )
 
 
     @pytest.mark.skipif(not CPM_minizinc.supported(),
@@ -383,11 +384,11 @@ class TestSolvers(unittest.TestCase):
         b = cp.boolvar(name='va+r')#no special characters
         c = cp.boolvar(name='solve')#no keywords
         with self.assertRaises(MinizincNameException):
-            cp.Model(a == 0).solve(solver="minizinc")
+            fu.Model(a == 0).solve(solver="minizinc")
         with self.assertRaises(MinizincNameException):
-            cp.Model(b == 0).solve(solver="minizinc")
+            fu.Model(b == 0).solve(solver="minizinc")
         with self.assertRaises(MinizincNameException):
-            cp.Model(c == 0).solve(solver="minizinc")
+            fu.Model(c == 0).solve(solver="minizinc")
 
     @pytest.mark.skipif(not CPM_minizinc.supported(),
                         reason="MiniZinc not installed")
@@ -402,7 +403,7 @@ class TestSolvers(unittest.TestCase):
         # Inverse of the above
         expected_inverse = [8, 4, 3, 5, 1, 9, 7, 2, 6, 0]
 
-        model = cp.Model(cp.Inverse(fwd, rev), fwd == fixed_fwd)
+        model = fu.Model(cp.Inverse(fwd, rev), fwd == fixed_fwd)
 
         solver = CPM_minizinc(model)
         self.assertTrue(solver.solve())
@@ -416,13 +417,13 @@ class TestSolvers(unittest.TestCase):
         iv = cp.intvar(-8, 8, shape=5)
         occ = cp.intvar(0, len(iv), shape=3)
         val = [1, 4, 5]
-        model = cp.Model([cp.GlobalCardinalityCount(iv, val, occ)])
+        model = fu.Model([cp.GlobalCardinalityCount(iv, val, occ)])
         solver = CPM_minizinc(model)
         self.assertTrue(solver.solve())
         self.assertTrue(cp.GlobalCardinalityCount(iv, val, occ).value())
         self.assertTrue(all(cp.Count(iv, val[i]).value() == occ[i].value() for i in range(len(val))))
         occ = [2, 3, 0]
-        model = cp.Model([cp.GlobalCardinalityCount(iv, val, occ), cp.AllDifferent(val)])
+        model = fu.Model([cp.GlobalCardinalityCount(iv, val, occ), cp.AllDifferent(val)])
         solver = CPM_minizinc(model)
         self.assertTrue(solver.solve())
         self.assertTrue(cp.GlobalCardinalityCount(iv, val, occ).value())
@@ -435,7 +436,7 @@ class TestSolvers(unittest.TestCase):
         bv = cp.boolvar(shape=3)
         iv = cp.intvar(0, 9, shape=3)
         # circular 'bigger then', UNSAT
-        m = cp.Model([
+        m = fu.Model([
             bv[0].implies(iv[0] > iv[1]),
             bv[1].implies(iv[1] > iv[2]),
             bv[2].implies(iv[2] > iv[0])
@@ -444,42 +445,42 @@ class TestSolvers(unittest.TestCase):
         self.assertFalse(s.solve(assumptions=bv))
         self.assertTrue(len(s.get_core()) > 0)
 
-        m = cp.Model(~(iv[0] != iv[1]))
+        m = fu.Model(~(iv[0] != iv[1]))
         s = cp.SolverLookup.get("z3", m)
         self.assertTrue(s.solve())
 
-        m = cp.Model((iv[0] == 0) & ((iv[0] != iv[1]) == 0))
+        m = fu.Model((iv[0] == 0) & ((iv[0] != iv[1]) == 0))
         s = cp.SolverLookup.get("z3", m)
         self.assertTrue(s.solve())
 
-        m = cp.Model([~bv, ~((iv[0] + abs(iv[1])) == sum(iv))])
+        m = fu.Model([~bv, ~((iv[0] + abs(iv[1])) == sum(iv))])
         s = cp.SolverLookup.get("z3", m)
         self.assertTrue(s.solve())
 
         x = cp.intvar(0, 1)
-        m = cp.Model((x >= 0.1) & (x != 1))
+        m = fu.Model((x >= 0.1) & (x != 1))
         s = cp.SolverLookup.get("z3", m)
         self.assertFalse(s.solve()) # upgrade z3 with pip install --upgrade z3-solver
 
     def test_pow(self):
         iv1 = cp.intvar(2,9)
         for i in [0,1,2]:
-            self.assertTrue( cp.Model( iv1**i >= 0 ).solve() )
+            self.assertTrue( fu.Model( iv1**i >= 0 ).solve() )
 
     def test_objective(self):
         iv = cp.intvar(0,10, shape=2)
-        m = cp.Model(iv >= 1, iv <= 5, maximize=sum(iv))
+        m = fu.Model(iv >= 1, iv <= 5, maximize=sum(iv))
         self.assertTrue( m.solve() )
         self.assertEqual( m.objective_value(), 10 )
 
-        m = cp.Model(iv >= 1, iv <= 5, minimize=sum(iv))
+        m = fu.Model(iv >= 1, iv <= 5, minimize=sum(iv))
         self.assertTrue( m.solve() )
         self.assertEqual( m.objective_value(), 2 )
 
     def test_only_objective(self):
         # from test_sum_unary and #95
         v = cp.intvar(1,9)
-        model = cp.Model(minimize=sum([v]))
+        model = fu.Model(minimize=sum([v]))
         self.assertTrue(model.solve())
         self.assertEqual(v.value(), 1)
 
@@ -490,7 +491,7 @@ class TestSolvers(unittest.TestCase):
         bv = cp.boolvar(shape=3)
         iv = cp.intvar(0, 9, shape=3)
         # circular 'bigger then', UNSAT
-        m = cp.Model([
+        m = fu.Model([
             bv[0].implies(iv[0] > iv[1]),
             bv[1].implies(iv[1] > iv[2]),
             bv[2].implies(iv[2] > iv[0])
@@ -499,15 +500,15 @@ class TestSolvers(unittest.TestCase):
         self.assertFalse(s.solve(assumptions=bv))
         self.assertTrue({x for x in s.get_core()}=={x for x in bv})
 
-        m = cp.Model(~(iv[0] != iv[1]))
+        m = fu.Model(~(iv[0] != iv[1]))
         s = cp.SolverLookup.get("exact", m)
         self.assertTrue(s.solve())
 
-        m = cp.Model((iv[0] == 0) & ((iv[0] != iv[1]) == 0))
+        m = fu.Model((iv[0] == 0) & ((iv[0] != iv[1]) == 0))
         s = cp.SolverLookup.get("exact", m)
         self.assertTrue(s.solve())
 
-        m = cp.Model([~bv, ~((iv[0] + abs(iv[1])) == sum(iv))])
+        m = fu.Model([~bv, ~((iv[0] + abs(iv[1])) == sum(iv))])
         s = cp.SolverLookup.get("exact", m)
         self.assertTrue(s.solve())
 
@@ -515,7 +516,7 @@ class TestSolvers(unittest.TestCase):
         def _trixor_callback():
             assert bv[0]+bv[1]+bv[2] >= 1
 
-        m = cp.Model([bv[0] | bv[1] | bv[2]])
+        m = fu.Model([bv[0] | bv[1] | bv[2]])
         s = cp.SolverLookup.get("exact", m)
         self.assertEqual(s.solveAll(display=_trixor_callback),7)
 
@@ -523,7 +524,7 @@ class TestSolvers(unittest.TestCase):
     # minizinc: ignore inconsistency warning when deliberately testing unsatisfiable model
     @pytest.mark.filterwarnings("ignore:model inconsistency detected")
     def test_false(self):
-        m = cp.Model([cp.boolvar(), False])
+        m = fu.Model([cp.boolvar(), False])
         for name, cls in cp.SolverLookup.base_solvers():
             if cls.supported():
                 self.assertFalse(m.solve(solver=name))
@@ -534,7 +535,7 @@ class TestSolvers(unittest.TestCase):
         bv = cp.boolvar(shape=3)
         iv = cp.intvar(0, 9, shape=3)
         # circular 'bigger then', UNSAT
-        m = cp.Model([
+        m = fu.Model([
             bv[0].implies(iv[0] > iv[1]),
             bv[1].implies(iv[1] > iv[2]),
             bv[2].implies(iv[2] > iv[0])
@@ -544,15 +545,15 @@ class TestSolvers(unittest.TestCase):
 
         self.assertFalse(s.solve())
 
-        m = cp.Model(~(iv[0] != iv[1]))
+        m = fu.Model(~(iv[0] != iv[1]))
         s = cp.SolverLookup.get("choco", m)
         self.assertTrue(s.solve())
 
-        m = cp.Model((iv[0] == 0) & ((iv[0] != iv[1]) == 0))
+        m = fu.Model((iv[0] == 0) & ((iv[0] != iv[1]) == 0))
         s = cp.SolverLookup.get("choco", m)
         self.assertTrue(s.solve())
 
-        m = cp.Model([~bv, ~((iv[0] + abs(iv[1])) == sum(iv))])
+        m = fu.Model([~bv, ~((iv[0] + abs(iv[1])) == sum(iv))])
         s = cp.SolverLookup.get("choco", m)
         self.assertTrue(s.solve())
 
@@ -565,14 +566,14 @@ class TestSolvers(unittest.TestCase):
         idx = cp.intvar(-8, 8)
         # test directly the constraint
         constraints = [cp.Element(iv, idx) == 8]
-        model = cp.Model(constraints)
+        model = fu.Model(constraints)
         s = cp.SolverLookup.get("choco", model)
         self.assertTrue(s.solve())
         self.assertTrue(iv.value()[idx.value()] == 8)
         self.assertTrue(cp.Element(iv, idx).value() == 8)
         # test through __get_item__
         constraints = [iv[idx] == 8]
-        model = cp.Model(constraints)
+        model = fu.Model(constraints)
         s = cp.SolverLookup.get("choco", model)
         self.assertTrue(s.solve())
         self.assertTrue(iv.value()[idx.value()] == 8)
@@ -582,7 +583,7 @@ class TestSolvers(unittest.TestCase):
         idx = cp.intvar(0, 3)
         idx2 = cp.intvar(0, 3)
         constraints = [iv[idx, idx2] == 8]
-        model = cp.Model(constraints)
+        model = fu.Model(constraints)
         s = cp.SolverLookup.get("choco", model)
         self.assertTrue(s.solve())
         self.assertTrue(iv.value()[idx.value(), idx2.value()] == 8)
@@ -594,13 +595,13 @@ class TestSolvers(unittest.TestCase):
         iv = cp.intvar(-8, 8, shape=5)
         occ = cp.intvar(0, len(iv), shape=3)
         val = [1, 4, 5]
-        model = cp.Model([cp.GlobalCardinalityCount(iv, val, occ)])
+        model = fu.Model([cp.GlobalCardinalityCount(iv, val, occ)])
         solver = cp.SolverLookup.get("choco", model)
         self.assertTrue(solver.solve())
         self.assertTrue(cp.GlobalCardinalityCount(iv, val, occ).value())
         self.assertTrue(all(cp.Count(iv, val[i]).value() == occ[i].value() for i in range(len(val))))
         occ = [2, 3, 0]
-        model = cp.Model([cp.GlobalCardinalityCount(iv, val, occ), cp.AllDifferent(val)])
+        model = fu.Model([cp.GlobalCardinalityCount(iv, val, occ), cp.AllDifferent(val)])
         solver = cp.SolverLookup.get("choco", model)
         self.assertTrue(solver.solve())
         self.assertTrue(cp.GlobalCardinalityCount(iv, val, occ).value())
@@ -620,7 +621,7 @@ class TestSolvers(unittest.TestCase):
         # Inverse of the above
         expected_inverse = [8, 4, 3, 5, 1, 9, 7, 2, 6, 0]
 
-        model = cp.Model(cp.Inverse(fwd, rev), fwd == fixed_fwd)
+        model = fu.Model(cp.Inverse(fwd, rev), fwd == fixed_fwd)
 
         solver = cp.SolverLookup.get("choco", model)
         self.assertTrue(solver.solve())
@@ -630,12 +631,12 @@ class TestSolvers(unittest.TestCase):
                         reason="pychoco not installed")
     def test_choco_objective(self):
         iv = cp.intvar(0,10, shape=2)
-        m = cp.Model(iv >= 1, iv <= 5, maximize=sum(iv))
+        m = fu.Model(iv >= 1, iv <= 5, maximize=sum(iv))
         s = cp.SolverLookup.get("choco", m)
         self.assertTrue( s.solve() )
         self.assertEqual( s.objective_value(), 10)
 
-        m = cp.Model(iv >= 1, iv <= 5, minimize=sum(iv))
+        m = fu.Model(iv >= 1, iv <= 5, minimize=sum(iv))
         s = cp.SolverLookup.get("choco", m)
         self.assertTrue( s.solve() )
         self.assertEqual(s.objective_value(), 2)
@@ -648,14 +649,14 @@ class TestSolvers(unittest.TestCase):
         idx = cp.intvar(-8, 8)
         # test directly the constraint
         constraints = [cp.Element(iv,idx) == 8]
-        model = cp.Model(constraints)
+        model = fu.Model(constraints)
         s = cp.SolverLookup.get("gurobi", model)
         self.assertTrue(s.solve())
         self.assertTrue(iv.value()[idx.value()] == 8)
         self.assertTrue(cp.Element(iv,idx).value() == 8)
         # test through __get_item__
         constraints = [iv[idx] == 8]
-        model = cp.Model(constraints)
+        model = fu.Model(constraints)
         s = cp.SolverLookup.get("gurobi", model)
         self.assertTrue(s.solve())
         self.assertTrue(iv.value()[idx.value()] == 8)
@@ -665,7 +666,7 @@ class TestSolvers(unittest.TestCase):
         idx = cp.intvar(0, 3)
         idx2 = cp.intvar(0, 3)
         constraints = [iv[idx,idx2] == 8]
-        model = cp.Model(constraints)
+        model = fu.Model(constraints)
         s = cp.SolverLookup.get("gurobi", model)
         self.assertTrue(s.solve())
         self.assertTrue(iv.value()[idx.value(), idx2.value()] == 8)
@@ -673,7 +674,7 @@ class TestSolvers(unittest.TestCase):
 
     def test_vars_not_removed(self):
         bvs = cp.boolvar(shape=3)
-        m = cp.Model([cp.any(bvs) <= 2])
+        m = fu.Model([cp.any(bvs) <= 2])
         for name, cls in cp.SolverLookup.base_solvers():
             print(f"Testing with {name}")
             if cls.supported():
@@ -705,5 +706,5 @@ class TestSolvers(unittest.TestCase):
         y = cp.intvar(0,1)
         wsum = Operator("wsum", [[1,2,3],[x,y,cp.Count(iv,3)]])
 
-        m = cp.Model([x + y == 2, wsum == 9])
+        m = fu.Model([x + y == 2, wsum == 9])
         self.assertTrue(m.solve(solver="minizinc"))

@@ -6,6 +6,7 @@ from cpmpy.transformations.to_cnf import to_cnf
 from cpmpy.transformations.get_variables import get_variables
 from cpmpy.expressions.core import Operator
 from cpmpy.expressions.globalconstraints import Xor
+import fuzz_test_utils as fu
 
 class TestToCnf(unittest.TestCase):
     def test_tocnf(self):

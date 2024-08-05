@@ -3,6 +3,8 @@ import cpmpy as cp
 from cpmpy.transformations.flatten_model import *
 from cpmpy.expressions.variables import _IntVarImpl, _BoolVarImpl
 
+import fuzz_test_utils as fu
+
 class TestFlattenModel(unittest.TestCase):
     def setUp(self):
         self.ivars = cp.intvar(1, 10, (5,))
@@ -11,15 +13,15 @@ class TestFlattenModel(unittest.TestCase):
         self.constraints = [iv != 3 for iv in self.ivars]
 
     def test_constraints(self):
-        model = cp.Model(self.constraints)
+        model = fu.Model(self.constraints)
         model2 = flatten_model(model)
-        self.assertTrue(isinstance(model2, cp.Model))
+        self.assertTrue(isinstance(model2, fu.Model))
         self.assertTrue(hasattr(model2, 'constraints'))
         self.assertTrue(len(model2.constraints) > 1)
 
     def test_objective(self):
         obj = self.ivars.sum()
-        model = cp.Model(self.constraints, maximize=obj)
+        model = fu.Model(self.constraints, maximize=obj)
         model2 = flatten_model(model)
         self.assertTrue(model2.objective_ is not None)
         self.assertFalse(model2.objective_is_min)
@@ -27,13 +29,13 @@ class TestFlattenModel(unittest.TestCase):
     def test_abs(self):
         l = cp.intvar(0,9, shape=3)
         # bounds used to be computed wrong, making both unsat
-        self.assertTrue( cp.Model(abs(l[0]-l[1])- abs(l[2]-l[1]) < 0).solve() )
-        self.assertTrue( cp.Model(abs(l[0]-l[1])- abs(l[2]-l[1]) > 0).solve() )
+        self.assertTrue( fu.Model(abs(l[0]-l[1])- abs(l[2]-l[1]) < 0).solve() )
+        self.assertTrue( fu.Model(abs(l[0]-l[1])- abs(l[2]-l[1]) > 0).solve() )
 
     def test_mod(self):
         iv1 = cp.intvar(2,9)
         iv2 = cp.intvar(5,9)
-        m = cp.Model([(iv1+iv2) % 2 >= 0, (iv1+iv2) % 2 <= 1])
+        m = fu.Model([(iv1+iv2) % 2 >= 0, (iv1+iv2) % 2 <= 1])
         self.assertTrue( m.solve() )
 
 

@@ -3,6 +3,7 @@ import pytest
 import cpmpy as cp 
 from cpmpy.expressions import *
 from cpmpy.solvers.pysat import CPM_pysat
+import fuzz_test_utils as fu
 
 @pytest.mark.skipif(not CPM_pysat.supported(),
                     reason="PySAT not installed")
@@ -13,7 +14,7 @@ class TestCardinality(unittest.TestCase):
 
     def test_pysat_atmost(self):
 
-        atmost = cp.Model(
+        atmost = fu.Model(
             sum(self.bvs) < 2
         )
         ps = CPM_pysat(atmost)
@@ -24,7 +25,7 @@ class TestCardinality(unittest.TestCase):
 
     def test_pysat_atmost_edge_case(self):
 
-        atmost = cp.Model(
+        atmost = fu.Model(
             sum(self.bvs) < 8,
             sum(self.bvs) < 1,
         )
@@ -35,7 +36,7 @@ class TestCardinality(unittest.TestCase):
 
     def test_pysat_atleast(self):
 
-        atmost = cp.Model(
+        atmost = fu.Model(
             sum(self.bvs) > 2
         )
         ps = CPM_pysat(atmost)
@@ -45,7 +46,7 @@ class TestCardinality(unittest.TestCase):
 
     def test_pysat_atleast_edge_case(self):
 
-        atmost = cp.Model(
+        atmost = fu.Model(
             sum(self.bvs) < 0
         )
 
@@ -54,14 +55,14 @@ class TestCardinality(unittest.TestCase):
 
 
     def test_pysat_equals(self):
-        equals = cp.Model(
+        equals = fu.Model(
             sum(self.bvs) == 2
         )
         ps = CPM_pysat(equals)
         self.assertTrue(ps.solve())
         self.assertEqual(sum(self.bvs.value()), 2)
 
-        equals2 = cp.Model(
+        equals2 = fu.Model(
             sum(self.bvs) >= 2,
             sum(self.bvs) <= 2,
         )
@@ -69,7 +70,7 @@ class TestCardinality(unittest.TestCase):
         self.assertTrue(ps2.solve())
         self.assertEqual(sum(self.bvs.value()), 2)
 
-        equals3 = cp.Model(
+        equals3 = fu.Model(
             sum(self.bvs) > 1,
             sum(self.bvs) < 3,
         )
@@ -78,7 +79,7 @@ class TestCardinality(unittest.TestCase):
         self.assertEqual(sum(self.bvs.value()), 2)
 
     def test_pysat_atmost_equals(self):
-        atmost_equals = cp.Model(
+        atmost_equals = fu.Model(
             sum(self.bvs) <= 2,
         )
         ps = CPM_pysat(atmost_equals)
@@ -86,7 +87,7 @@ class TestCardinality(unittest.TestCase):
         self.assertLessEqual(sum(self.bvs.value()), 2)
 
     def test_pysat_atleast_equals(self):
-        atleast_equals = cp.Model(
+        atleast_equals = fu.Model(
             sum(self.bvs) >= 2,
         )
         ps = CPM_pysat(atleast_equals)
@@ -96,7 +97,7 @@ class TestCardinality(unittest.TestCase):
 
     def test_pysat_different(self):
         
-        differrent = cp.Model(
+        differrent = fu.Model(
             sum(self.bvs) != 3,
             sum(self.bvs) != 1,
             sum(self.bvs) != 0,
@@ -122,7 +123,7 @@ class TestCardinality(unittest.TestCase):
                 (sum(x) != 3).implies(b),
                ]
         for c in cons:
-            cp.Model(c).solve("pysat")
+            fu.Model(c).solve("pysat")
             self.assertTrue(c.value())
 
 

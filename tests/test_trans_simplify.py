@@ -4,6 +4,7 @@ import cpmpy as cp
 from cpmpy.expressions.core import Operator, BoolVal, Comparison
 from cpmpy.transformations.normalize import simplify_boolean, toplevel_list
 
+import fuzz_test_utils as fu
 
 class TransSimplify(unittest.TestCase):
 
@@ -106,5 +107,5 @@ class TransSimplify(unittest.TestCase):
         x = cp.intvar(0, 3, name="x")
         cons = (x == 2) == (bv == 4)
         self.assertEquals(str(self.transform(cons)), "[x != 2]")
-        self.assertTrue(cp.Model(cons).solve())
+        self.assertTrue(fu.Model(cons).solve())
 

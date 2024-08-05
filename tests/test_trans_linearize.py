@@ -6,6 +6,7 @@ from cpmpy.expressions.core import Operator
 from cpmpy.transformations.linearize import linearize_constraint, canonical_comparison
 from cpmpy.expressions.variables import _IntVarImpl, _BoolVarImpl
 
+import fuzz_test_utils as fu
 
 class TestTransLinearize(unittest.TestCase):
 
@@ -38,8 +39,8 @@ class TestTransLinearize(unittest.TestCase):
             bv = boolvar(shape=2)
             iv = intvar(1, 9)
             e1 = (bv[0] * bv[1] == iv)
-            s1 = cp.Model(e1).solve("gurobi")
-            s1 = cp.Model(e1).solve("ortools")
+            s1 = fu.Model(e1).solve("gurobi")
+            s1 = fu.Model(e1).solve("ortools")
             self.assertTrue(s1)
             self.assertEqual([bv[0].value(), bv[1].value(), iv.value()],[True, True, 1])
 
@@ -88,7 +89,7 @@ class TestTransLinearize(unittest.TestCase):
         cons = [a.implies(x != y)]
         lin_cons = linearize_constraint(cons)
         cons_vals = []
-        cp.Model(lin_cons).solveAll(solver="ortools", display=lambda : cons_vals.append(cons[0].value()))
+        fu.Model(lin_cons).solveAll(solver="ortools", display=lambda : cons_vals.append(cons[0].value()))
         print(len(cons_vals))
         self.assertTrue(all(cons_vals))
         # self.assertEqual(str(linearize_constraint(cons)), "[(a) -> (sum([1, -1, -6] * [x, y, BV4]) <= -1), (a) -> (sum([1, -1, -6] * [x, y, BV4]) >= -5)]")

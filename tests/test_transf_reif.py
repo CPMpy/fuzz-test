@@ -7,6 +7,9 @@ from cpmpy.transformations.flatten_model import flatten_constraint
 from cpmpy.transformations.reification import only_implies, reify_rewrite, only_bv_reifies
 from cpmpy.expressions.variables import _IntVarImpl, _BoolVarImpl # to reset counters
 
+import fuzz_test_utils as fu
+
+
 class TestTransfReif(unittest.TestCase):
     def setUp(self):
         _IntVarImpl.counter = 0

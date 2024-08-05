@@ -8,6 +8,7 @@ from numpy import logaddexp
 import cpmpy as cp
 from cpmpy.expressions.utils import flatlist
 from cpmpy.expressions.variables import NullShapeError, _IntVarImpl, _BoolVarImpl, NegBoolView, NDVarArray
+import fuzz_test_utils as fu
 
 
 class TestModel(unittest.TestCase):
@@ -23,24 +24,24 @@ class TestModel(unittest.TestCase):
 
     def test_ndarray(self):
         iv = cp.intvar(1,9, shape=3)
-        m = cp.Model( iv > 3 )
+        m = fu.Model( iv > 3 )
         m += (iv[0] == 5)
         self.assertTrue(m.solve())
 
     def test_empty(self):
-        m = cp.Model()
+        m = fu.Model()
         m += [] # should do nothing
         assert(len(m.constraints) == 0)
 
     def test_io_nempty(self):
         fname = join(self.tempdir, "model")
         iv = cp.intvar(1,9, shape=3)
-        m = cp.Model( iv > 3 )
+        m = fu.Model( iv > 3 )
         m += (iv[0] == 5)
         m.to_file(fname)
 
         with pytest.warns(UserWarning):
-            loaded = cp.Model.from_file(fname)
+            loaded = fu.Model.from_file(fname)
             self.assertTrue(loaded.solve())
         os.remove(fname)
 
@@ -50,7 +51,7 @@ class TestModel(unittest.TestCase):
         fname = join(self.tempdir, "model")
         iv = cp.intvar(1,9, shape=3)
         bv = cp.boolvar()
-        m = cp.Model( iv > 3, ~bv )
+        m = fu.Model( iv > 3, ~bv )
         m += (iv[0] == 5)
         m.to_file(fname)
 
@@ -58,7 +59,7 @@ class TestModel(unittest.TestCase):
         self.assertEqual(_IntVarImpl.counter, 3)
         _BoolVarImpl.counter = 0  # don't try this at home
         _IntVarImpl.counter = 0  # don't try this at home
-        loaded = cp.Model.from_file(fname)
+        loaded = fu.Model.from_file(fname)
         self.assertEqual(_BoolVarImpl.counter, 1)
         self.assertEqual(_IntVarImpl.counter, 3)
         os.remove(fname)
@@ -68,7 +69,7 @@ class TestModel(unittest.TestCase):
 
         cons1 = x > y
         cons2 = x + y == 1
-        m = cp.Model(cons1, cons2)
+        m = fu.Model(cons1, cons2)
 
         memodict = dict()
         m_dcopy = m.copy()
@@ -93,7 +94,7 @@ class TestModel(unittest.TestCase):
         cons1 = x > y
         cons2 = x + y == 1
         cons3 = z > y
-        m = cp.Model([cons1, cons2], [cons3])
+        m = fu.Model([cons1, cons2], [cons3])
 
         memodict = dict()
         m_dcopy = copy.deepcopy(m, memodict)
@@ -113,6 +114,6 @@ class TestModel(unittest.TestCase):
 
     def test_unknown_solver(self):
 
-        model = cp.Model(cp.any(cp.boolvar(shape=3)))
+        model = fu.Model(cp.any(cp.boolvar(shape=3)))
 
         self.assertRaises(ValueError, lambda : model.solve(solver="notasolver"))

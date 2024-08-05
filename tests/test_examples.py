@@ -13,6 +13,7 @@ import types
 import importlib.machinery
 import pytest
 from cpmpy import *
+import fuzz_test_utils as fu
 
 cwd = getcwd()
 if 'y' in cwd[-2:]:

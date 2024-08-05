@@ -5,6 +5,8 @@ from cpmpy.transformations.flatten_model import flatten_constraint
 from cpmpy.transformations.comparison import only_numexpr_equality
 from cpmpy.expressions.variables import _IntVarImpl, _BoolVarImpl # to reset counters
 
+import fuzz_test_utils as fu
+
 class TestTransfComp(unittest.TestCase):
     def setUp(self):
         _IntVarImpl.counter = 0

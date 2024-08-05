@@ -3,6 +3,7 @@ import unittest
 import cpmpy as cp
 from cpmpy.exceptions import NotSupportedError
 
+import fuzz_test_utils as fu
 
 class TestSolutionHinting(unittest.TestCase):
 
@@ -10,7 +11,7 @@ class TestSolutionHinting(unittest.TestCase):
     def test_hints(self):
 
         a,b = cp.boolvar(shape=2)
-        model = cp.Model(a | b)
+        model = fu.Model(a | b)
 
         for n, solver_class in cp.SolverLookup.base_solvers():
             if not solver_class.supported():

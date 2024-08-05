@@ -8,6 +8,8 @@ from cpmpy.expressions.variables import NDVarArray
 from cpmpy.expressions.core import Operator, Expression
 from cpmpy.expressions.utils import get_bounds, argval
 
+import fuzz_test_utils as fu
+
 class TestComparison(unittest.TestCase):
     def test_comps(self):
         # from the docs
@@ -17,7 +19,7 @@ class TestComparison(unittest.TestCase):
         bv = cp.boolvar()
         iv = cp.intvar(0, 10)
 
-        m = cp.Model(
+        m = fu.Model(
             bv == True,         # allowed
             bv > 0,             # allowed but silly
             iv > 0,             # allowed
@@ -30,7 +32,7 @@ class TestComparison(unittest.TestCase):
             bv & (iv != 0),     # allowed
         )
         for c in m.constraints:
-            self.assertTrue(cp.Model(c).solve())
+            self.assertTrue(fu.Model(c).solve())
 
 class TestSum(unittest.TestCase):
 
@@ -73,7 +75,7 @@ class TestSum(unittest.TestCase):
 
     def test_sum_unary(self):
         v = cp.intvar(1,9)
-        model = cp.Model(v>=1, minimize=sum([v]))
+        model = fu.Model(v>=1, minimize=sum([v]))
         self.assertTrue(model.solve())
         self.assertEqual(v.value(), 1)
 
@@ -223,13 +225,13 @@ class TestArrayExpressions(unittest.TestCase):
     def test_sum(self):
         x = intvar(0,5,shape=10, name="x")
         y = intvar(0, 1000, name="y")
-        model = cp.Model(y == x.sum())
+        model = fu.Model(y == x.sum())
         model.solve()
         self.assertTrue(y.value() == sum(x.value()))
         # with axis arg
         x = intvar(0,5,shape=(10,10), name="x")
         y = intvar(0, 1000, shape=10, name="y")
-        model = cp.Model(y == x.sum(axis=0))
+        model = fu.Model(y == x.sum(axis=0))
         model.solve()
         res = np.array([sum(x[i, ...].value()) for i in range(len(y))])
         self.assertTrue(all(y.value() == res))
@@ -237,7 +239,7 @@ class TestArrayExpressions(unittest.TestCase):
     def test_prod(self):
         x = intvar(0,5,shape=10, name="x")
         y = intvar(0, 1000, name="y")
-        model = cp.Model(y == x.prod())
+        model = fu.Model(y == x.prod())
         model.solve()
         res = 1
         for v in x:
@@ -246,7 +248,7 @@ class TestArrayExpressions(unittest.TestCase):
         # with axis arg
         x = intvar(0,5,shape=(10,10), name="x")
         y = intvar(0, 1000, shape=10, name="y")
-        model = cp.Model(y == x.prod(axis=0))
+        model = fu.Model(y == x.prod(axis=0))
         model.solve()
         for i,vv in enumerate(x):
             res = 1
@@ -257,13 +259,13 @@ class TestArrayExpressions(unittest.TestCase):
     def test_max(self):
         x = intvar(0,5,shape=10, name="x")
         y = intvar(0, 1000, name="y")
-        model = cp.Model(y == x.max())
+        model = fu.Model(y == x.max())
         model.solve()
         self.assertTrue(y.value() == max(x.value()))
         # with axis arg
         x = intvar(0,5,shape=(10,10), name="x")
         y = intvar(0, 1000, shape=10, name="y")
-        model = cp.Model(y == x.max(axis=0))
+        model = fu.Model(y == x.max(axis=0))
         model.solve()
         res = np.array([max(x[i, ...].value()) for i in range(len(y))])
         self.assertTrue(all(y.value() == res))
@@ -271,13 +273,13 @@ class TestArrayExpressions(unittest.TestCase):
     def test_min(self):
         x = intvar(0,5,shape=10, name="x")
         y = intvar(0, 1000, name="y")
-        model = cp.Model(y == x.min())
+        model = fu.Model(y == x.min())
         model.solve()
         self.assertTrue(y.value() == min(x.value()))
         # with axis arg
         x = intvar(0,5,shape=(10,10), name="x")
         y = intvar(0, 1000, shape=10, name="y")
-        model = cp.Model(y == x.min(axis=0))
+        model = fu.Model(y == x.min(axis=0))
         model.solve()
         res = np.array([min(x[i, ...].value()) for i in range(len(y))])
         self.assertTrue(all(y.value() == res))
@@ -286,13 +288,13 @@ class TestArrayExpressions(unittest.TestCase):
         from cpmpy.expressions.python_builtins import any
         x = boolvar(shape=10, name="x")
         y = boolvar(name="y")
-        model = cp.Model(y == x.any())
+        model = fu.Model(y == x.any())
         model.solve()
         self.assertTrue(y.value() == any(x.value()))
         # with axis arg
         x = boolvar(shape=(10,10), name="x")
         y = boolvar(shape=10, name="y")
-        model = cp.Model(y == x.any(axis=0))
+        model = fu.Model(y == x.any(axis=0))
         model.solve()
         res = np.array([any(x[i, ...].value()) for i in range(len(y))])
         self.assertTrue(all(y.value() == res))
@@ -301,13 +303,13 @@ class TestArrayExpressions(unittest.TestCase):
         from cpmpy.expressions.python_builtins import all
         x = boolvar(shape=10, name="x")
         y = boolvar(name="y")
-        model = cp.Model(y == x.all())
+        model = fu.Model(y == x.all())
         model.solve()
         self.assertTrue(y.value() == all(x.value()))
         # with axis arg
         x = boolvar(shape=(10,10), name="x")
         y = boolvar(shape=10, name="y")
-        model = cp.Model(y == x.all(axis=0))
+        model = fu.Model(y == x.all(axis=0))
         model.solve()
         res = np.array([all(x[i, ...].value()) for i in range(len(y))])
         self.assertTrue(all(y.value() == res))
@@ -426,14 +428,14 @@ class TestBounds(unittest.TestCase):
         p = boolvar()
 
         cons = (arr[i] == 1).implies(p)
-        m = cp.Model([cons, i == 5])
+        m = fu.Model([cons, i == 5])
         self.assertTrue(m.solve())
         self.assertTrue(cons.value())
 
         # div constraint
         a,b = intvar(1,2,shape=2)
         cons = (42 // (a - b)) >= 3
-        m = cp.Model([p.implies(cons), a == b])
+        m = fu.Model([p.implies(cons), a == b])
         if cp.SolverLookup.lookup("z3").supported():
             self.assertTrue(m.solve(solver="z3")) # ortools does not support divisor spanning 0 work here
             self.assertRaises(IncompleteFunctionError, cons.value)
@@ -441,7 +443,7 @@ class TestBounds(unittest.TestCase):
 
         # mayhem
         cons = (arr[10 // (a - b)] == 1).implies(p)
-        m = cp.Model([cons, a == b])
+        m = fu.Model([cons, a == b])
         if cp.SolverLookup.lookup("z3").supported():
             self.assertTrue(m.solve(solver="z3"))
             self.assertTrue(cons.value())
@@ -471,20 +473,20 @@ class TestBounds(unittest.TestCase):
         p = boolvar()
         q = boolvar()
         x = intvar(0,9)
-        self.assertTrue(cp.Model([~p]).solve())
-        #self.assertRaises(cp.exceptions.TypeError, cp.Model([~x]).solve())
-        self.assertTrue(cp.Model([~(x == 0)]).solve())
-        self.assertTrue(cp.Model([~~p]).solve())
-        self.assertTrue(cp.Model([~(p & p)]).solve())
-        self.assertTrue(cp.Model([~~~~~(p & p)]).solve())
-        self.assertTrue(cp.Model([~cpm_array([p,q,p])]).solve())
-        self.assertTrue(cp.Model([~p.implies(q)]).solve())
-        self.assertTrue(cp.Model([~p.implies(~q)]).solve())
-        self.assertTrue(cp.Model([p.implies(~q)]).solve())
-        self.assertTrue(cp.Model([p == ~q]).solve())
-        self.assertTrue(cp.Model([~~p == ~q]).solve())
-        self.assertTrue(cp.Model([Operator('not',[p]) == q]).solve())
-        self.assertTrue(cp.Model([Operator('not',[p])]).solve())
+        self.assertTrue(fu.Model([~p]).solve())
+        #self.assertRaises(cp.exceptions.TypeError, fu.Model([~x]).solve())
+        self.assertTrue(fu.Model([~(x == 0)]).solve())
+        self.assertTrue(fu.Model([~~p]).solve())
+        self.assertTrue(fu.Model([~(p & p)]).solve())
+        self.assertTrue(fu.Model([~~~~~(p & p)]).solve())
+        self.assertTrue(fu.Model([~cpm_array([p,q,p])]).solve())
+        self.assertTrue(fu.Model([~p.implies(q)]).solve())
+        self.assertTrue(fu.Model([~p.implies(~q)]).solve())
+        self.assertTrue(fu.Model([p.implies(~q)]).solve())
+        self.assertTrue(fu.Model([p == ~q]).solve())
+        self.assertTrue(fu.Model([~~p == ~q]).solve())
+        self.assertTrue(fu.Model([Operator('not',[p]) == q]).solve())
+        self.assertTrue(fu.Model([Operator('not',[p])]).solve())
 
     def test_description(self):
 
@@ -500,7 +502,7 @@ class TestBounds(unittest.TestCase):
             if not cls.supported():
                 continue
             print("Testing", solver)
-            self.assertTrue(cp.Model(cons).solve(solver=solver))
+            self.assertTrue(fu.Model(cons).solve(solver=solver))
 
         ## test extra attributes of set_description
         cons = a | b

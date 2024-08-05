@@ -4,6 +4,7 @@ from unittest import TestCase
 from cpmpy import *
 from cpmpy.tools import ParameterTuner, GridSearchTuner
 
+import fuzz_test_utils as fu
 
 
 class TunerTests(TestCase):

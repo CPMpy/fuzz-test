@@ -2,6 +2,7 @@ import unittest
 import cpmpy as cp
 import numpy as np
 from cpmpy.expressions.variables import NullShapeError, _IntVarImpl, _BoolVarImpl, NegBoolView, NDVarArray, _gen_var_names
+import fuzz_test_utils as fu
 
 
 class TestSolvers(unittest.TestCase):
@@ -57,7 +58,7 @@ class TestSolvers(unittest.TestCase):
             return sum(v.value() == None)
 
         iv = cp.intvar(1,9, shape=9)
-        m = cp.Model(cp.AllDifferent(iv))
+        m = fu.Model(cp.AllDifferent(iv))
         self.assertEqual(n_none(iv), 9)
         m.solve()
         self.assertEqual(n_none(iv), 0)
@@ -65,7 +66,7 @@ class TestSolvers(unittest.TestCase):
         self.assertEqual(n_none(iv), 9)
 
         bv = cp.boolvar(9)
-        m = cp.Model(sum(bv) > 3)
+        m = fu.Model(sum(bv) > 3)
         self.assertEqual(n_none(bv), 9)
         m.solve()
         self.assertEqual(n_none(bv), 0)

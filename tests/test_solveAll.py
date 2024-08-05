@@ -3,6 +3,7 @@ import unittest
 import cpmpy as cp
 from cpmpy.exceptions import NotSupportedError
 
+import fuzz_test_utils as fu
 
 class TestSolveAll(unittest.TestCase):
 
@@ -10,7 +11,7 @@ class TestSolveAll(unittest.TestCase):
     def test_solveall_no_obj(self):
 
         a,b = cp.boolvar(shape=2)
-        m = cp.Model(a | b)
+        m = fu.Model(a | b)
 
         for name, solver in cp.SolverLookup.base_solvers():
             if not solver.supported():
@@ -34,7 +35,7 @@ class TestSolveAll(unittest.TestCase):
     def test_solveall_with_obj(self):
 
         x = cp.intvar(0, 3, shape=3)
-        m = cp.Model(cp.sum(x) >= 1, minimize=cp.sum(x))
+        m = fu.Model(cp.sum(x) >= 1, minimize=cp.sum(x))
 
         for name in cp.SolverLookup.solvernames():
             try:

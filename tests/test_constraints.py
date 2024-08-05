@@ -1,12 +1,14 @@
 import inspect
+import pytest
 
 import cpmpy
-import fuzz_test_utils as fu
 from cpmpy import SolverLookup, BoolVal
 from cpmpy.expressions.globalconstraints import *
 from cpmpy.expressions.globalfunctions import *
 
-import pytest
+import fuzz_test_utils as fu
+
+
 
 # CHANGE THIS if you want test a different solver
 #   make sure that `SolverLookup.get(solver)` works
