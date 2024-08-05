@@ -5,6 +5,12 @@ import time
 import cpmpy as cp
 
 class Model(cp.Model) :
+    """
+    Wrapper class for the cpmpy model used for getting and writing the models
+
+    for each solve call and each init create a pickle file of the model 
+
+    """
     def __init__(self, *args, minimize=None, maximize=None):
             if not Path("temp_output").exists():
                 os.mkdir("temp_output")
