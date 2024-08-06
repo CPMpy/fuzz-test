@@ -3,8 +3,6 @@ import math
 import warnings
 from os.path import join
 
-from numpy.random import RandomState
-
 from verifiers import *
 
 def get_all_verifiers() -> list:
@@ -28,20 +26,20 @@ def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver
     warnings.filterwarnings("ignore")
 
     exclude_dict = {}
-    random_seed = random.randint(0, 2**32 - 1) # the 2**32 - 1 is the max int
-    random_state = RandomState(random_seed)
-    
+    random_seed = random.random()
+    random.seed(random_seed)
+
     verifier_kwargs = {"solver":solver, "mutations_per_model":mutations_per_model, "exclude_dict":exclude_dict,"time_limit": time_limit, "seed":random_seed}
 
     execution_time = 0
     try:
         while time.time() < time_limit and current_amount_of_error.value < max_error_treshold:
-            random_verifier = random_state.choice(get_all_verifiers())(**verifier_kwargs)
+            random_verifier = random.choice(get_all_verifiers())(**verifier_kwargs)
             fmodels = []
             for folder in folders:
                 fmodels.extend(glob.glob(join(folder,random_verifier.getType(), "*")))
 
-            fmodel = random_state.choice(fmodels)
+            fmodel = random.choice(fmodels)
             
             start_time = time.time()
             error = random_verifier.run(fmodel)
