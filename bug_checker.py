@@ -87,17 +87,22 @@ def mimnimize_bug(failed_model_file:str ,output_dir: str) -> None:
             with open(join(output_dir, "minimized_"+os.path.basename(failed_model_file)), "wb") as ff:
                 pickle.dump(error_data, file=ff) 
         else:
-            print(len(original_cons),flush=True)
-            verifier_kwargs = {'solver': error_data["solver"], "mutations_per_model": error_data["mutations_per_model"], "exclude_dict": {}, "time_limit": time.time()*3600, "seed": error_data["seed"]}
-                        
             new_cons = []
 
             for con in toplevel_list(original_cons):
                 test_cons = original_error["constraints"]
                 test_cons.remove(con)
                 new_error_dict = copy.deepcopy(original_error)
-                
-                new_error = lookup_verifier(error_data["verifier"])(**verifier_kwargs).rerun(new_error_dict)  
+
+                vrf_cls = lookup_verifier(error_data['verifier'])
+                verifier = vrf_cls(solver=error_data['solver'],
+                                mutations_per_model=error_data["mutations_per_model"],
+                                exclude_dict = {},
+                                time_limit = time.time()*3600,
+                                seed = error_data["seed"]
+                )               
+                new_error = verifier.rerun(new_error_dict)
+
                 if new_error is not None: 
                     # if we still get the error than the constraint is responsible so we keep it
                     new_cons.append(con)

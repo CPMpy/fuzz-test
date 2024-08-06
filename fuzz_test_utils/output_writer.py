@@ -10,7 +10,7 @@ def create_error_output_text(error_data: dict) -> str:
         Args:
             error_data (dict): the dict containing all the info about the error that occured
     """
-    execution_time_text = str(math.floor(error_data["execution_time"]/60)) + " minutes " + str(math.floor(error_data["execution_time"]%60)) + " seconds"
+    execution_time_text = f"{str(math.floor(error_data["execution_time"]/60))} minutes {str(math.floor(error_data["execution_time"]%60))} seconds"
     verifier_text = ""
     if error_data["error"]["type"] != "fuzz_test_crash":
         verifier_text = "Chosen Verifier: "+error_data["verifier"]

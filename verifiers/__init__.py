@@ -33,4 +33,5 @@ def lookup_verifier(verfier_name: str) -> Verifier:
         return Equivalance_Verifier
     
     else: 
+        raise ValueError(f"Error verifier with name {verfier_name} does not exist")
         return None
