@@ -4,12 +4,16 @@ from itertools import repeat
 import os
 import pickle
 import sys
-import cpmpy as cp
-from cpmpy.transformations.normalize import toplevel_list
-from mutators import *
-from multiprocessing import set_start_method,Pool, cpu_count
 import traceback
 from pathlib import Path
+from multiprocessing import set_start_method,Pool, cpu_count
+
+import cpmpy as cp
+from cpmpy.transformations.normalize import toplevel_list
+
+from mutators import *
+
+
  
 def solve_model(model_file: str, solver: str, output_dir: str, time_limit: int) -> None:
     """
