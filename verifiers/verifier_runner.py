@@ -4,7 +4,7 @@ import warnings
 from os.path import join
 
 from verifiers import *
-
+from fuzz_test_utils import Fuzz_Test_ErrorTypes
 def get_all_verifiers() -> list:
     return [Solution_Verifier,Optimization_Verifier,Model_Count_Verifier,Metamorphic_Verifier,Equivalance_Verifier]
 
@@ -40,7 +40,7 @@ def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver
                 fmodels.extend(glob.glob(join(folder,random_verifier.getType(), "*")))
 
             fmodel = random.choice(fmodels)
-            
+
             start_time = time.time()
             error = random_verifier.run(fmodel)
             execution_time = math.floor(time.time() - start_time)
@@ -61,10 +61,10 @@ def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver
 
     except Exception as e:
         print(traceback.format_exc(),flush=True)
-        error = {"type": "fuzz_test_crash","exception":e,"stacktrace":traceback.format_exc()}
+        error = {"type": Fuzz_Test_ErrorTypes.fuzz_test_crash,"exception":e,"stacktrace":traceback.format_exc()}
         lock.acquire()
         try:
-            error_data = {'solver' : solver, 'mutations_per_model' : mutations_per_model, "seed": random_seed, "execution_time": execution_time, "error" :error}
+            error_data = {'solver' : solver, 'mutations_per_model' : mutations_per_model, "seed": random_seed, "execution_time": execution_time, "error" :error, "verifier": "None"}
             write_error(error_data,output_dir)
 
             current_amount_of_tests.value += 1

@@ -6,3 +6,4 @@ class Fuzz_Test_ErrorTypes(enum.Enum):
     crashed_model = 4
     unsat_model = 5
     no_constraints_model = 6
+    fuzz_test_crash = 7
