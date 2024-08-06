@@ -114,12 +114,12 @@ class Verifier():
                 return gen_mutations_error
         except AssertionError as e:
             print("A", end='',flush=True)
-            type = Fuzz_Test_ErrorTypes.crashed_model
+            error_type = Fuzz_Test_ErrorTypes.crashed_model
             if "is not sat" in str(e):
-                type = Fuzz_Test_ErrorTypes.unsat_model
+                error_type = Fuzz_Test_ErrorTypes.unsat_model
             elif "has no constraints" in str(e):
-                type = Fuzz_Test_ErrorTypes.no_constraints_model
-            return dict(type=type,
+                error_type = Fuzz_Test_ErrorTypes.no_constraints_model
+            return dict(type=error_type,
                         originalmodel=self.model_file,
                         constraints=self.cons,
                         exception=e,
