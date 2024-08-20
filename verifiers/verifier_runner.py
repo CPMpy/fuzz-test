@@ -67,7 +67,13 @@ def write_error(error_data: dict, output_dir: str) -> None:
 
     date_text = datetime.now().strftime('%Y-%m-%d_%H-%M-%S-%f')
     with open(join(output_dir, date_text+'.pickle'), "wb") as ff:
-        pickle.dump(error_data, file=ff) 
+        er = error_data['error']
+        if er['type'] == 'failed_model':
+            pickle.dump([er['type'], er['model'], er['originalmodel'], er['mutators']], file=ff)
+        elif er['type'] == 'internalfunctioncrash':
+            pickle.dump([er['type'], er['function'], er['argument'], er['originalmodel'], er['exception'], er['mutators'], er['stacktrace']], file=ff)
+        else:
+            pass #unknown error type
         ff.close()
 
     with open(join(output_dir, date_text+'.txt'), "w") as ff:

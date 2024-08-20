@@ -39,7 +39,7 @@ pip install -r requirements.txt # install the necessary packages
 #### fuzz_test
 Run the fuzz_test.py (with or without parameters)
 The fuzz_test has 5 different verifiers:
-- metamorphic_verifie.py : Satisifiability check
+- metamorphic_verifier.py : Satisifiability check
 - equivalance_verifier.py : All-Solutions check
 - model_counting_verifier.py: Solution count check
 - optimization_verifier.py: Optimisation check
