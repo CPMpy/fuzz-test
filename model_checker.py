@@ -64,26 +64,25 @@ if __name__ == '__main__':
     available_solvers = [solver[0] for solver in cp.SolverLookup.base_solvers()]
     parser = argparse.ArgumentParser(description = "A Python script for running a batch of CPMpy models on a specified solver and logging any runtime-errors")
     parser.add_argument("-s", "--solver", help = "The solver to use", required = False,type=str,choices=available_solvers, default=available_solvers[0]) # available_solvers[0] is the default cpmpy solver (ortools)
-    parser.add_argument("-m", "--models", help = "Directory containing pickled CPMpy model(s)", required=False, type=str, default="models")
-    parser.add_argument("-o", "--output-dir", help = "The directory to store the output (will be created if it does not exist).", required=False, type=str, default="output")
+    parser.add_argument("-m", "--models", help = "Directory containing pickled CPMpy model(s)", required=False, type=str, default="models/")
+    parser.add_argument("-o", "--output-dir", help = "The directory to store the output (will be created if it does not exist).", required=False, type=str, default="output/")
     parser.add_argument("-p","--amount-of-processes", help = "The amount of processes that will be used to check the models", required=False, default=cpu_count()-1 ,type=check_positive) # the -1 is for the main process
     parser.add_argument("-t", "--time-limit", help = "The maximum duration in seconds, that a single model is allowed to take to find a solution", required=False, type=check_positive, default=100)
 
     args = parser.parse_args()
-    folders = []
+
+    # fetch all the pickle files from the dir and all the subdirs
+    fmodels = []
+    fmodels.extend(glob.glob(os.path.join(args.models,"**", "Pickled*"),recursive=True))
+    #fmodels.extend(glob.glob(os.path.join(args.models,"**", "*.pickle"),recursive=True))
 
     # showing the info about the given params to the user
-    print(f"Checking models in {args.models}\n\nwith solver: {args.solver}\n\nwriting results to {args.output_dir}\n\nSolving the models ...",flush=True)
+    print(f"Checking {len(fmodels)} models from '{args.models}' with solver: '{args.solver}'\nSolving:",flush=True)
 
     # output dir will be created if it does not exist
     if not Path(args.output_dir).exists():
         os.mkdir(args.output_dir)
 
-
-    fmodels = []
-    # fetch all the pickle files from the dir and all the subdirs
-    fmodels.extend(glob.glob(os.path.join(args.models,"**", "Pickled*"),recursive=True))
-    #fmodels.extend(glob.glob(os.path.join(args.models,"**", "*.pickle"),recursive=True))
 
     set_start_method("spawn")
     processes = []
@@ -94,13 +93,9 @@ if __name__ == '__main__':
         result = pool.starmap(solve_model, zip(fmodels,repeat(args.solver),repeat(args.output_dir),repeat(args.time_limit)))
 
         amount_of_errors = result.count(1)
-        print(f"\n\nchecked {str(len(result))} models")
         if amount_of_errors == 0:
-            print("all models passed",flush=True ) 
+            print(f"\nall {len(result)} models passed", flush=True) 
         else:
-            print(f"{str(amount_of_errors)} models failed",flush=True ) 
-
-
-        print("quiting the application",flush=True ) 
+            print(f"\n{amount_of_errors}/{len(result)} models failed. Log stored in '{args.output_dir}'.", flush=True)
         sys.exit()
         
