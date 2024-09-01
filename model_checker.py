@@ -36,7 +36,15 @@ def solve_model(model_file: str, solver: str, output_dir: str, time_limit: int) 
         
     except Exception as e:
         print("X",flush=True,end="")
-        error_text= f"\nsolved model file: {model_file}\n\nmodel: {model}\n\nWith solver: {solver}\n\nexception: {e}\n\nstacktrace: {traceback.format_exc()}"
+        error_text = f"""Solver: {solver}
+Exception: {e}
+Model file: {model_file}
+
+Stacktrace:
+{traceback.format_exc()}
+Model:
+{model}
+"""
 
         with open(os.path.join(output_dir, Path(model_file).stem+'_output.txt'), "w") as ff: 
             ff.write(error_text)
