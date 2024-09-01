@@ -29,10 +29,8 @@ def solve_model(model_file: str, solver: str, output_dir: str, time_limit: int) 
     try:
         with open(model_file, 'rb') as fpcl:
             model = pickle.loads(fpcl.read())
-            cons = model.constraints
-            assert (len(cons)>0), f"{model_file} has no constraints"
-            cons = toplevel_list(cons)
-            cp.Model(cons).solve(solver=solver,time_limit=time_limit)
+            assert (len(model.constraints)>0 or model.objective_ is not None), f"{model_file} has no constraints and no objective"
+            model.solve(solver=solver,time_limit=time_limit)
             print(".",flush=True,end="")
             return
         
