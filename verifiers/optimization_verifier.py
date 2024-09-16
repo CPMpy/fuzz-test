@@ -75,7 +75,14 @@ class Optimization_Verifier(Verifier):
                 return None
             else:
                 print('X', end='', flush=True)
-                #print('morphs: ', mutators)
+                return dict(type=Fuzz_Test_ErrorTypes.failed_model,
+                    originalmodel=self.model_file, 
+                    exception=f"mutated model is not sat",
+                    constraints=self.cons,
+                    mutators=self.mutators, 
+                    model=model,
+                    )
+
         except Exception as e:
             print('E', end='', flush=True)
             return dict(type=Fuzz_Test_ErrorTypes.internalcrash,

@@ -62,7 +62,7 @@ class Equivalance_Verifier(Verifier):
                 print('X', end='', flush=True)
                 return dict(type=Fuzz_Test_ErrorTypes.failed_model,
                     originalmodel=self.model_file, 
-                    exception=f"symmetric difference between new solutions and old solutions is not 0 it is {len(change)}",
+                    exception=f"symmetric difference between new solutions and original solutions is not 0 it is {len(change)}",
                     constraints=self.cons,
                     mutators=self.mutators, 
                     model=model,

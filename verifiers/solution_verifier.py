@@ -55,19 +55,25 @@ class Solution_Verifier(Verifier):
                 return None
             else:
                 print('X', end='', flush=True)
-                #print('morphs: ', mutators)
+                return dict(type=Fuzz_Test_ErrorTypes.failed_model,
+                    originalmodel=self.model_file, 
+                    exception=f"mutated model is not sat",
+                    constraints=self.cons,
+                    mutators=self.mutators, 
+                    model=model,
+                    )
         except Exception as e:
             if isinstance(e,(CPMpyException, NotImplementedError)):
                 #expected error message, ignore
                 return None
             print('E', end='', flush=True)
             return dict(type=Fuzz_Test_ErrorTypes.internalcrash,
-                        model=model,
                         originalmodel=self.model_file,
-                        mutators=self.mutators,
-                        constraints=self.cons,
                         exception=e,
-                        stacktrace=traceback.format_exc()
+                        stacktrace=traceback.format_exc(),
+                        constraints=self.cons,
+                        mutators=self.mutators,
+                        model=model,
                         )
         
         # if you got here, the model failed...
