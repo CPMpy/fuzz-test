@@ -3,18 +3,16 @@ import math
 import os
 from pathlib import Path
 import time
-from cpmpy import *
-import sys
-sys.path.append('../cpmpy')
+from multiprocessing import Lock, Manager, set_start_method,Pool, cpu_count
+from threading import Thread
 
-from mutators import *
-from multiprocessing import Process, Lock, Manager, set_start_method,Pool, cpu_count
+import cpmpy as cp
 
 from verifiers.verifier_runner import run_verifiers
 
 if __name__ == '__main__':
     # get all the available solvers from cpympy
-    available_solvers = SolverLookup.solvernames()
+    available_solvers = cp.SolverLookup.solvernames()
     
     # Getting and checking the input parameters    
     def check_positive(value):
@@ -45,8 +43,7 @@ if __name__ == '__main__':
         models.append(os.path.join(args.models, model))
 
     # output dir will be created if it does not exist
-    if not Path(args.output_dir).exists():
-        os.mkdir(args.output_dir)
+    os.makedirs(args.output_dir, exist_ok=True)
 
     # showing the info about the given params to the user
     print("\nUsing solver '"+args.solver+"' with models in '"+args.models+"' and writing to '"+args.output_dir+"'." ,flush=True,end="\n\n")
@@ -68,7 +65,7 @@ if __name__ == '__main__':
     process_args = (current_amount_of_tests, current_amount_of_error, lock, args.solver, args.mutations_per_model ,models ,max_failed_tests,args.output_dir, max_time)
 
     for x in range(args.amount_of_processes):
-        processes.append(Process(target=run_verifiers,args=process_args))
+        processes.append(Thread(target=run_verifiers,args=process_args))
 
 
     # start the processes
