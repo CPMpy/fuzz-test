@@ -38,26 +38,26 @@ def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver
             fmodels = []
             for folder in folders:
                 fmodels.extend(glob.glob(join(folder,random_verifier.getType(), "*")))
+            if len(fmodels) > 0:
+                fmodel = random.choice(fmodels)
 
-            fmodel = random.choice(fmodels)
-
-            start_time = time.time()
-            error = random_verifier.run(fmodel)
-            execution_time = math.floor(time.time() - start_time)
-            # check if we got an error
-            if error is not None:
+                start_time = time.time()
+                error = random_verifier.run(fmodel)
+                execution_time = math.floor(time.time() - start_time)
+                # check if we got an error
+                if error is not None:
+                    lock.acquire()
+                    try:
+                        error_data = {'verifier':random_verifier.getName(),'solver' : solver, 'mutations_per_model' : mutations_per_model, "seed": random_seed, "execution_time": execution_time, "error" :error}
+                        write_error(error_data,output_dir)
+                        current_amount_of_error.value +=1
+                    finally:
+                        lock.release() 
                 lock.acquire()
                 try:
-                    error_data = {'verifier':random_verifier.getName(),'solver' : solver, 'mutations_per_model' : mutations_per_model, "seed": random_seed, "execution_time": execution_time, "error" :error}
-                    write_error(error_data,output_dir)
-                    current_amount_of_error.value +=1
+                    current_amount_of_tests.value += 1
                 finally:
-                    lock.release() 
-            lock.acquire()
-            try:
-                current_amount_of_tests.value += 1
-            finally:
-                lock.release()
+                    lock.release()
 
     except Exception as e:
         print(traceback.format_exc(),flush=True)

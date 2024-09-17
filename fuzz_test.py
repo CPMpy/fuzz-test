@@ -1,6 +1,7 @@
 import argparse
 import math
 import os
+import sys
 from pathlib import Path
 import time
 from multiprocessing import Lock, Manager, set_start_method,Pool, cpu_count
@@ -41,7 +42,9 @@ if __name__ == '__main__':
     # create a list with all the directories
     for model in os.listdir(args.models):
         models.append(os.path.join(args.models, model))
-
+    if len(models) == 0:
+        print(f"models is empty")
+        sys.exit(0)
     # output dir will be created if it does not exist
     os.makedirs(args.output_dir, exist_ok=True)
 
@@ -82,8 +85,8 @@ if __name__ == '__main__':
     finally:
         print("\nExecuted tests for "+str(math.floor((time.time()-start_time)/60))+" minutes",flush=True,end="\n")
         # terminate all the processes
-        for process in processes:
-            process.terminate()
+        # for process in processes:
+        #     process.terminate()
         print("Quiting fuzz tests \n",flush=True,end="\n")
 
         if current_amount_of_error.value == max_failed_tests:
