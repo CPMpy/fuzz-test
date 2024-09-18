@@ -4,8 +4,7 @@ import os
 import sys
 from pathlib import Path
 import time
-from multiprocessing import Lock, Manager, set_start_method,Pool, cpu_count
-from threading import Thread
+from multiprocessing import Process,Lock, Manager, set_start_method,Pool, cpu_count
 
 import cpmpy as cp
 
@@ -68,28 +67,29 @@ if __name__ == '__main__':
     process_args = (current_amount_of_tests, current_amount_of_error, lock, args.solver, args.mutations_per_model ,models ,max_failed_tests,args.output_dir, max_time)
 
     for x in range(args.amount_of_processes):
-        processes.append(Thread(target=run_verifiers,args=process_args))
-
-
-    # start the processes
-    for process in processes:
-        process.start()
+        processes.append(Process(target=run_verifiers,args=process_args))
 
     try:
-        # only wait for the timing process to finish
+        # start the processes
         for process in processes:
+            process.start()
+        for process in processes:
+            process.close()
             process.join()
         
-    except KeyboardInterrupt:
+    except :
         print("interrupting...",flush=True,end="\n")
     finally:
         print("\nExecuted tests for "+str(math.floor((time.time()-start_time)/60))+" minutes",flush=True,end="\n")
         # terminate all the processes
-        # for process in processes:
-        #     process.terminate()
+        for process in processes:
+            if process._popen != None: 
+                process.terminate()
         print("Quiting fuzz tests \n",flush=True,end="\n")
 
         if current_amount_of_error.value == max_failed_tests:
             print("Reached error treshold stopped running futher test, executed "+str(current_amount_of_tests.value) +" tests, "+str(current_amount_of_error.value)+" tests failed",flush=True,end="\n")
         else:
             print("Succesfully executed " +str(current_amount_of_tests.value) + " tests, "+str(current_amount_of_error.value)+" tests failed",flush=True,end="\n")
+
+
