@@ -76,8 +76,9 @@ if __name__ == '__main__':
             process.start()
 
         for process in processes:
-            process.close()
             process.join()
+            process.close()
+            
     except KeyboardInterrupt as e:
         print("interrupting...",flush=True,end="\n")
     except Exception as e: 
