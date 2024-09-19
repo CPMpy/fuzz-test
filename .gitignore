@@ -3,3 +3,4 @@ results/*
 output/*
 **/__pycache__/
 testfiles/__pycache__/*
+*.pickle
