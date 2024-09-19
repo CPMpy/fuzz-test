@@ -2,8 +2,9 @@ import argparse
 import math
 import os
 import sys
-from pathlib import Path
+import traceback
 import time
+from pathlib import Path
 from multiprocessing import Process,Lock, Manager, set_start_method,Pool, cpu_count
 
 import cpmpy as cp
@@ -73,12 +74,14 @@ if __name__ == '__main__':
         # start the processes
         for process in processes:
             process.start()
+
         for process in processes:
             process.close()
             process.join()
-        
-    except :
+    except KeyboardInterrupt as e:
         print("interrupting...",flush=True,end="\n")
+    except Exception as e: 
+        print(f"An unexcpected error occured error:\n{e} \nstacktrace:\n{traceback.format_exc()}",flush=True,end="\n")
     finally:
         print("\nExecuted tests for "+str(math.floor((time.time()-start_time)/60))+" minutes",flush=True,end="\n")
         # terminate all the processes
