@@ -81,13 +81,13 @@ class Verifier():
                             )
             return None
 
-    def initilize_run(self) -> None:
+    def initialize_run(self) -> None:
         """
         Abstract function that gets executed before generating the mutation,
         This function is ued for getting the right data from the model.
         Each verifier needs to implement this function
         """
-        raise NotImplementedError(f"method 'initilize_run' is not implemented for class {type(self)}")
+        raise NotImplementedError(f"method 'initialize_run' is not implemented for class {type(self)}")
 
     def verify_model(self) -> dict:
         """
@@ -104,7 +104,7 @@ class Verifier():
         """
         try:
             self.model_file = model_file
-            self.initilize_run()
+            self.initialize_run()
             gen_mutations_error = self.generate_mutations()
 
             # check if no error occured while generation the mutations
@@ -145,7 +145,7 @@ class Verifier():
         try:
             self.model_file = error["originalmodel"]
             self.exclude_dict = {}
-            self.initilize_run()
+            self.initialize_run()
             self.cons = error["constraints"]
             return self.verify_model()
         

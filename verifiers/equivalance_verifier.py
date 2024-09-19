@@ -27,7 +27,7 @@ class Equivalance_Verifier(Verifier):
                         semanticFusionCountingwsum]
         
 
-    def initilize_run(self) -> None:
+    def initialize_run(self) -> None:
         with open(self.model_file, 'rb') as fpcl:
             self.cons = pickle.loads(fpcl.read()).constraints
             assert (len(self.cons)>0), f"{self.model_file} has no constraints"

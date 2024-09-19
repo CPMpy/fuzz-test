@@ -26,7 +26,7 @@ class Optimization_Verifier(Verifier):
                         semanticFusionMinus,
                         semanticFusionwsum]
     
-    def initilize_run(self) -> None:
+    def initialize_run(self) -> None:
         with open(self.model_file, 'rb') as fpcl:
                 model = pickle.loads(fpcl.read())
                 self.cons = model.constraints
@@ -34,10 +34,10 @@ class Optimization_Verifier(Verifier):
                 # replace lists by conjunctions
                 self.cons = toplevel_list(self.cons)
                 self.objective = model.objective_
-                self.mininimize = model.objective_is_min
+                self.minimize = model.objective_is_min
                 model = cp.Model(self.cons)
                 self.mutators = [copy.deepcopy(self.cons)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
-                if self.mininimize:
+                if self.minimize:
                     model.minimize(self.objective)
                 else:
                     model.maximize(self.objective)
@@ -47,7 +47,7 @@ class Optimization_Verifier(Verifier):
     def verify_model(self) -> dict:
         try:
             newModel = cp.Model(self.cons)
-            if self.mininimize:
+            if self.minimize:
                 newModel.minimize(self.objective)
             else:
                 newModel.maximize(self.objective)
