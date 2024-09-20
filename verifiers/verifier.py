@@ -35,6 +35,7 @@ class Verifier():
                         semanticFusionCountingMinus,
                         semanticFusionCountingwsum] 
         self.mutators = []
+        self.original_model = None
 
 
     def generate_mutations(self) -> None:
@@ -71,13 +72,14 @@ class Verifier():
                     
                 print('I', end='', flush=True)
                 return dict(type=Fuzz_Test_ErrorTypes.internalfunctioncrash,
-                            originalmodel=self.model_file,
+                            originalmodel_file=self.model_file,
                             exception=e,
                             function=function,
                             argument=argument,
                             stacktrace=traceback.format_exc(),
                             mutators=self.mutators,
                             constraints=self.cons,
+                            originalmodel=self.original_model
                             )
             return None
 
@@ -120,20 +122,22 @@ class Verifier():
             elif "has no constraints" in str(e):
                 error_type = Fuzz_Test_ErrorTypes.no_constraints_model
             return dict(type=error_type,
-                        originalmodel=self.model_file,
+                        originalmodel_file=self.model_file,
                         exception=e,
                         stacktrace=traceback.format_exc(),
                         constraints=self.cons,
+                        originalmodel=self.original_model
                         )
     
         except Exception as e:
             print('C', end='', flush=True)
             return dict(type=Fuzz_Test_ErrorTypes.crashed_model,
-                        originalmodel=self.model_file,
+                        originalmodel_file=self.model_file,
                         exception=e,
                         stacktrace=traceback.format_exc(),
                         constraints=self.cons,
                         mutators=self.mutators,
+                        originalmodel=self.original_model
                         )
     
         
@@ -143,7 +147,8 @@ class Verifier():
         This function will rerun a previous failed test
         """
         try:
-            self.model_file = error["originalmodel"]
+            self.model_file = error["originalmodel_file"]
+            self.original_model = error["originalmodel"]
             self.exclude_dict = {}
             self.initialize_run()
             self.cons = error["constraints"]
@@ -157,19 +162,21 @@ class Verifier():
             elif "has no constraints" in str(e):
                 type = Fuzz_Test_ErrorTypes.no_constraints_model
             return dict(type=type,
-                        originalmodel=self.model_file,
+                        originalmodel_file=self.model_file,
                         exception=e,
                         stacktrace=traceback.format_exc(),
                         constraints=self.cons,
+                        originalmodel=self.original_model
                         )
     
         except Exception as e:
             print('C', end='', flush=True)
             return dict(type=Fuzz_Test_ErrorTypes.crashed_model,
-                        originalmodel=self.model_file,
+                        originalmodel_file=self.model_file,
                         exception=e,
                         stacktrace=traceback.format_exc(),
                         constraints=self.cons,
+                        originalmodel=self.original_model
                         )
 
 
