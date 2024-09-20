@@ -66,15 +66,19 @@ if __name__ == '__main__':
     set_start_method("spawn")
     args = parser.parse_args()
 
-    os.makedirs(args.output_dir, exist_ok=True)
+    current_working_directory = os.getcwd()
+    output_dir = os.path.join(current_working_directory, args.output_dir)
+    os.makedirs(output_dir, exist_ok=True)
 
-    if os.path.isdir(args.failed_model_file):
+    failed_model_file = os.path.join(current_working_directory, args.failed_model_file)
+
+    if os.path.isdir(failed_model_file):
         print("detected directory")
-        files = glob.glob(args.failed_model_file+"/*.pickle")
+        files = glob.glob(failed_model_file+"/*.pickle")
         with Pool(args.amount_of_processes) as pool: 
             try:
                 print("rerunning failed models in directory",flush=True)
-                results = pool.starmap(rerun_file, zip(files,repeat(args.output_dir)))
+                results = pool.starmap(rerun_file, zip(files,repeat(output_dir)))
                 print(Style.RESET_ALL+"\nsucessfully tested all the models",flush=True ) 
                 print(Fore.RED+f"{results.count(True)} models failed "+Fore.GREEN +f"{len(results)-results.count(True)} models passed"+Style.RESET_ALL,flush=True ) 
                 print(f"see outputs files for more info",flush=True ) 
@@ -83,9 +87,9 @@ if __name__ == '__main__':
             finally:
                 print("quiting the application",flush=True ) 
             
-    elif os.path.isfile(args.failed_model_file):
+    elif os.path.isfile(failed_model_file):
         print("detected file")
-        result = rerun_file(args.failed_model_file,args.output_dir)
+        result = rerun_file(failed_model_file,output_dir)
         print("\nsucessfully tested model")
         if result != True:
             print(Fore.RED + f"Found Error: {result['error']['exception']}, see the output file for more details")
