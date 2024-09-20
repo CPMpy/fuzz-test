@@ -85,22 +85,25 @@ if __name__ == '__main__':
     parser.add_argument("-o", "--output-dir", help = "The directory to store the output (will be created if it does not exist).", required=False, type=str, default="minimizer_output")
     parser.add_argument("-p","--amount-of-processes", help = "The amount of processes that will be used to run the tests", required=False, default=cpu_count()-1 ,type=check_positive) # the -1 is for the main process
     args = parser.parse_args()
-    
-    os.makedirs(args.output_dir, exist_ok=True)
 
-    if os.path.isfile(args.failed_model_file):
-        result = minimize_model(args.failed_model_file,args.output_dir)
+    current_working_directory = os.getcwd()
+    output_dir = os.path.join(current_working_directory, args.output_dir)
+    os.makedirs(output_dir, exist_ok=True)
+    failed_model_file = os.path.join(current_working_directory, args.failed_model_file)
+
+    if os.path.isfile(failed_model_file):
+        result = minimize_model(failed_model_file,output_dir)
         print(Fore.LIGHTBLUE_EX +"\n"+result)
-        print(Style.RESET_ALL+f"stored minimized model in {args.output_dir}")
+        print(Style.RESET_ALL+f"stored minimized model in {output_dir}")
 
-    elif os.path.isdir(args.failed_model_file):
+    elif os.path.isdir(failed_model_file):
         set_start_method("spawn")
         print("detected directory")
-        files = glob.glob(args.failed_model_file+"/*.pickle")
+        files = glob.glob(failed_model_file+"/*.pickle")
         with Pool(args.amount_of_processes) as pool: 
             try:
                 print("rerunning failed models in directory",flush=True)
-                results = pool.starmap(minimize_model, zip(files,repeat(args.output_dir)))
+                results = pool.starmap(minimize_model, zip(files,repeat(output_dir)))
                 print("\n")
                 [print(Fore.LIGHTBLUE_EX + result) for result in results]
                 # for result in results:
@@ -110,7 +113,7 @@ if __name__ == '__main__':
                 pass
             finally:
                 print("quiting the application",flush=True ) 
-        print(Style.RESET_ALL+f"stored minimized models in {args.output_dir}")
+        print(Style.RESET_ALL+f"stored minimized models in {output_dir}")
     else:
         print(Fore.YELLOW +"failed model file not found")
     print(Style.RESET_ALL)
