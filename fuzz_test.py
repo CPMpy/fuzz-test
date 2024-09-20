@@ -1,20 +1,19 @@
 import argparse
 import math
 import os
-from pathlib import Path
-import time
-from cpmpy import *
 import sys
-sys.path.append('../cpmpy')
+import traceback
+import time
+from pathlib import Path
+from multiprocessing import Process,Lock, Manager, set_start_method,Pool, cpu_count
 
-from mutators import *
-from multiprocessing import Process, Lock, Manager, set_start_method,Pool, cpu_count
+import cpmpy as cp
 
 from verifiers.verifier_runner import run_verifiers
 
 if __name__ == '__main__':
     # get all the available solvers from cpympy
-    available_solvers = SolverLookup.solvernames()
+    available_solvers = cp.SolverLookup.solvernames()
     
     # Getting and checking the input parameters    
     def check_positive(value):
@@ -43,10 +42,11 @@ if __name__ == '__main__':
     # create a list with all the directories
     for model in os.listdir(args.models):
         models.append(os.path.join(args.models, model))
-
+    if len(models) == 0:
+        print(f"models is empty")
+        sys.exit(0)
     # output dir will be created if it does not exist
-    if not Path(args.output_dir).exists():
-        os.mkdir(args.output_dir)
+    os.makedirs(args.output_dir, exist_ok=True)
 
     # showing the info about the given params to the user
     print("\nUsing solver '"+args.solver+"' with models in '"+args.models+"' and writing to '"+args.output_dir+"'." ,flush=True,end="\n\n")
@@ -70,26 +70,30 @@ if __name__ == '__main__':
     for x in range(args.amount_of_processes):
         processes.append(Process(target=run_verifiers,args=process_args))
 
-
-    # start the processes
-    for process in processes:
-        process.start()
-
     try:
-        # only wait for the timing process to finish
+        # start the processes
+        for process in processes:
+            process.start()
+
         for process in processes:
             process.join()
-        
-    except KeyboardInterrupt:
+            process.close()
+            
+    except KeyboardInterrupt as e:
         print("interrupting...",flush=True,end="\n")
+    except Exception as e: 
+        print(f"An unexcpected error occured error:\n{e} \nstacktrace:\n{traceback.format_exc()}",flush=True,end="\n")
     finally:
         print("\nExecuted tests for "+str(math.floor((time.time()-start_time)/60))+" minutes",flush=True,end="\n")
         # terminate all the processes
         for process in processes:
-            process.terminate()
+            if process._popen != None: 
+                process.terminate()
         print("Quiting fuzz tests \n",flush=True,end="\n")
 
         if current_amount_of_error.value == max_failed_tests:
             print("Reached error treshold stopped running futher test, executed "+str(current_amount_of_tests.value) +" tests, "+str(current_amount_of_error.value)+" tests failed",flush=True,end="\n")
         else:
             print("Succesfully executed " +str(current_amount_of_tests.value) + " tests, "+str(current_amount_of_error.value)+" tests failed",flush=True,end="\n")
+
+
