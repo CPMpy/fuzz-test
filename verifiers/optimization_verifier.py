@@ -27,23 +27,24 @@ class Optimization_Verifier(Verifier):
                         semanticFusionwsum]
     
     def initialize_run(self) -> None:
-        with open(self.model_file, 'rb') as fpcl:
-                model = pickle.loads(fpcl.read())
-                self.cons = model.constraints
-                assert (len(self.cons)>0), f"{self.model_file} has no constraints"
-                # replace lists by conjunctions
-                self.cons = toplevel_list(self.cons)
-                self.objective = model.objective_
-                self.minimize = model.objective_is_min
-                model = cp.Model(self.cons)
-                self.mutators = [copy.deepcopy(self.cons)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
-                if self.minimize:
-                    model.minimize(self.objective)
-                else:
-                    model.maximize(self.objective)
-                assert (model.solve(solver=self.solver, time_limit=max(self.time_limit-time.time(),1))), f"{self.model_file} is not sat"
-                self.value_before = model.objective_value() #store objective value to compare after transformations
-                
+        if self.original_model == None:
+            with open(self.model_file, 'rb') as fpcl:
+                self.original_model = pickle.loads(fpcl.read())
+        self.cons = self.original_model.constraints
+        assert (len(self.cons)>0), f"{self.model_file} has no constraints"
+        # replace lists by conjunctions
+        self.cons = toplevel_list(self.cons)
+        self.objective = self.original_model.objective_
+        self.minimize = self.original_model.objective_is_min
+        model = cp.Model(self.cons)
+        self.mutators = [copy.deepcopy(self.cons)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
+        if self.minimize:
+            model.minimize(self.objective)
+        else:
+            model.maximize(self.objective)
+        assert (model.solve(solver=self.solver, time_limit=max(self.time_limit-time.time(),1))), f"{self.model_file} is not sat"
+        self.value_before = model.objective_value() #store objective value to compare after transformations
+        
     def verify_model(self) -> dict:
         try:
             newModel = cp.Model(self.cons)
@@ -63,11 +64,12 @@ class Optimization_Verifier(Verifier):
                 #objective value changed
                 print('c', end='', flush=True)
                 return dict(type=Fuzz_Test_ErrorTypes.failed_model,
-                    originalmodel=self.model_file, 
+                    originalmodel_file=self.model_file, 
                     exception=f"mutated model objective_value has changed new objective_value: {newModel.objective_value()}, original objective_value: {self.value_before}",
                     constraints=self.cons,
                     mutators=self.mutators, 
                     model=model,
+                    originalmodel=self.original_model
                 )
             elif sat:
                 # has to be SAT...
@@ -76,29 +78,32 @@ class Optimization_Verifier(Verifier):
             else:
                 print('X', end='', flush=True)
                 return dict(type=Fuzz_Test_ErrorTypes.failed_model,
-                    originalmodel=self.model_file, 
+                    originalmodel_file=self.model_file, 
                     exception=f"mutated model is not sat",
                     constraints=self.cons,
                     mutators=self.mutators, 
                     model=model,
+                    originalmodel=self.original_model
                     )
 
         except Exception as e:
             print('E', end='', flush=True)
             return dict(type=Fuzz_Test_ErrorTypes.internalcrash,
-                        model=newModel,
-                        originalmodel=self.model_file,
-                        mutators=self.mutators,
-                        constraints=self.cons,
+                        originalmodel_file=self.model_file,
                         exception=e,
-                        stacktrace=traceback.format_exc()
+                        stacktrace=traceback.format_exc(),
+                        constraints=self.cons,
+                        mutators=self.mutators,
+                        model=newModel,
+                        originalmodel=self.original_model
                         )
         
         # if you got here, the model failed...
         return dict(type=Fuzz_Test_ErrorTypes.failed_model,
-                    originalmodel=self.model_file,
+                    originalmodel_file=self.model_file,
                     constraints=self.cons,
                     mutators=self.mutators,
                     model=newModel,
+                    originalmodel=self.original_model
                     )
         

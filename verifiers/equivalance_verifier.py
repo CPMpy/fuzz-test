@@ -28,14 +28,17 @@ class Equivalance_Verifier(Verifier):
         
 
     def initialize_run(self) -> None:
-        with open(self.model_file, 'rb') as fpcl:
-            self.cons = pickle.loads(fpcl.read()).constraints
-            assert (len(self.cons)>0), f"{self.model_file} has no constraints"
-            self.cons = toplevel_list(self.cons)
-            self.original_vars = get_variables(self.cons)
-            self.original_sols = set()
-            cp.Model(self.cons).solveAll(solver=self.solver,time_limit=max(1,min(250,self.time_limit-time.time())), display=lambda: self.original_sols.add(tuple([v.value() for v in self.original_vars])))
-            self.mutators = [copy.deepcopy(self.cons)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
+        if self.original_model == None:
+            with open(self.model_file, 'rb') as fpcl:
+                self.original_model = pickle.loads(fpcl.read())
+        self.cons = self.original_model.constraints
+
+        assert (len(self.cons)>0), f"{self.model_file} has no constraints"
+        self.cons = toplevel_list(self.cons)
+        self.original_vars = get_variables(self.cons)
+        self.original_sols = set()
+        cp.Model(self.cons).solveAll(solver=self.solver,time_limit=max(1,min(250,self.time_limit-time.time())), display=lambda: self.original_sols.add(tuple([v.value() for v in self.original_vars])))
+        self.mutators = [copy.deepcopy(self.cons)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
             
     def verify_model(self) -> dict:
         try:
@@ -61,11 +64,12 @@ class Equivalance_Verifier(Verifier):
             else:
                 print('X', end='', flush=True)
                 return dict(type=Fuzz_Test_ErrorTypes.failed_model,
-                    originalmodel=self.model_file, 
+                    originalmodel_file=self.model_file, 
                     exception=f"symmetric difference between new solutions and original solutions is not 0 it is {len(change)}",
                     constraints=self.cons,
                     mutators=self.mutators, 
                     model=model,
+                    originalmodel=self.original_model
                     )
         
         except Exception as e:
@@ -74,17 +78,19 @@ class Equivalance_Verifier(Verifier):
                 return True
             print('E', end='', flush=True)
             return dict(type=Fuzz_Test_ErrorTypes.internalcrash,
-                        originalmodel=self.model_file, 
+                        originalmodel_file=self.model_file, 
                         exception=e,
                         stacktrace=traceback.format_exc(),
                         constraints=self.cons,
                         mutators=self.mutators,
                         model=model, 
+                        originalmodel=self.original_model
                         )
         # if you got here, the model failed...
         return dict(type=Fuzz_Test_ErrorTypes.failed_model,
-                    originalmodel=self.model_file,
+                    originalmodel_file=self.model_file,
                     constraints=self.cons,
                     mutators=self.mutators,
                     model=newModel,
+                    originalmodel=self.original_model
                     )  
