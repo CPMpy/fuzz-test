@@ -80,7 +80,7 @@ if __name__ == '__main__':
                 print("rerunning failed models in directory",flush=True)
                 results = pool.starmap(rerun_file, zip(files,repeat(output_dir)))
                 print(Style.RESET_ALL+"\nsucessfully tested all the models",flush=True ) 
-                print(Fore.RED+f"{results.count(True)} models failed "+Fore.GREEN +f"{len(results)-results.count(True)} models passed"+Style.RESET_ALL,flush=True ) 
+                print(Fore.RED+f"{len(results)-results.count(True)} models still fail "+Fore.GREEN +f"{results.count(True)} models no longer fail"+Style.RESET_ALL,flush=True ) 
                 print(f"see outputs files for more info",flush=True ) 
             except KeyboardInterrupt:
                 pass

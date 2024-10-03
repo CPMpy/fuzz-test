@@ -68,7 +68,7 @@ class Optimization_Verifier(Verifier):
                     exception=f"mutated model objective_value has changed new objective_value: {newModel.objective_value()}, original objective_value: {self.value_before}",
                     constraints=self.cons,
                     mutators=self.mutators, 
-                    model=model,
+                    model=newModel,
                     originalmodel=self.original_model
                 )
             elif sat:
@@ -82,7 +82,7 @@ class Optimization_Verifier(Verifier):
                     exception=f"mutated model is not sat",
                     constraints=self.cons,
                     mutators=self.mutators, 
-                    model=model,
+                    model=newModel,
                     originalmodel=self.original_model
                     )
 
