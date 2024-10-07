@@ -83,7 +83,7 @@ class Verifier():
                             constraints=self.cons,
                             originalmodel=self.original_model
                             )
-            return None
+        return None
 
     def initialize_run(self) -> None:
         """
