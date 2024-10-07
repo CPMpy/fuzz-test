@@ -1,3 +1,5 @@
+import random
+
 from verifiers import *
 
 class Verifier():
@@ -105,6 +107,7 @@ class Verifier():
         This function will run a single tests on the given model
         """
         try:
+            random.seed(self.seed)
             self.model_file = model_file
             self.initialize_run()
             gen_mutations_error = self.generate_mutations()
@@ -147,6 +150,7 @@ class Verifier():
         This function will rerun a previous failed test
         """
         try:
+            random.seed(self.seed)
             self.model_file = error["originalmodel_file"]
             self.original_model = error["originalmodel"]
             self.exclude_dict = {}
