@@ -1,3 +1,5 @@
+import random
+
 from verifiers import *
 
 class Verifier():
@@ -35,6 +37,7 @@ class Verifier():
                         semanticFusionCountingMinus,
                         semanticFusionCountingwsum] 
         self.mutators = []
+        self.original_model = None
 
 
     def generate_mutations(self) -> None:
@@ -71,15 +74,16 @@ class Verifier():
                     
                 print('I', end='', flush=True)
                 return dict(type=Fuzz_Test_ErrorTypes.internalfunctioncrash,
-                            originalmodel=self.model_file,
+                            originalmodel_file=self.model_file,
                             exception=e,
                             function=function,
                             argument=argument,
                             stacktrace=traceback.format_exc(),
                             mutators=self.mutators,
                             constraints=self.cons,
+                            originalmodel=self.original_model
                             )
-            return None
+        return None
 
     def initialize_run(self) -> None:
         """
@@ -103,6 +107,7 @@ class Verifier():
         This function will run a single tests on the given model
         """
         try:
+            random.seed(self.seed)
             self.model_file = model_file
             self.initialize_run()
             gen_mutations_error = self.generate_mutations()
@@ -120,20 +125,22 @@ class Verifier():
             elif "has no constraints" in str(e):
                 error_type = Fuzz_Test_ErrorTypes.no_constraints_model
             return dict(type=error_type,
-                        originalmodel=self.model_file,
+                        originalmodel_file=self.model_file,
                         exception=e,
                         stacktrace=traceback.format_exc(),
                         constraints=self.cons,
+                        originalmodel=self.original_model
                         )
     
         except Exception as e:
             print('C', end='', flush=True)
             return dict(type=Fuzz_Test_ErrorTypes.crashed_model,
-                        originalmodel=self.model_file,
+                        originalmodel_file=self.model_file,
                         exception=e,
                         stacktrace=traceback.format_exc(),
                         constraints=self.cons,
                         mutators=self.mutators,
+                        originalmodel=self.original_model
                         )
     
         
@@ -143,11 +150,20 @@ class Verifier():
         This function will rerun a previous failed test
         """
         try:
-            self.model_file = error["originalmodel"]
+            random.seed(self.seed)
+            self.model_file = error["originalmodel_file"]
+            self.original_model = error["originalmodel"]
             self.exclude_dict = {}
             self.initialize_run()
-            self.cons = error["constraints"]
-            return self.verify_model()
+            gen_mutations_error = self.generate_mutations()
+
+            # check if no error occured while generation the mutations
+            if gen_mutations_error == None:
+                return self.verify_model()
+            else:
+                return gen_mutations_error
+            # self.cons = error["constraints"]
+            # return self.verify_model()
         
         except AssertionError as e:
             print("A", end='',flush=True)
@@ -157,19 +173,21 @@ class Verifier():
             elif "has no constraints" in str(e):
                 type = Fuzz_Test_ErrorTypes.no_constraints_model
             return dict(type=type,
-                        originalmodel=self.model_file,
+                        originalmodel_file=self.model_file,
                         exception=e,
                         stacktrace=traceback.format_exc(),
                         constraints=self.cons,
+                        originalmodel=self.original_model
                         )
     
         except Exception as e:
             print('C', end='', flush=True)
             return dict(type=Fuzz_Test_ErrorTypes.crashed_model,
-                        originalmodel=self.model_file,
+                        originalmodel_file=self.model_file,
                         exception=e,
                         stacktrace=traceback.format_exc(),
                         constraints=self.cons,
+                        originalmodel=self.original_model
                         )
 
 

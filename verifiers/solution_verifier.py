@@ -28,18 +28,21 @@ class Solution_Verifier(Verifier):
         
 
     def initialize_run(self) -> None:
-        with open(self.model_file, 'rb') as fpcl:
-            self.cons = pickle.loads(fpcl.read()).constraints
-            assert (len(self.cons)>0), f"{self.model_file} has no constraints"
-            self.cons = toplevel_list(self.cons)
-            vars = get_variables(self.cons)
-            Model(self.cons).solve(
-                solver=self.solver, 
-                time_limit=max(1,self.time_limit-time.time())) # set the max time limit to the given time limit or to 1 if the self.time_limit-time.time() would be smaller then 1
+        if self.original_model == None:
+            with open(self.model_file, 'rb') as fpcl:
+                self.original_model = pickle.loads(fpcl.read())
+        self.cons = self.original_model.constraints
+
+        assert (len(self.cons)>0), f"{self.model_file} has no constraints"
+        self.cons = toplevel_list(self.cons)
+        vars = get_variables(self.cons)
+        Model(self.cons).solve(
+            solver=self.solver, 
+            time_limit=max(1,self.time_limit-time.time())) # set the max time limit to the given time limit or to 1 if the self.time_limit-time.time() would be smaller then 1
+        
+        self.solution = [var == var.value() for var in vars if var.value() is not None]
+        self.mutators = [copy.deepcopy(self.cons)] #keep track of list of cons alternated with random seed and mutators that transformed it into the next list of cons.
             
-            self.solution = [var == var.value() for var in vars if var.value() is not None]
-            self.mutators = [copy.deepcopy(self.cons)] #keep track of list of cons alternated with random seed and mutators that transformed it into the next list of cons.
-                
     def verify_model(self) -> dict:
         try:
             model = cp.Model(toplevel_list([self.cons, self.solution]))
@@ -56,11 +59,12 @@ class Solution_Verifier(Verifier):
             else:
                 print('X', end='', flush=True)
                 return dict(type=Fuzz_Test_ErrorTypes.failed_model,
-                    originalmodel=self.model_file, 
+                    originalmodel_file=self.model_file, 
                     exception=f"mutated model is not sat",
                     constraints=self.cons,
                     mutators=self.mutators, 
                     model=model,
+                    originalmodel=self.original_model
                     )
         except Exception as e:
             if isinstance(e,(CPMpyException, NotImplementedError)):
@@ -68,20 +72,22 @@ class Solution_Verifier(Verifier):
                 return None
             print('E', end='', flush=True)
             return dict(type=Fuzz_Test_ErrorTypes.internalcrash,
-                        originalmodel=self.model_file,
+                        originalmodel_file=self.model_file,
                         exception=e,
                         stacktrace=traceback.format_exc(),
                         constraints=self.cons,
                         mutators=self.mutators,
                         model=model,
+                        originalmodel=self.original_model
                         )
         
         # if you got here, the model failed...
         return dict(type=Fuzz_Test_ErrorTypes.failed_model,
-                    originalmodel=self.model_file,
+                    originalmodel_file=self.model_file,
                     constraints=self.cons,
                     mutators=self.mutators,
                     model=newModel,
+                    originalmodel=self.original_model
                     )
         
  

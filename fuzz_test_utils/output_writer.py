@@ -18,6 +18,8 @@ def create_error_output_text(error_data: dict) -> str:
     # get all the error details
     for key, value in error_data["error"].items():
         error_text+= f"\n{key}:\n\t{value}"
+        if key == "mutators":
+            error_text += f"\ntransformations:\n\t{[value[x] for x in range(len(value)) if x % 3 == 2]}"
 
     # return a more readable/user friendly error description ready to write to a file 
     return f"An error occured while running a test\n\nUsed solver: {error_data['solver']}\n{verifier_text}\nWith {error_data['mutations_per_model']} mutations per model\nWith seed: {error_data['seed']}\nThe test failed in {execution_time_text}\n\nError Details:\n{error_text}"
