@@ -63,6 +63,7 @@ if __name__ == '__main__':
     parser.add_argument("-m", "--failed_model_file", help = "The path to a single pickle file or the path to a directory containing multiple pickle files", required=False, type=str, default='output')
     parser.add_argument("-o", "--output-dir", help = "The directory to store the output (will be created if it does not exist).", required=False, type=str, default="bug_output")
     parser.add_argument("-p","--amount-of-processes", help = "The amount of processes that will be used to run the tests", required=False, default=cpu_count()-1 ,type=check_positive) # the -1 is for the main process
+    parser.add_argument("-e","--elaborate", help = "Elaborate print, also show filenames of errors that are re-run", required=False, default=False, type=bool) # the -1 is for the main process
     set_start_method("spawn")
     args = parser.parse_args()
 
@@ -80,8 +81,19 @@ if __name__ == '__main__':
                 print("rerunning failed models in directory",flush=True)
                 results = pool.starmap(rerun_file, zip(files,repeat(output_dir)))
                 print(Style.RESET_ALL+"\nsucessfully tested all the models",flush=True ) 
-                print(Fore.RED+f"{len(results)-results.count(True)} models still fail "+Fore.GREEN +f"{results.count(True)} models no longer fail"+Style.RESET_ALL,flush=True ) 
-                print(f"see outputs files for more info",flush=True ) 
+                print(Fore.RED+f"{len(results)-results.count(True)} models still fail "+Fore.GREEN +f"{results.count(True)} models no longer fail"+Style.RESET_ALL,flush=True )
+                print(f"errors that still fail:", flush=True)
+                if args.elaborate:
+                    for i,b in enumerate(results):
+                        if not b is True:
+                            print(f"{files[i]}")
+
+                    print(f"models that no longer fail:", flush=True)
+                    for i, b in enumerate(results):
+                        if b is True:
+                            print(f"{files[i]}")
+
+                print(f"see outputs files for more info", flush=True)
             except KeyboardInterrupt:
                 pass
             finally:
