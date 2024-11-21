@@ -24,9 +24,12 @@ if __name__ == "__main__":
 
         # Monkey patch the solve method
         original_solve = Model.solve
-
+        ort_add = CPM_ortools.__add__
         def patched_solve(self, *args, **kwargs):
+            CPM_ortools.__add__ = ort_add
             result = original_solve(self, *args, **kwargs)
+            CPM_ortools.__add__ = patched_ort_add
+
             # Generate a unique file name based on the call stack and model content
             caller = inspect.stack()[1]
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')  # Generate a timestamp
@@ -47,12 +50,13 @@ if __name__ == "__main__":
         # Apply the monkey patch
         Model.solve = patched_solve
         # also need to monkeypatch .add() for ORTools
-        ort_add = CPM_ortools.__add__
+
         def patched_ort_add(self, *args, **kwargs):
             print("Calling patched add")
             if not hasattr(self, "_model"):
                 self._model = Model()
             self._model.__add__(*args, **kwargs)
+            self._model.solve()
             return ort_add(self, *args, **kwargs)
         CPM_ortools.__add__ = patched_ort_add
 
@@ -76,7 +80,6 @@ if __name__ == "__main__":
         os.makedirs(os.path.join(pickle_dir,"optimization"), exist_ok=True)
 
         test_dir = os.path.join(args.cpmpy_dir, "tests")
-        print(test_dir)
         pytest.main(["-v", f"{test_dir}/test_constraints.py"])
         SolverLookup.base_solvers = original_lookup
         pytest.main(["-v", f"{test_dir}", "-k", "not test_constraints"])
