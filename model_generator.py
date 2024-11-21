@@ -68,7 +68,10 @@ if __name__ == "__main__":
             if not hasattr(self, "_model"):
                 self._model = Model()
             self._model.__add__(*args, **kwargs)
-            self._model.solve()
+            if len(self._model.constraints) > 0:
+                self._model.solve()
+            elif self._model.objective_ is not None:
+                self._model.solve()
             return ort_add(self, *args, **kwargs)
         CPM_ortools.__add__ = patched_ort_add
 
@@ -77,7 +80,10 @@ if __name__ == "__main__":
             if not hasattr(self, "_model"):
                 self._model = Model()
             self._model.__add__(*args, **kwargs)
-            self._model.solve()
+            if len(self._model.constraints) > 0:
+                self._model.solve()
+            elif self._model.objective_ is not None:
+                self._model.solve()
             return gurobi_add(self, *args, **kwargs)
         CPM_gurobi.__add__ = patched_gurobi_add
 
@@ -86,7 +92,10 @@ if __name__ == "__main__":
             if not hasattr(self, "_model"):
                 self._model = Model()
             self._model.__add__(*args, **kwargs)
-            self._model.solve()
+            if len(self._model.constraints) > 0:
+                self._model.solve()
+            elif self._model.objective_ is not None:
+                self._model.solve()
             return minizinc_add(self, *args, **kwargs)
         CPM_minizinc.__add__ = patched_minizinc_add
 
@@ -95,7 +104,10 @@ if __name__ == "__main__":
             if not hasattr(self, "_model"):
                 self._model = Model()
             self._model.__add__(*args, **kwargs)
-            self._model.solve()
+            if len(self._model.constraints) > 0:
+                self._model.solve()
+            elif self._model.objective_ is not None:
+                self._model.solve()
             return z3_add(self, *args, **kwargs)
         CPM_z3.__add__ = patched_z3_add
 
