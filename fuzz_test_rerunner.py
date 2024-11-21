@@ -31,14 +31,14 @@ def rerun_file(failed_model_file,output_dir ):
         """
         error_data = pickle.loads(fpcl.read())
         random.seed(error_data["seed"])
-        if error_data["error"]["type"] != "fuzz_test_crash": # if it is a fuzz_test crash error we skip it
+        if error_data["error"]["type"].name != "fuzz_test_crash": # if it is a fuzz_test crash error we skip it
             verifier_kwargs = {'solver': error_data["solver"], "mutations_per_model": error_data["mutations_per_model"], "exclude_dict": {}, "time_limit": time.time()*3600, "seed": error_data["seed"]}
             error = lookup_verifier(error_data["verifier"])(**verifier_kwargs).rerun(error_data["error"])
             error_data["error"] = error
-            
+
             if error is not None:
                 with open(join(output_dir, f"rerun_{Path(failed_model_file).stem}.pickle"), "wb") as ff:
-                    pickle.dump(error_data, file=ff) 
+                    pickle.dump(error_data, file=ff)
 
                 with open(join(output_dir, f"rerun_{Path(failed_model_file).stem}.txt"), "w") as ff:
                     ff.write(create_error_output_text(error_data))
