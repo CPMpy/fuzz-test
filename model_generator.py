@@ -29,7 +29,8 @@ if __name__ == "__main__":
             result = original_solve(self, *args, **kwargs)
             # Generate a unique file name based on the call stack and model content
             caller = inspect.stack()[1]
-            filename = f"{caller.function}_{caller.lineno}.pickle"
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')  # Generate a timestamp
+            filename = f"{caller.function}_{caller.lineno}_{timestamp}.pickle"
             pickle_path = None
             
             if self.objective_ == None and result:
@@ -59,7 +60,7 @@ if __name__ == "__main__":
         def patched_base_solvers():
             return [('ortools', CPM_ortools)]
 
-
+        original_lookup = SolverLookup.base_solvers
         SolverLookup.base_solvers = patched_base_solvers
 
         # Create a directory and subdirectorys to store the pickled results
@@ -76,7 +77,9 @@ if __name__ == "__main__":
 
         test_dir = os.path.join(args.cpmpy_dir, "tests")
         print(test_dir)
-        pytest.main(["-v", f"{test_dir}"])
+        pytest.main(["-v", f"{test_dir}/test_constraints.py"])
+        SolverLookup.base_solvers = original_lookup
+        pytest.main(["-v", f"{test_dir}", "-k", "not test_constraints"])
 
         print(f"succesfully executed tests and stored generated models in {args.output_dir}_testsuite_{date_text}")
     else:
