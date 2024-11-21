@@ -19,6 +19,8 @@ if __name__ == "__main__":
         sys.path.insert(0, os.path.abspath(args.cpmpy_dir))
         from cpmpy import Model
         from cpmpy.solvers import CPM_ortools
+        from cpmpy import SolverLookup
+        from cpmpy.solvers.ortools import CPM_ortools
 
         # Monkey patch the solve method
         original_solve = Model.solve
@@ -53,6 +55,13 @@ if __name__ == "__main__":
             return ort_add(self, *args, **kwargs)
         CPM_ortools.__add__ = patched_ort_add
 
+        # monkey patch SolverLookup.base_solvers() to only return ortools so we don't run the tests with all solvers.
+        def patched_base_solvers():
+            return [('ortools', CPM_ortools)]
+
+
+        SolverLookup.base_solvers = patched_base_solvers
+
         # Create a directory and subdirectorys to store the pickled results
         pickle_dir = args.output_dir
         os.makedirs(pickle_dir, exist_ok=True)
@@ -66,6 +75,7 @@ if __name__ == "__main__":
         os.makedirs(os.path.join(pickle_dir,"optimization"), exist_ok=True)
 
         test_dir = os.path.join(args.cpmpy_dir, "tests")
+        print(test_dir)
         pytest.main(["-v", f"{test_dir}"])
 
         print(f"succesfully executed tests and stored generated models in {args.output_dir}_testsuite_{date_text}")
