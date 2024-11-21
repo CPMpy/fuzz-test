@@ -67,6 +67,9 @@ if __name__ == "__main__":
             print("Calling patched add for ORTools")
             if not hasattr(self, "_model"):
                 self._model = Model()
+            else:
+                return minizinc_add(self, *args, **kwargs)
+                # model is getting called from solveAll, skip subsequent solves.
             self._model.__add__(*args, **kwargs)
             if len(self._model.constraints) > 0:
                 self._model.solve()
@@ -79,6 +82,9 @@ if __name__ == "__main__":
             print("Calling patched add for Gurobi")
             if not hasattr(self, "_model"):
                 self._model = Model()
+            else:
+                return minizinc_add(self, *args, **kwargs)
+                # model is getting called from solveAll, skip subsequent solves.
             self._model.__add__(*args, **kwargs)
             if len(self._model.constraints) > 0:
                 self._model.solve()
@@ -91,6 +97,9 @@ if __name__ == "__main__":
             print("Calling patched add for Minizinc")
             if not hasattr(self, "_model"):
                 self._model = Model()
+            else:
+                return minizinc_add(self, *args, **kwargs)
+                # model is getting called from solveAll, skip subsequent solves.
             self._model.__add__(*args, **kwargs)
             if len(self._model.constraints) > 0:
                 self._model.solve()
@@ -103,6 +112,9 @@ if __name__ == "__main__":
             print("Calling patched add for Z3")
             if not hasattr(self, "_model"):
                 self._model = Model()
+            else:
+                return minizinc_add(self, *args, **kwargs)
+                # model is getting called from solveAll, skip subsequent solves.
             self._model.__add__(*args, **kwargs)
             if len(self._model.constraints) > 0:
                 self._model.solve()
