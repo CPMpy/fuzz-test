@@ -18,17 +18,29 @@ if __name__ == "__main__":
         # Add CPMPY_DIR to sys.path so that we can import CPMpy
         sys.path.insert(0, os.path.abspath(args.cpmpy_dir))
         from cpmpy import Model
-        from cpmpy.solvers import CPM_ortools
+        from cpmpy.solvers import CPM_ortools, CPM_gurobi, CPM_minizinc, CPM_z3
         from cpmpy import SolverLookup
         from cpmpy.solvers.ortools import CPM_ortools
+        from cpmpy.solvers.gurobi import CPM_gurobi
+        from cpmpy.solvers.minizinc import CPM_minizinc
+        from cpmpy.solvers.z3 import CPM_z3
 
         # Monkey patch the solve method
         original_solve = Model.solve
         ort_add = CPM_ortools.__add__
+        gurobi_add = CPM_gurobi.__add__
+        minizinc_add = CPM_minizinc.__add__
+        z3_add = CPM_z3.__add__
         def patched_solve(self, *args, **kwargs):
             CPM_ortools.__add__ = ort_add
+            CPM_gurobi.__add__ = gurobi_add
+            CPM_minizinc.__add__ = minizinc_add
+            CPM_z3.__add__ = z3_add
             result = original_solve(self, *args, **kwargs)
             CPM_ortools.__add__ = patched_ort_add
+            CPM_gurobi.__add__ = patched_gurobi_add
+            CPM_minizinc.__add__ = patched_minizinc_add
+            CPM_z3.__add__ = patched_z3_add
 
             # Generate a unique file name based on the call stack and model content
             caller = inspect.stack()[1]
@@ -49,10 +61,10 @@ if __name__ == "__main__":
 
         # Apply the monkey patch
         Model.solve = patched_solve
-        # also need to monkeypatch .add() for ORTools
+        # also need to monkeypatch .add() for ORTools, Gurobi, Minizinc, and Z3
 
         def patched_ort_add(self, *args, **kwargs):
-            print("Calling patched add")
+            print("Calling patched add for ORTools")
             if not hasattr(self, "_model"):
                 self._model = Model()
             self._model.__add__(*args, **kwargs)
@@ -60,7 +72,34 @@ if __name__ == "__main__":
             return ort_add(self, *args, **kwargs)
         CPM_ortools.__add__ = patched_ort_add
 
-        # monkey patch SolverLookup.base_solvers() to only return ortools so we don't run the tests with all solvers.
+        def patched_gurobi_add(self, *args, **kwargs):
+            print("Calling patched add for Gurobi")
+            if not hasattr(self, "_model"):
+                self._model = Model()
+            self._model.__add__(*args, **kwargs)
+            self._model.solve()
+            return gurobi_add(self, *args, **kwargs)
+        CPM_gurobi.__add__ = patched_gurobi_add
+
+        def patched_minizinc_add(self, *args, **kwargs):
+            print("Calling patched add for Minizinc")
+            if not hasattr(self, "_model"):
+                self._model = Model()
+            self._model.__add__(*args, **kwargs)
+            self._model.solve()
+            return minizinc_add(self, *args, **kwargs)
+        CPM_minizinc.__add__ = patched_minizinc_add
+
+        def patched_z3_add(self, *args, **kwargs):
+            print("Calling patched add for Z3")
+            if not hasattr(self, "_model"):
+                self._model = Model()
+            self._model.__add__(*args, **kwargs)
+            self._model.solve()
+            return z3_add(self, *args, **kwargs)
+        CPM_z3.__add__ = patched_z3_add
+
+        # monkey patch SolverLookup.base_solvers() to only return ortools, gurobi, minizinc, and z3 so we don't run the tests with all solvers.
         def patched_base_solvers():
             return [('ortools', CPM_ortools)]
 
