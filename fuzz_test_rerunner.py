@@ -11,6 +11,7 @@ from colorama import Fore, Back, Style
 from datetime import datetime
 from pathlib import Path
 from os.path import join
+import shutil
 
 from verifiers import *
 
@@ -64,13 +65,18 @@ if __name__ == '__main__':
     parser.add_argument("-o", "--output-dir", help = "The directory to store the output (will be created if it does not exist).", required=False, type=str, default="bug_output")
     parser.add_argument("-p","--amount-of-processes", help = "The amount of processes that will be used to run the tests", required=False, default=cpu_count()-1 ,type=check_positive) # the -1 is for the main process
     parser.add_argument("-e","--elaborate", help = "Elaborate print, also show filenames of errors that are re-run", required=False, default=False, type=bool) # the -1 is for the main process
-    parser.add_argument("-r","--remove-fixed", help = "Remove error files that no longer produce errors", required=False, action='store_true')
+    parser.add_argument("-r","--remove", help = "Remove fixed error files", action="store_true")
+    parser.add_argument("-M","--move-dir", help = "Directory to move fixed error files to", type=str)
     set_start_method("spawn")
     args = parser.parse_args()
 
     current_working_directory = os.getcwd()
     output_dir = os.path.join(current_working_directory, args.output_dir)
     os.makedirs(output_dir, exist_ok=True)
+
+    if args.move_dir:
+        move_dir = os.path.join(current_working_directory, args.move_dir)
+        os.makedirs(move_dir, exist_ok=True)
 
     failed_model_file = os.path.join(current_working_directory, args.failed_model_file)
 
@@ -93,15 +99,22 @@ if __name__ == '__main__':
                         if b is True:
                             print(f"{files[i]}")
 
-                if args.remove_fixed:
+                if args.remove or args.move_dir:
                     for i, b in enumerate(results):
                         if b is True:
                             txt_file = files[i].replace('.pickle', '.txt')
-                            if os.path.exists(txt_file):
-                                os.remove(txt_file)
-                            os.remove(files[i])
-                            if args.elaborate:
-                                print(f"Removed {files[i]}")
+                            if args.move_dir:
+                                if os.path.exists(txt_file):
+                                    shutil.move(txt_file, os.path.join(move_dir, os.path.basename(txt_file)))
+                                shutil.move(files[i], os.path.join(move_dir, os.path.basename(files[i])))
+                                if args.elaborate:
+                                    print(f"Moved {files[i]} to {move_dir}")
+                            elif args.remove:
+                                if os.path.exists(txt_file):
+                                    os.remove(txt_file)
+                                os.remove(files[i])
+                                if args.elaborate:
+                                    print(f"Removed {files[i]}")
 
                 print(f"see outputs files for more info", flush=True)
             except KeyboardInterrupt:
@@ -117,12 +130,18 @@ if __name__ == '__main__':
             print(Fore.RED + f"Found Error: {result['error']['exception']}, see the output file for more details")
         else:
             print(Fore.GREEN +"\nNo errors were found")
-            if args.remove_fixed:
+            if args.remove or args.move_dir:
                 txt_file = failed_model_file.replace('.pickle', '.txt')
-                if os.path.exists(txt_file):
-                    os.remove(txt_file)
-                os.remove(failed_model_file)
-                print(f"Removed {failed_model_file}")
+                if args.move_dir:
+                    if os.path.exists(txt_file):
+                        shutil.move(txt_file, os.path.join(move_dir, os.path.basename(txt_file)))
+                    shutil.move(failed_model_file, os.path.join(move_dir, os.path.basename(failed_model_file)))
+                    print(f"Moved {failed_model_file} to {move_dir}")
+                elif args.remove:
+                    if os.path.exists(txt_file):
+                        os.remove(txt_file)
+                    os.remove(failed_model_file)
+                    print(f"Removed {failed_model_file}")
     else:
-        print(Fore.YELLOW +"failed model file not found")
+        print(Fore.YELLOW +f"failed model file not found: {failed_model_file}")
     print(Style.RESET_ALL)
