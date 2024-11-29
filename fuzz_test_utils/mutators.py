@@ -183,7 +183,7 @@ def linearize_constraint_morph(cons,linearize_all=False,supported={}):
     decomcons = decompose_in_tree_morph(randcons,decompose_all=True,supported=supported)
     flatcons = only_bv_reifies_morph(decomcons, morph_all=True)
     try:
-        return linearize_constraint(flatcons)
+        return linearize_constraint(flatcons, supported={'mul'})
     except Exception as e:
         raise MetamorphicError(linearize_constraint, flatcons, e)
 
