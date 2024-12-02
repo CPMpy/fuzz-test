@@ -24,13 +24,7 @@ if len(models) == 0:
 
 fmodels = []
 for folder in models:
-    fmodels.extend(glob.glob(join(folder, 'sat', "*")))
-
-cons = []
-for modfile in fmodels[:5]:
-    with open(modfile, 'rb') as fpcl:
-        cons.extend(pickle.loads(fpcl.read()).constraints)
-
+    fmodels.extend(glob.glob(join(folder, '*', "*")))
 
 from cpmpy.solvers import CPM_ortools
 
@@ -39,7 +33,7 @@ times = []
 for _ in range(10):
     # Reset cons for each run, otherwise _has_subexpr is already initialised, and would give more benifit than is realistic
     cons = []
-    for modfile in fmodels[:5]:
+    for modfile in fmodels:
         with open(modfile, 'rb') as fpcl:
             cons.extend(pickle.loads(fpcl.read()).constraints)
     
