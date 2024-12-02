@@ -68,7 +68,7 @@ if __name__ == "__main__":
             if not hasattr(self, "_model"):
                 self._model = Model()
             else:
-                return minizinc_add(self, *args, **kwargs)
+                return ort_add(self, *args, **kwargs)
                 # model is getting called from solveAll, skip subsequent solves.
             self._model.__add__(*args, **kwargs)
             if len(self._model.constraints) > 0:
@@ -83,7 +83,7 @@ if __name__ == "__main__":
             if not hasattr(self, "_model"):
                 self._model = Model()
             else:
-                return minizinc_add(self, *args, **kwargs)
+                return gurobi_add(self, *args, **kwargs)
                 # model is getting called from solveAll, skip subsequent solves.
             self._model.__add__(*args, **kwargs)
             if len(self._model.constraints) > 0:
@@ -113,7 +113,7 @@ if __name__ == "__main__":
             if not hasattr(self, "_model"):
                 self._model = Model()
             else:
-                return minizinc_add(self, *args, **kwargs)
+                return z3_add(self, *args, **kwargs)
                 # model is getting called from solveAll, skip subsequent solves.
             self._model.__add__(*args, **kwargs)
             if len(self._model.constraints) > 0:
