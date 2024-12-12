@@ -24,6 +24,7 @@ if __name__ == "__main__":
         from cpmpy.solvers.gurobi import CPM_gurobi
         from cpmpy.solvers.minizinc import CPM_minizinc
         from cpmpy.solvers.z3 import CPM_z3
+        from cpmpy.expressions.variables import _BoolVarImpl, _IntVarImpl, _NumVarImpl
 
         # Monkey patch the solve method
         original_solve = Model.solve
@@ -122,6 +123,25 @@ if __name__ == "__main__":
                 self._model.solve()
             return z3_add(self, *args, **kwargs)
         CPM_z3.__add__ = patched_z3_add
+
+        original_bool_init = _BoolVarImpl.__init__
+        original_int_init = _IntVarImpl.__init__
+        def patched_boolvar_init(self, lb=0, ub=1, name=None):
+            if name is None:
+                name = "BVV{}".format(_BoolVarImpl.counter)
+                _BoolVarImpl.counter = _BoolVarImpl.counter + 1 # static counter
+            _IntVarImpl.__init__(self, lb, ub, name=name)
+
+        def patched_intvar_init(self, lb=0, ub=1, name=None):
+            if name is None:
+                name = "IVV{}".format(_IntVarImpl.counter)
+                _IntVarImpl.counter = _IntVarImpl.counter + 1  # static counter
+
+            _NumVarImpl.__init__(self, int(lb), int(ub), name=name)  # explicit cast: can be numpy
+
+        # giving different names here avoids occasional name clashes during fuzz testing
+        _BoolVarImpl.__init__ = patched_boolvar_init
+        _IntVarImpl.__init__ = patched_intvar_init
 
         # monkey patch SolverLookup.base_solvers() to only return ortools, gurobi, minizinc, and z3 so we don't run the tests with all solvers.
         def patched_base_solvers():

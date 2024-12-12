@@ -76,8 +76,8 @@ if __name__ == '__main__':
 
     # fetch all the pickle files from the dir and all the subdirs
     fmodels = []
-    fmodels.extend(glob.glob(os.path.join(args.models,"**", "Pickled*"),recursive=True))
-    #fmodels.extend(glob.glob(os.path.join(args.models,"**", "*.pickle"),recursive=True))
+    #fmodels.extend(glob.glob(os.path.join(args.models,"**", "Pickled*"),recursive=True))
+    fmodels.extend(glob.glob(os.path.join(args.models,"**", "*.pickle"),recursive=True))
 
     # showing the info about the given params to the user
     print(f"Checking {len(fmodels)} models from '{args.models}' with solver: '{args.solver}'\nSolving:",flush=True)
