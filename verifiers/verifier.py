@@ -16,26 +16,27 @@ class Verifier():
         self.time_limit = time_limit
         self.seed = seed
         self.mm_mutators = [xor_morph, and_morph, or_morph, implies_morph, not_morph,
-                        linearize_constraint_morph,
-                        flatten_morph,
-                        only_numexpr_equality_morph,
-                        normalized_numexpr_morph,
-                        reify_rewrite_morph,
-                        only_bv_reifies_morph,
-                        only_positive_bv_morph,
-                        flat2cnf_morph,
-                        toplevel_list_morph,
-                        decompose_in_tree_morph,
-                        push_down_negation_morph,
-                        simplify_boolean_morph,
-                        canonical_comparison_morph,
-                        aritmetic_comparison_morph,
-                        semanticFusionCounting,
-                        semanticFusionCountingMinus,
-                        semanticFusionCountingwsum,
-                        semanticFusionCounting,
-                        semanticFusionCountingMinus,
-                        semanticFusionCountingwsum] 
+                            linearize_constraint_morph,
+                            flatten_morph,
+                            only_numexpr_equality_morph,
+                            normalized_numexpr_morph,
+                            reify_rewrite_morph,
+                            only_bv_reifies_morph,
+                            only_positive_bv_morph,
+                            flat2cnf_morph,
+                            toplevel_list_morph,
+                            decompose_in_tree_morph,
+                            push_down_negation_morph,
+                            simplify_boolean_morph,
+                            canonical_comparison_morph,
+                            aritmetic_comparison_morph,
+                            semanticFusionCounting,
+                            semanticFusionCountingMinus,
+                            semanticFusionCountingwsum,
+                            semanticFusionCounting,
+                            semanticFusionCountingMinus,
+                            semanticFusionCountingwsum,
+                            type_aware_operator_replacement]
         self.mutators = []
         self.original_model = None
 
@@ -56,7 +57,10 @@ class Verifier():
             # log function and arguments in that case
             self.mutators += [m]
             try:
-                self.cons += m(self.cons)  # apply a metamorphic mutation
+                if m in {type_aware_operator_replacement, type_aware_expression_replacement}:
+                    self.cons = m(self.cons)  # apply an operator change and REPLACE constraints
+                else:
+                    self.cons += m(self.cons)  # apply a metamorphic mutation and add to constraints
                 self.mutators += [copy.deepcopy(self.cons)]
             except MetamorphicError as exc:
                 #add to exclude_dict, to avoid running into the same error
