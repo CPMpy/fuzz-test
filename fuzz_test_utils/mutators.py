@@ -1348,6 +1348,7 @@ def replace_at_path(con, path, new_expr):
         if type(con) == Comparison:
             return Comparison(con.name, args[0], args[1])
         else:  # global constraints
+            # TODO: bugfix: AllDifferentExceptN can be of type AllDifferentExcept0 which adds a (meaningless) 0 in the constraint
             return type(con)(*args)
     elif type(con) == list:
         return [new_expr if i == path[0] else e for i, e in enumerate(con)]
