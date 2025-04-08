@@ -1207,10 +1207,10 @@ def get_new_operator(func: Function, ints, bools, vals, variables):
                     amnt_args = random.randint(func.min_args, min(len(comb), func.max_args//3))
                     args = random.sample(comb, amnt_args), random.sample(comb, amnt_args), random.sample(comb, amnt_args)
                 case 'GlobalCardinalityCount':
-                    amnt_fst_args = random.randint(1, min(len(ints), func.max_args - 2))
-                    amnt_snd_args = random.randint(1, min(len(ints), (func.max_args - amnt_fst_args)//2))
+                    amnt_fst_args = random.randint(1, min(len(vals), func.max_args - 2))
+                    amnt_snd_args = random.randint(1, min(len(vals), (func.max_args - amnt_fst_args)//2))
                     counts = [random.randint(0, amnt_fst_args) for _ in range(amnt_snd_args)]
-                    args = random.sample(ints, amnt_fst_args), counts, random.sample(ints, amnt_snd_args)
+                    args = random.sample(vals, amnt_fst_args), counts, random.sample(vals, amnt_snd_args)
                 case _:
                     args = []
             return func.func(*args)
