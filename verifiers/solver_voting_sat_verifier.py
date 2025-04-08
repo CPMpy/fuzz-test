@@ -41,20 +41,22 @@ class Solver_Vote_Sat_Verifier(Verifier):
         self.mutators = []
         self.original_model = None
 
-    def initialize_run(self) -> None:
+    def initialize_run(self, is_rerun=False) -> None:
         if self.original_model == None:
             with open(self.model_file, 'rb') as fpcl:
                 self.original_model = pickle.loads(fpcl.read())
         self.cons = self.original_model.constraints
         assert (len(self.cons) > 0), f"{self.model_file} has no constraints"
         self.cons = toplevel_list(self.cons)
+        if is_rerun:
+            print([(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in get_variables(self.cons)])
 
         # No other preparation necessary
 
         self.mutators = [copy.deepcopy(
-            self.cons)]  # keep track of list of cons alternated with mutators that transformed it into the next list of cons.
+            self.cons)]  # keep track of list of og_cons alternated with mutators that transformed it into the next list of og_cons.
 
-    def verify_model(self) -> dict:
+    def verify_model(self, is_rerun=False) -> dict:
         try:
             model = cp.Model(self.cons)
             time_limit = max(1, min(200,
@@ -107,7 +109,7 @@ class Solver_Vote_Sat_Verifier(Verifier):
         # if you got here, the model failed...
         return dict(type=Fuzz_Test_ErrorTypes.failed_model,
                     originalmodel_file=self.model_file,
-                    constraints=self.cons,
+                    constraints=self.og_cons,
                     mutators=self.mutators,
                     model=newModel,
                     originalmodel=self.original_model

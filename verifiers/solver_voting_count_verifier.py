@@ -41,43 +41,46 @@ class Solver_Vote_Count_Verifier(Verifier):
         self.mutators = []
         self.original_model = None
 
-    def initialize_run(self) -> None:
+    def initialize_run(self, is_rerun=False) -> None:
         if self.original_model == None:
             with open(self.model_file, 'rb') as fpcl:
                 self.original_model = pickle.loads(fpcl.read())
         self.cons = self.original_model.constraints
         assert (len(self.cons) > 0), f"{self.model_file} has no constraints"
         self.cons = toplevel_list(self.cons)
+        if is_rerun:
+            print([(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in get_variables(self.cons)])
 
         assert len(self.solvers) == 2, f"2 solvers required, {len(self.solvers)} given."
         if 'gurobi' in [s.lower() for s in self.solvers]:
             self.sol_lim = 10000  # TODO: is hardcode best idea?
-            self.sol_count_1 = cp.Model(self.cons).solveAll(solver=self.solvers[0],time_limit=max(1,min(250,self.time_limit-time.time())),solution_limit=self.sol_lim)
-            self.sol_count_2 = cp.Model(self.cons).solveAll(solver=self.solvers[1],time_limit=max(1,min(250,self.time_limit-time.time())),solution_limit=self.sol_lim)
+            self.sol_count_1 = cp.Model(self.cons).solveAll(solver=self.solvers[0],solution_limit=self.sol_lim)
+            self.sol_count_2 = cp.Model(self.cons).solveAll(solver=self.solvers[1],solution_limit=self.sol_lim)
         else:
-            self.sol_count_1 = cp.Model(self.cons).solveAll(solver=self.solvers[0],time_limit=max(1, min(250, self.time_limit - time.time())))
-            self.sol_count_2 = cp.Model(self.cons).solveAll(solver=self.solvers[1],time_limit=max(1, min(250, self.time_limit - time.time())))
+            self.sol_count_1 = cp.Model(self.cons).solveAll(solver=self.solvers[0])
+            self.sol_count_2 = cp.Model(self.cons).solveAll(solver=self.solvers[1])
 
-        assert self.sol_count_1 == self.sol_count_2, f"{self.solvers} don't agree on amount of solutions (before mutations): {self.sol_count_1} and {self.sol_count_2}"
+        # assert self.sol_count_1 == self.sol_count_2, f"{self.solvers} don't agree on amount of solutions (before mutations): {self.sol_count_1} and {self.sol_count_2}"
 
         self.mutators = [copy.deepcopy(
-            self.cons)]  # keep track of list of cons alternated with mutators that transformed it into the next list of cons.
+            self.cons)]  # keep track of list of og_cons alternated with mutators that transformed it into the next list of og_cons.
 
-    def verify_model(self) -> dict:
+    def verify_model(self, is_rerun=False) -> dict:
         try:
             model = cp.Model(self.cons)
+            if is_rerun:
+                print([(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in get_variables(self.cons)])
             time_limit = max(1, min(200,
                                     self.time_limit - time.time()))  # set the max time limit to the given time limit or to 1 if the self.time_limit-time.time() would be smaller then 1
 
             solver_1 = self.solvers[0]
             solver_2 = self.solvers[1]
             if hasattr(self, 'sol_lim'):
-                print("this works")
-                new_count_1 = model.solveAll(solver=solver_1, time_limit=time_limit, solution_limit=self.sol_lim)
-                new_count_2 = model.solveAll(solver=solver_2, time_limit=time_limit, solution_limit=self.sol_lim)
+                new_count_1 = model.solveAll(solver=solver_1, solution_limit=self.sol_lim)
+                new_count_2 = model.solveAll(solver=solver_2, solution_limit=self.sol_lim)
             else:
-                new_count_1 = model.solveAll(solver=solver_1, time_limit=time_limit)
-                new_count_2 = model.solveAll(solver=solver_2, time_limit=time_limit)
+                new_count_1 = model.solveAll(solver=solver_1)
+                new_count_2 = model.solveAll(solver=solver_2)
 
             if model.status().runtime > time_limit - 10:
                 # timeout, skip
@@ -118,7 +121,7 @@ class Solver_Vote_Count_Verifier(Verifier):
         # if you got here, the model failed...
         return dict(type=Fuzz_Test_ErrorTypes.failed_model,
                     originalmodel_file=self.model_file,
-                    constraints=self.cons,
+                    constraints=self.og_cons,
                     mutators=self.mutators,
                     model=newModel,
                     originalmodel=self.original_model

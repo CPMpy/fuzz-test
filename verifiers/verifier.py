@@ -158,15 +158,15 @@ class Verifier():
             self.model_file = error["originalmodel_file"]
             self.original_model = error["originalmodel"]
             self.exclude_dict = {}
-            self.initialize_run()
+            self.initialize_run(is_rerun=True)
             gen_mutations_error = self.generate_mutations()
 
             # check if no error occured while generation the mutations
             if gen_mutations_error == None:
-                return self.verify_model()
+                return self.verify_model(is_rerun=True)
             else:
                 return gen_mutations_error
-            # self.cons = error["constraints"]
+            # self.og_cons = error["constraints"]
             # return self.verify_model()
         
         except AssertionError as e:
