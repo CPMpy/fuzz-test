@@ -6,9 +6,11 @@ from os.path import join
 from verifiers import *
 from fuzz_test_utils import Fuzz_Test_ErrorTypes
 def get_all_verifiers() -> list:
-    return [Solution_Verifier,Optimization_Verifier,Model_Count_Verifier,Metamorphic_Verifier,Equivalance_Verifier]
+    # TODO: kiezen adhv aantal gegeven solvers
+    # return [Solution_Verifier,Optimization_Verifier,Model_Count_Verifier,Metamorphic_Verifier,Equivalance_Verifier]
+    return [Solver_Vote_Count_Verifier, Solver_Vote_Sat_Verifier]
 
-def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver: str, mutations_per_model: int, folders: list, max_error_treshold: int, output_dir: str, time_limit: float) -> None:
+def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver: list[str], mutations_per_model: int, folders: list, max_error_treshold: int, output_dir: str, time_limit: float) -> None:
     """
         This function will be used to run different verifiers
 
@@ -28,6 +30,7 @@ def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver
     exclude_dict = {}
     random_seed = random.random()
     random.seed(random_seed)
+    solver = solver[0] if len(solver) == 1 else solver  # Take the solver as a string if there is only one
 
     verifier_kwargs = {"solver":solver, "mutations_per_model":mutations_per_model, "exclude_dict":exclude_dict,"time_limit": time_limit, "seed":random_seed}
 

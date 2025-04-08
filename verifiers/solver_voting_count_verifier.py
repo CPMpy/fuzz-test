@@ -9,35 +9,34 @@ class Solver_Vote_Count_Verifier(Verifier):
         self.name = "solver_vote_count_verifier"
         self.type = 'sat'
 
-        self.solvers = solver.split(",")  # Change the solvers (str) into list of solvers ([str])
-        # ALTERNATE: take one (or two) random solver(s) of all possible ones (=> no difference in input)
+        self.solvers = solver
 
         self.mutations_per_model = mutations_per_model
         self.exclude_dict = exclude_dict
         self.time_limit = time_limit
         self.seed = seed
-        self.mm_mutators = [#xor_morph, and_morph, or_morph, implies_morph, not_morph,
-                            # linearize_constraint_morph,
-                            # flatten_morph,
-                            # only_numexpr_equality_morph,
-                            # normalized_numexpr_morph,
-                            # reify_rewrite_morph,
-                            # only_bv_reifies_morph,
-                            # only_positive_bv_morph,
-                            # flat2cnf_morph,
-                            # toplevel_list_morph,
-                            # decompose_in_tree_morph,
-                            # push_down_negation_morph,
-                            # simplify_boolean_morph,
-                            # canonical_comparison_morph,
-                            # aritmetic_comparison_morph,
-                            # semanticFusionCounting,
-                            # semanticFusionCountingMinus,
-                            # semanticFusionCountingwsum,
-                            # semanticFusionCounting,
-                            # semanticFusionCountingMinus,
-                            # semanticFusionCountingwsum,
-                            # type_aware_operator_replacement,
+        self.mm_mutators = [xor_morph, and_morph, or_morph, implies_morph, not_morph,
+                            linearize_constraint_morph,
+                            flatten_morph,
+                            only_numexpr_equality_morph,
+                            normalized_numexpr_morph,
+                            reify_rewrite_morph,
+                            only_bv_reifies_morph,
+                            only_positive_bv_morph,
+                            flat2cnf_morph,
+                            toplevel_list_morph,
+                            decompose_in_tree_morph,
+                            push_down_negation_morph,
+                            simplify_boolean_morph,
+                            canonical_comparison_morph,
+                            aritmetic_comparison_morph,
+                            semanticFusionCounting,
+                            semanticFusionCountingMinus,
+                            semanticFusionCountingwsum,
+                            semanticFusionCounting,
+                            semanticFusionCountingMinus,
+                            semanticFusionCountingwsum,
+                            type_aware_operator_replacement,
                             type_aware_expression_replacement]
         self.mutators = []
         self.original_model = None
@@ -50,9 +49,16 @@ class Solver_Vote_Count_Verifier(Verifier):
         assert (len(self.cons) > 0), f"{self.model_file} has no constraints"
         self.cons = toplevel_list(self.cons)
 
-        self.sol_count_1 = cp.Model(self.cons).solveAll(solver=self.solvers[0],time_limit=max(1,min(250,self.time_limit-time.time())))
-        self.sol_count_2 = cp.Model(self.cons).solveAll(solver=self.solvers[1],time_limit=max(1,min(250,self.time_limit-time.time())))
-        assert self.sol_count_1 == self.sol_count_2, f"{self.solvers} don't agree on amount of solutions: {self.sol_count_1} and {self.sol_count_2}"
+        assert len(self.solvers) == 2, f"2 solvers required, {len(self.solvers)} given."
+        if 'gurobi' in [s.lower() for s in self.solvers]:
+            self.sol_lim = 10000  # TODO: is hardcode best idea?
+            self.sol_count_1 = cp.Model(self.cons).solveAll(solver=self.solvers[0],time_limit=max(1,min(250,self.time_limit-time.time())),solution_limit=self.sol_lim)
+            self.sol_count_2 = cp.Model(self.cons).solveAll(solver=self.solvers[1],time_limit=max(1,min(250,self.time_limit-time.time())),solution_limit=self.sol_lim)
+        else:
+            self.sol_count_1 = cp.Model(self.cons).solveAll(solver=self.solvers[0],time_limit=max(1, min(250, self.time_limit - time.time())))
+            self.sol_count_2 = cp.Model(self.cons).solveAll(solver=self.solvers[1],time_limit=max(1, min(250, self.time_limit - time.time())))
+
+        assert self.sol_count_1 == self.sol_count_2, f"{self.solvers} don't agree on amount of solutions (before mutations): {self.sol_count_1} and {self.sol_count_2}"
 
         self.mutators = [copy.deepcopy(
             self.cons)]  # keep track of list of cons alternated with mutators that transformed it into the next list of cons.
@@ -65,8 +71,13 @@ class Solver_Vote_Count_Verifier(Verifier):
 
             solver_1 = self.solvers[0]
             solver_2 = self.solvers[1]
-            new_count_1 = model.solveAll(solver=solver_1, time_limit=time_limit)
-            new_count_2 = model.solveAll(solver=solver_2, time_limit=time_limit)
+            if hasattr(self, 'sol_lim'):
+                print("this works")
+                new_count_1 = model.solveAll(solver=solver_1, time_limit=time_limit, solution_limit=self.sol_lim)
+                new_count_2 = model.solveAll(solver=solver_2, time_limit=time_limit, solution_limit=self.sol_lim)
+            else:
+                new_count_1 = model.solveAll(solver=solver_1, time_limit=time_limit)
+                new_count_2 = model.solveAll(solver=solver_2, time_limit=time_limit)
 
             if model.status().runtime > time_limit - 10:
                 # timeout, skip
