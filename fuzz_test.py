@@ -26,7 +26,7 @@ if __name__ == '__main__':
         return ivalue
     
     parser = argparse.ArgumentParser(description = "A python application to fuzz_test your solver(s)")
-    parser.add_argument("-s", "--solver", help = "The Solver to use", required = False,type=str,choices=available_solvers, default=available_solvers[0])
+    parser.add_argument("-s", "--solver", help = "The Solver to use", required = False,type=str,choices=available_solvers, nargs='+', default=[available_solvers[0]])
     parser.add_argument("-m", "--models", help = "The path to load the models", required=False, type=str, default="models")
     parser.add_argument("-o", "--output-dir", help = "The directory to store the output (will be created if it does not exist).", required=False, type=str, default="output")
     parser.add_argument("-g", "--skip-global-constraints", help = "Skip the global constraints when testing", required=False, default = False)
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     os.makedirs(args.output_dir, exist_ok=True)
 
     # showing the info about the given params to the user
-    print("\nUsing solver '"+args.solver+"' with models in '"+args.models+"' and writing to '"+args.output_dir+"'." ,flush=True,end="\n\n")
+    print("\nUsing solver(s): '" + ", ".join(args.solver)+"' with models in '"+args.models+"' and writing to '"+args.output_dir+"'." ,flush=True,end="\n\n")
     print("Will use "+str(args.amount_of_processes)+ " parallel executions, starting...",flush=True,end="\n\n")
 
     # creating the vars for the multiprocessing
