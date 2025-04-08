@@ -24,7 +24,7 @@ from cpmpy.expressions.globalconstraints import Xor, AllDifferent, AllDifferentE
     GlobalCardinalityCount, Increasing, Decreasing, IncreasingStrict, DecreasingStrict, LexLess, LexLessEq, \
     LexChainLess, LexChainLessEq, GlobalConstraint
 # from cpmpy.expressions.globalfunctions import Abs, Mimimum(GlobalFunction), Maximum
-from cpmpy.expressions.variables import boolvar, _IntVarImpl
+from cpmpy.expressions.variables import boolvar, _IntVarImpl, NDVarArray
 
 
 class Function:
@@ -937,15 +937,16 @@ def type_aware_operator_replacement(constraints):
         final_cons = copy.deepcopy(constraints)
         cons_set = set(constraints)
         # pick a random constraint and calculate their mutable expressions until there is at least 1
-        con = random.choice(final_cons)
-        exprs = get_all_mutable_op_exprs(con)
-        while len(exprs) < 1:
-            con = random.choice(list(cons_set))
+        candidates = list(cons_set)  # or final_cons
+        random.shuffle(candidates)
+        for con in candidates:
             exprs = get_all_mutable_op_exprs(con)
-            cons_set.remove(con)
+            if exprs:
+                break
+        else:
+            return final_cons
 
         # remove the constraint from the constraints
-        # final_cons = [c for c in final_cons if (c.name != con.name or c.args != con.args)]
         final_cons.remove(con)
 
         # Choose an expression to change
@@ -1038,7 +1039,7 @@ def get_all_op_exprs(con):
 
 # Helper function to get all expressions WITHOUT an operator in a given constraint
 def get_all_non_op_exprs(con):
-    if hasattr(con, 'args') and con.name != 'boolval':
+    if hasattr(con, 'args') and type(con) != NDVarArray and con.name != 'boolval':
         return sum((get_all_non_op_exprs(arg) for arg in con.args), [])
     elif type(con) == list:
         if all([is_num(e) for e in con]):  # wsum constants
@@ -1216,7 +1217,7 @@ def get_operator(args, has_bool_return):
     Returns a new expression that needs fewer arguments of each type than available in `args`.
     It has a boolean return type if `has_bool_return` is True, otherwise it has an int return type.
     """
-    ints = [e for e in args if not is_boolexpr(e)]
+    ints = [e for e in args if not (is_boolexpr(e) or type(e) == list)]
     bools = [e for e in args if is_boolexpr(e)]
     values = [e for e in args if not hasattr(e, 'value')]  # Is this the only way to extract constants only? (e.g. for wsum)
     ints_cnt = len(ints)
@@ -1304,8 +1305,12 @@ def get_operator(args, has_bool_return):
         }.items()
     }
     all_ops = ops | comps | global_fns | global_cons
+    # print(f"ints_cnt={ints_cnt},bools_cnt={bools_cnt},has_bool_return={has_bool_return}")
     after = {k: v for k, v in all_ops.items() if satisfies_args(v, ints_cnt, bools_cnt, vals_cnt, has_bool_return)}
-    func = random.choice(list(after.values()))
+    if after:
+        func = random.choice(list(after.values()))
+    else:
+        return None
     return get_new_operator(func, ints, bools, values)
 
 def find_all_occurrences(con, target_node):
@@ -1337,8 +1342,8 @@ def replace_at_path(con, path, new_expr):
             return Operator(con.name, args)
         if type(con) == Comparison:
             return Comparison(con.name, args[0], args[1])
-        else:  # global constraints (of 'max()' toch)
-            return type(con)(args)
+        else:  # global constraints
+            return type(con)(*args)
     elif type(con) == list:
         return [new_expr if i == path[0] else e for i, e in enumerate(con)]
     else:
@@ -1364,19 +1369,22 @@ def type_aware_expression_replacement(constraints):
     ~ Return:
         - final_cons: a list of the same constraints where one constraint has a mutated expression
     """
-    try:
-        final_cons = copy.deepcopy(constraints)
-        # 1. Neem een (random) expression van een (random) constraint en de return type
-        has_bool_return = False
-        rand_con = random.choice(final_cons)
-        all_con_exprs = get_all_exprs(rand_con)
-        expr = random.choice(all_con_exprs)
-        has_bool_return = is_boolexpr(expr)
-        # 2. Tel het aantal resterende params van elk type (van alle constraints of enkel in de constraint zelf?)
-        all_exprs = get_all_exprs_mult(final_cons)
-        # 3. Zoek een operator die <= aantal params nodig heeft met zelfde return type
-        new_expr = get_operator(all_exprs, has_bool_return)
-        # 4. Vervang expression (+ vervang constraint)
+    final_cons = copy.deepcopy(constraints)
+    # print(f"All constraints at the moment: {final_cons}")
+    # 1. Neem een (random) expression van een (random) constraint en de return type
+    rand_con = random.choice(final_cons)
+    all_con_exprs = get_all_exprs(rand_con)
+    expr = random.choice(all_con_exprs)
+    has_bool_return = is_boolexpr(expr)
+    # print(f"Changing constarint: {rand_con}")
+    # print(f"Old expression: {expr}")
+    # 2. Tel het aantal resterende params van elk type (van alle constraints of enkel in de constraint zelf?)
+    all_exprs = get_all_exprs_mult(final_cons)
+    # 3. Zoek een operator die <= aantal params nodig heeft met zelfde return type
+    new_expr = get_operator(all_exprs, has_bool_return)
+    # 4. Vervang expression (+ vervang constraint)
+    # print(f"New expression: {new_expr}")
+    if new_expr:
         new_con = mutate_con(rand_con, old_expr=expr, new_expr=new_expr)
         # 5. Return the new constraints
         # final_cons.remove(rand_con) DOES NOT WORK because it uses == instead of 'is'
@@ -1388,9 +1396,7 @@ def type_aware_expression_replacement(constraints):
         if index is not None:
             del final_cons[index]
         final_cons.append(new_con)
-        return final_cons
-    except Exception as e:
-        return Exception(e)
+    return final_cons
 
 class MetamorphicError(Exception):
     pass
