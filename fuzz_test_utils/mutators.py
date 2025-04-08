@@ -293,7 +293,7 @@ def only_positive_bv_morph(cons):
 
 
 def flat2cnf_morph(cons):
-    # flatcons = flatten_morph(cons,flatten_all=True)
+    # flatcons = flatten_morph(og_cons,flatten_all=True)
     onlycons = only_bv_reifies_morph(cons, morph_all=True)
     try:
         return flat2cnf(onlycons)
@@ -330,7 +330,7 @@ def semanticFusion(const):
                     firstcon = random.choice(res)
                 elif secondcon == None:
                     secondcon = random.choice(res)
-                    break  # stop when 2 constraints found. still random because cons are shuffled
+                    break  # stop when 2 constraints found. still random because og_cons are shuffled
 
         if secondcon != None:
             # two constraints with aritmetic expressions found, perform semantic fusion on them
@@ -417,7 +417,7 @@ def semanticFusionMinus(const):
                     firstcon = random.choice(res)
                 elif secondcon == None:
                     secondcon = random.choice(res)
-                    break  # stop when 2 constraints found. still random because cons are shuffled
+                    break  # stop when 2 constraints found. still random because og_cons are shuffled
 
         if secondcon != None:
             # two constraints with aritmetic expressions found, perform semantic fusion on them
@@ -504,7 +504,7 @@ def semanticFusionwsum(const):
                     firstcon = random.choice(res)
                 elif secondcon == None:
                     secondcon = random.choice(res)
-                    break  # stop when 2 constraints found. still random because cons are shuffled
+                    break  # stop when 2 constraints found. still random because og_cons are shuffled
 
         if secondcon != None:
             # two constraints with aritmetic expressions found, perform semantic fusion on them
@@ -597,7 +597,7 @@ def semanticFusionCountingwsum(const):
                     firstcon = random.choice(res)
                 elif secondcon == None:
                     secondcon = random.choice(res)
-                    break  # stop when 2 constraints found. still random because cons are shuffled
+                    break  # stop when 2 constraints found. still random because og_cons are shuffled
 
         if secondcon != None:
             # two constraints with aritmetic expressions found, perform semantic fusion on them
@@ -691,7 +691,7 @@ def semanticFusionCounting(const):
                     firstcon = random.choice(res)
                 elif secondcon == None:
                     secondcon = random.choice(res)
-                    break  # stop when 2 constraints found. still random because cons are shuffled
+                    break  # stop when 2 constraints found. still random because og_cons are shuffled
 
         if secondcon != None:
             # two constraints with aritmetic expressions found, perform semantic fusion on them
@@ -779,7 +779,7 @@ def semanticFusionCountingMinus(const):
                     firstcon = random.choice(res)
                 elif secondcon == None:
                     secondcon = random.choice(res)
-                    break  # stop when 2 constraints found. still random because cons are shuffled
+                    break  # stop when 2 constraints found. still random because og_cons are shuffled
 
         if secondcon != None:
             # two constraints with aritmetic expressions found, perform semantic fusion on them
@@ -1062,7 +1062,7 @@ def get_all_exprs_mult(cons):
     return all_exprs
 
 
-def satisfies_args(func: Function, ints: int, bools: int, values: int, has_bool_return: bool):
+def satisfies_args(func: Function, ints: int, bools: int, values: int, vars: int, has_bool_return: bool):
     """
     returns whether the given function `func` can work with the given amount of integers `ints`
     and booleans `bools` and the given return type `has_bool_return`
@@ -1085,19 +1085,23 @@ def satisfies_args(func: Function, ints: int, bools: int, values: int, has_bool_
                 case 'Minimum' | 'Maximum' | 'Element':  # We make these have only ints, so it always has the same return type
                     return values >= func.min_args and not has_bool_return
                 case 'Among' | 'NValueExcept':
-                    return values >= 1 and ints >= func.min_args and not has_bool_return
+                    return values >= 1 and ints >= func.min_args - 1 and not has_bool_return
         case 'gcon':
             match func.name:
                 case 'Circuit' | 'Inverse' | 'GlobalCardinalityCount':
                     return values >= func.min_args and has_bool_return
                 case 'IfThenElse' | 'Xor':
                     return bools >= func.min_args and has_bool_return
+                case 'Table' | 'NegativeTable':
+                    return vars >= 1 and ints + bools >= func.min_args - 1 and has_bool_return
+                case 'LexLess' | 'LexLessEq' | 'LexChainLess' | 'LexChainLessEq':
+                    return vars >= func.min_args and has_bool_return
                 case _:
                     return ints + bools >= func.min_args and has_bool_return
 
 
 
-def get_new_operator(func: Function, ints, bools, vals):
+def get_new_operator(func: Function, ints, bools, vals, variables):
     comb = ints + bools
     match func.type:
         case 'op' | 'comp':
@@ -1167,11 +1171,11 @@ def get_new_operator(func: Function, ints, bools, vals):
                     amnt_snd_args = random.randint(func.min_args//2, min(len(comb), func.max_args - amnt_fst_args))
                     args = random.sample(comb, amnt_fst_args), random.sample(comb, amnt_snd_args)
                 case 'LexLess' | 'LexLessEq':
-                    half_amnt_args = random.randint(func.min_args//2, min(len(comb), func.max_args)//2)
-                    args = random.sample(comb, half_amnt_args), random.sample(comb, half_amnt_args)
+                    half_amnt_args = random.randint(func.min_args//2, min(len(variables), func.max_args)//2)
+                    args = random.sample(variables, half_amnt_args), random.sample(variables, half_amnt_args)
                 case 'LexChainLess' | 'LexChainLessEq':
-                    amnt_args = random.randint(func.min_args, min(len(comb), func.max_args)//2)
-                    all_args = random.sample(comb, amnt_args)
+                    amnt_args = random.randint(func.min_args, min(len(variables), func.max_args)//2)
+                    all_args = random.sample(variables, amnt_args)
                     divisors = [i for i in range(1, amnt_args) if amnt_args % i == 0]
                     fst_dimension = random.choice(divisors)
                     snd_dimension = int(amnt_args / fst_dimension)
@@ -1189,10 +1193,9 @@ def get_new_operator(func: Function, ints, bools, vals):
                     amnt_args = random.randint(func.min_args, min(len(bools), func.max_args))
                     args = random.sample(bools, amnt_args),
                 case 'Table' | 'NegativeTable':
-                    vars = [e for e in comb if hasattr(e, 'value')]
-                    amnt_fst_arg = random.randint(1, min(len(vars), func.max_args//4))
+                    amnt_fst_arg = random.randint(1, min(len(variables), func.max_args//4))
                     amnt_snd_args = random.randint(1, min(len(comb), func.max_args-amnt_fst_arg) // amnt_fst_arg) * amnt_fst_arg
-                    fst_args = random.sample(vars, amnt_fst_arg)
+                    fst_args = random.sample(variables, amnt_fst_arg)
                     snd_args = random.sample(comb, amnt_snd_args)
                     snd_args_transformed = [snd_args[i * amnt_fst_arg:(i + 1) * amnt_fst_arg] for i in range(int(amnt_snd_args/amnt_fst_arg))]
                     args = fst_args, snd_args_transformed
@@ -1220,9 +1223,11 @@ def get_operator(args, has_bool_return):
     ints = [e for e in args if not (is_boolexpr(e) or type(e) == list)]
     bools = [e for e in args if is_boolexpr(e)]
     values = [e for e in args if not hasattr(e, 'value')]  # Is this the only way to extract constants only? (e.g. for wsum)
+    variables = get_variables(args)
     ints_cnt = len(ints)
     bools_cnt = len(bools)
     vals_cnt = len(values)
+    vars_cnt = len(variables)
     max_args = 12
 
     # Operators:
@@ -1298,20 +1303,20 @@ def get_operator(args, has_bool_return):
             Decreasing: ('gcon', -1, 0, True, 2, max_args),  # [...] (min 2, max /, /)
             IncreasingStrict: ('gcon', -1, 0, True, 2, max_args),  # [...] (min 2, max /, /)
             DecreasingStrict: ('gcon', -1, 0, True, 2, max_args),  # [...] (min 2, max /, /)
-            LexLess: ('gcon', -1, 0, True, 2, max_args, 2),  # [...], [...] | Lists have same length (min 2, max /, 2n)
-            LexLessEq: ('gcon', -1, 0, True, 2, max_args, 2),  # [...], [...] | Lists have same length (min 2, max /, 2n)
-            LexChainLess: ('gcon', -1, 0, True, 2, max_args),  # [...][...] | Rows have same length (min 2, max /, mn)
-            LexChainLessEq: ('gcon', -1, 0, True, 2, max_args),  # [...][...] | Rows have same length (min 2, max /, mn)
+            LexLess: ('gcon', -1, 0, True, 2, max_args, 2),  # [...], [...] | Lists have same length (min 2, max /, 2n), ONLY VARS
+            LexLessEq: ('gcon', -1, 0, True, 2, max_args, 2),  # [...], [...] | Lists have same length (min 2, max /, 2n), ONLY VARS
+            LexChainLess: ('gcon', -1, 0, True, 2, max_args),  # [...][...] | Rows have same length (min 2, max /, mn), ONLY VARS
+            LexChainLessEq: ('gcon', -1, 0, True, 2, max_args),  # [...][...] | Rows have same length (min 2, max /, mn), ONLY VARS
         }.items()
     }
     all_ops = ops | comps | global_fns | global_cons
     # print(f"ints_cnt={ints_cnt},bools_cnt={bools_cnt},has_bool_return={has_bool_return}")
-    after = {k: v for k, v in all_ops.items() if satisfies_args(v, ints_cnt, bools_cnt, vals_cnt, has_bool_return)}
+    after = {k: v for k, v in all_ops.items() if satisfies_args(v, ints_cnt, bools_cnt, vals_cnt, vars_cnt, has_bool_return)}
     if after:
         func = random.choice(list(after.values()))
     else:
         return None
-    return get_new_operator(func, ints, bools, values)
+    return get_new_operator(func, ints, bools, values, variables)
 
 def find_all_occurrences(con, target_node):
     """
