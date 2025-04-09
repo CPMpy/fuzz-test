@@ -1039,9 +1039,9 @@ def get_all_op_exprs(con):
 
 # Helper function to get all expressions WITHOUT an operator in a given constraint
 def get_all_non_op_exprs(con):
-    if hasattr(con, 'args') and type(con) != NDVarArray and con.name != 'boolval':
+    if hasattr(con, 'args') and not isinstance(con, NDVarArray) and con.name != 'boolval':
         return sum((get_all_non_op_exprs(arg) for arg in con.args), [])
-    elif type(con) == list:
+    elif isinstance(con, list):
         if all([is_num(e) for e in con]):  # wsum constants
             return []
         else:
@@ -1220,7 +1220,7 @@ def get_operator(args, has_bool_return):
     Returns a new expression that needs fewer arguments of each type than available in `args`.
     It has a boolean return type if `has_bool_return` is True, otherwise it has an int return type.
     """
-    ints = [e for e in args if not (is_boolexpr(e) or type(e) == list)]
+    ints = [e for e in args if not (is_boolexpr(e) or isinstance(e, list))]
     bools = [e for e in args if is_boolexpr(e)]
     values = [e for e in args if not hasattr(e, 'value')]  # Is this the only way to extract constants only? (e.g. for wsum)
     variables = get_variables(args)
@@ -1330,7 +1330,7 @@ def find_all_occurrences(con, target_node):
         for i, arg in enumerate(con.args):
             for path in find_all_occurrences(arg, target_node):
                 occurrences.append((i,) + path)  # Add index to the path
-    elif type(con) == list:
+    elif isinstance(con, list):
         for i, arg in enumerate(con):
             for path in find_all_occurrences(arg, target_node):
                 occurrences.append((i,) + path)
@@ -1338,22 +1338,34 @@ def find_all_occurrences(con, target_node):
 
 
 def replace_at_path(con, path, new_expr):
+    """
+        Replace the subexpression at the given `path` in the expression tree `con` with `new_expr`.
+
+        Parameters:
+            ~ con: The constraint in which we will replace an expression
+            ~ path: The path to the expression we will mutate (e.g. y has path (0, 1) in (x > y) -> p)
+            ~ new_expr: The new expression which will be at the specified `path`
+        Returns:
+            ~ con: The mutated constraint
+    """
     if not path:  # END OF PATH
         return new_expr
-    if hasattr(con, 'args') and con.name != 'boolval':
-        args = con.args
-        args[path[0]] = replace_at_path(args[path[0]], path[1:], new_expr)
-        if type(con) == Operator:
-            return Operator(con.name, args)
-        if type(con) == Comparison:
-            return Comparison(con.name, args[0], args[1])
-        else:  # global constraints
-            # TODO: bugfix: AllDifferentExceptN can be of type AllDifferentExcept0 which adds a (meaningless) 0 in the constraint
-            return type(con)(*args)
-    elif type(con) == list:
-        return [new_expr if i == path[0] else e for i, e in enumerate(con)]
-    else:
-        return con
+    new_expr = copy.deepcopy(new_expr)  # Important to avoid infinite recursion!
+    parent = con
+    # Traverse the parents until we have the final parent
+    for idx in path[:-1]:
+        if hasattr(parent, 'args') and parent.name != 'boolval':
+            parent = parent.args[idx]
+        elif isinstance(parent, list):
+            parent = parent[idx]
+    # Change the arguments of the parent
+    if hasattr(parent, 'args') and parent.name != 'boolval':
+        args = list(parent.args)
+        args[path[-1]] = new_expr
+        parent.update_args(args)
+    elif isinstance(parent, list):
+        parent[path[-1]] = new_expr
+    return con
 
 
 def mutate_con(con, old_expr, new_expr):
