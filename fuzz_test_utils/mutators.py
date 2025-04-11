@@ -909,7 +909,7 @@ def aritmetic_comparison_morph(const):
         raise MetamorphicError(aritmetic_comparison_morph, cons, e)
 
 
-def type_aware_operator_replacement(constraints):
+def type_aware_operator_replacement(constraints: list):
     """
     Replaces a random operator of a random constraint from a list of given constraints.
     IMPORTANT: This can change satisfiability of the constraint! Only to be used with verifiers that allow this!
@@ -928,33 +928,34 @@ def type_aware_operator_replacement(constraints):
         - [Bool, Bool]  -> Bool :  and or  ->
         - [Bool, ...]   -> Bool :  and or
         - [Bool]        -> Bool :  not
-        - Int,  Int     -> Int  :  sum sub mul div mod pow
+        - Int,  Int     -> Int  :  sum sub mul div mod pow (IMPORTANT: div mod gives problems with domains containing 0, pow with domains containing negative numbers)
         - [Int, ...]    -> Int  :  sum
         - [Int]         -> Int  :  -
         - [Int, ...] [Int, ...] (arrays of same len) -> Int  :  wsum
     """
     try:
         final_cons = copy.deepcopy(constraints)
-        cons_set = set(constraints)
-        # pick a random constraint and calculate their mutable expressions until there is at least 1
-        candidates = list(cons_set)  # or final_cons
+        # pick a random constraint and calculate whether they have a mutable expression until they do
+        candidates = list(set(constraints))
         random.shuffle(candidates)
         for con in candidates:
-            exprs = get_all_mutable_op_exprs(con)
+            exprs = get_all_mutable_op_exprs(con)  # e.g. for (x + y) // z > 0. The tree goes >(0, //(+(x,y), z))
+                                                    # which means either >, // or + can get mutated
             if exprs:
                 break
-        else:
+        else:  # In case there isn't any mutable expression in any constraint
             return final_cons
 
-        # remove the constraint from the constraints
+        # Remove the constraint from the constraints
         final_cons.remove(con)
 
         # Choose an expression to change
         expr = random.choice(exprs)
 
+        # Mutate this expression (= change the operator)
         mutate_op_expression(expr, con)
 
-        # add the changed constraint back
+        # Add the changed constraint back
         final_cons.append(con)
         return final_cons
 
@@ -962,7 +963,8 @@ def type_aware_operator_replacement(constraints):
         return Exception(e)
 
 
-def mutate_op_expression(expr, con):
+# TODO: use this to make a "strengthen_expression" and "weaken_expression"
+def mutate_op_expression(expr: Expression, con: Expression):
     """
     Mutates the constraint containing the expression by mutating said expression.
     Only to be called when the expression is known to be in the constraint.
@@ -972,7 +974,7 @@ def mutate_op_expression(expr, con):
         - con: the constraint containing the expression
     ~ No return. Mutates the constraint!
     """
-    # types that can be converted into each-other
+    # Types that can be converted into each-other
     comparisons = {'==', '!=', '<', '<=', '>', '>='}
     int_ops = {'sum', 'sub', 'mul',
                'pow', 'mod', 'div'}
@@ -992,25 +994,25 @@ def mutate_op_expression(expr, con):
             raise ValueError(f"Unknown operator type: {expr.name}. (You should not be able to get here)")
 
         new_operator = random.choice(list(possible_replacements))
-        expr.name = new_operator
+        expr.name = new_operator # Mutate expression by changing its name
         return
 
-    # recursively search in arguments
+    # Recursively search for the expression in arguments
     if hasattr(con, "args"):
         for arg in con.args:
             mutate_op_expression(expr, arg)
             return
 
 
-def get_all_mutable_op_exprs(con):
+def get_all_mutable_op_exprs(con: Expression):
     """
     Returns a list of all expressions inside the given constraint of which the
-    operator can be mutated into another one. This can be extended with other operators.
+    operator can be mutated into another one.
 
-    ~ Paremeters:
+    ~ Parameters:
         - con: a single constraint, possibly containing multiple expressions
     ~ Return:
-        - mutable_exprs: all expressions in the constraint that can be mutated (safely)
+        - mutable_exprs: all expressions in the constraint that can be mutated
     """
     comparisons = {'==', '!=', '<', '<=', '>', '>='}
     int_ops = {'sum', 'sub', 'mul', 'div', 'mod', 'pow'}
@@ -1029,16 +1031,20 @@ def get_all_mutable_op_exprs(con):
     return mutable_exprs
 
 
-# Helper function to get all expressions WITH an operator in a given constraint
-def get_all_op_exprs(con):
+def get_all_op_exprs(con: Expression):
+    """
+    Helper function to get all expressions WITH an operator in a given constraint
+    """
     if type(con) in {Comparison, Operator}:
         return sum((get_all_op_exprs(arg) for arg in con.args), []) + [con]  # All subexpressions + current expression
     else:
         return []
 
 
-# Helper function to get all expressions WITHOUT an operator in a given constraint
-def get_all_non_op_exprs(con):
+def get_all_non_op_exprs(con: Expression):
+    """
+    Helper function to get all expressions WITHOUT an operator in a given constraint
+    """
     if hasattr(con, 'args') and not isinstance(con, NDVarArray) and con.name != 'boolval':
         return sum((get_all_non_op_exprs(arg) for arg in con.args), [])
     elif isinstance(con, list):
@@ -1050,28 +1056,41 @@ def get_all_non_op_exprs(con):
         return [con]
 
 
-# Helper function to get all epxressions in a given constraint (Might be unnecessary but let's use this for now)
-def get_all_exprs(con):
+def get_all_exprs(con: Expression):
+    """
+    Helper function to get all expressions in a given constraint (Might be unnecessary but let's use this for now)
+    """
     return get_all_op_exprs(con)[::-1] + get_all_non_op_exprs(con)
 
 
-def get_all_exprs_mult(cons):
+def get_all_exprs_mult(cons: list):
+    """
+    Helper function to get all expressions in a given list of constraints (e.g. to get all possible arguments for an
+    expression replacement)
+    """
     all_exprs = []
     for con in cons:
         all_exprs += get_all_exprs(con)
     return all_exprs
 
 
-def satisfies_args(func: Function, ints: int, bools: int, values: int, vars: int, has_bool_return: bool):
+def satisfies_args(func: Function, ints: int, bools: int, constants: int, vars: int, has_bool_return: bool):
     """
-    returns whether the given function `func` can work with the given amount of integers `ints`
-    and booleans `bools` and the given return type `has_bool_return`
+    Returns whether a new function of the given type `func` can be created with the given amount of arguments.
+    ~ Parameters:
+        - `ints`: The amount of integers in the possible arguments (including constants and variables)
+        - bools`: The amount of booleans in the possible arguments (including variables)
+        - `constants`: The amount of constants in the possible arguments (only numbers)
+        - `vars`: The amount of variables in the possible arguments (intvars and boolvars)
+        - `has_bool_return`: Indicates whether the return type should be boolean (True) or int (False)
+    ~ Returns:
+        - True if it is possible to create a new function of given type with the given arguments, False otherwise
     """
     match func.type:
         case 'op' | 'comp':
             match func.name:
                 case 'wsum':
-                    return values >= 1 and ints + bools >= func.min_args and has_bool_return == func.bool_return
+                    return constants >= 1 and ints + bools >= func.min_args and has_bool_return == func.bool_return
                 case _:
                     return ((func.int_args == -1 or func.int_args <= ints + bools) and  # enough int args
                             (func.bool_args == -1 or func.bool_args <= bools) and  # enough bool args
@@ -1083,45 +1102,58 @@ def satisfies_args(func: Function, ints: int, bools: int, values: int, vars: int
                 case 'Abs' | 'NValue' | 'Count':
                     return ints + bools >= func.min_args and not has_bool_return
                 case 'Minimum' | 'Maximum' | 'Element':  # We make these have only ints, so it always has the same return type
-                    return values >= func.min_args and not has_bool_return
+                    return constants >= func.min_args and not has_bool_return
                 case 'Among' | 'NValueExcept':
-                    return values >= 1 and ints >= func.min_args - 1 and not has_bool_return
+                    return constants >= 1 and ints >= func.min_args - 1 and not has_bool_return
         case 'gcon':
             match func.name:
-                case 'Circuit' | 'Inverse' | 'GlobalCardinalityCount':
-                    return values >= func.min_args and has_bool_return
+                case 'GlobalCardinalityCount':
+                    return constants >= func.min_args and has_bool_return
                 case 'IfThenElse' | 'Xor':
                     return bools >= func.min_args and has_bool_return
                 case 'Table' | 'NegativeTable':
                     return vars >= 1 and ints + bools >= func.min_args - 1 and has_bool_return
                 case 'LexLess' | 'LexLessEq' | 'LexChainLess' | 'LexChainLessEq':
                     return vars >= func.min_args and has_bool_return
+                case 'Circuit' | 'Inverse':
+                    return has_bool_return  # No arguments required. We fill in the arrays with logical numbers
                 case _:
                     return ints + bools >= func.min_args and has_bool_return
 
 
-
-def get_new_operator(func: Function, ints, bools, vals, variables):
+def get_new_operator(func: Function, ints: list, bools: list, constants: list, variables: list):
+    """
+    Creates a new function of the given type with the arguments given
+    ~ Parameters:
+        - `ints`: The integers in the possible arguments (including constants and variables)
+        - `bools`: The booleans in the possible arguments (including variables)
+        - `constants`: The constants in the possible arguments (only numbers)
+        - `variables`: The variables in the possible arguments (intvars and boolvars)
+    ~ Returns:
+        - A new function with arguments from the given lists (or other arguments based on the Function `func`)
+    """
     comb = ints + bools
     match func.type:
         case 'op' | 'comp':
             # Separate logic for wsum
             if func.name == 'wsum':  # (-1, 0, False, 2, max_args, 2)
-                amnt_args = random.randint(func.min_args // 2, min(len(vals), func.max_args)//2)
+                amnt_args = random.randint(func.min_args // 2, min(len(constants), func.max_args) // 2)
                 # First take constants
-                constants = random.sample(vals, amnt_args)
+                constants = random.sample(constants, amnt_args)
                 # Then the other expressions
                 others = random.sample(comb, amnt_args)
                 return Operator(func.name, [constants, others])
 
             # Logic for all other operators and comparisons is the same
             if func.int_args == -1:
-                amnt_args = random.randint(func.min_args, min(len(comb), func.max_args))  # Take at least min_args and at most max_args arguments
+                amnt_args = random.randint(func.min_args, min(len(comb),
+                                                              func.max_args))  # Take at least min_args and at most max_args arguments
                 args = random.sample(comb, amnt_args)
             elif func.int_args > 0:
                 args = random.sample(comb, func.int_args)
             if func.bool_args == -1:
-                amnt_args = random.randint(func.min_args, min(len(bools), func.max_args))  # Take at least min_args and at most max_args arguments
+                amnt_args = random.randint(func.min_args, min(len(bools),
+                                                              func.max_args))  # Take at least min_args and at most max_args arguments
                 args = random.sample(bools, amnt_args)
             elif func.bool_args > 0:
                 args = random.sample(bools, func.bool_args)
@@ -1134,11 +1166,11 @@ def get_new_operator(func: Function, ints, bools, vals, variables):
                 case 'Abs':
                     args = random.choice(comb),
                 case 'Minimum' | 'Maximum':
-                    amnt_args = random.randint(func.min_args, min(len(vals), func.max_args))
-                    args = random.sample(vals, amnt_args),
+                    amnt_args = random.randint(func.min_args, min(len(constants), func.max_args))
+                    args = random.sample(constants, amnt_args),
                 case 'Element':
-                    amnt_args = random.randint(func.min_args, min(len(vals), func.max_args))
-                    first_arg = random.sample(vals, amnt_args)
+                    amnt_args = random.randint(func.min_args, min(len(constants), func.max_args))
+                    first_arg = random.sample(constants, amnt_args)
                     idx = random.randint(0, amnt_args - 1)
                     args = first_arg, idx
                 case 'NValue':
@@ -1150,15 +1182,15 @@ def get_new_operator(func: Function, ints, bools, vals, variables):
                     last_arg = random.choice(comb)
                     args = first_arg, last_arg
                 case 'Among':
-                    amnt_fst_arg = random.randint(func.min_args//2, min(len(comb), func.max_args)//2)
-                    amnt_snd_arg = random.randint(func.min_args//2, min(len(vals), func.max_args)//2)
+                    amnt_fst_arg = random.randint(func.min_args // 2, min(len(comb), func.max_args) // 2)
+                    amnt_snd_arg = random.randint(func.min_args // 2, min(len(constants), func.max_args) // 2)
                     first_arg = random.sample(comb, amnt_fst_arg)
-                    second_arg = random.sample(vals, amnt_snd_arg)
+                    second_arg = random.sample(constants, amnt_snd_arg)
                     args = first_arg, second_arg
                 case 'NValueExcept':
-                    amnt_fst_arg = random.randint(func.min_args//2, min(len(comb), func.max_args)//2)
+                    amnt_fst_arg = random.randint(func.min_args // 2, min(len(comb), func.max_args) // 2)
                     first_arg = random.sample(comb, amnt_fst_arg)
-                    second_arg = random.choice(vals)
+                    second_arg = random.choice(constants)
                     args = first_arg, second_arg
             return func.func(*args)
         case 'gcon':
@@ -1167,25 +1199,25 @@ def get_new_operator(func: Function, ints, bools, vals, variables):
                     amnt_args = random.randint(func.min_args, min(len(comb), func.max_args))
                     args = random.sample(comb, amnt_args)
                 case 'AllDifferentExceptN' | 'AllEqualExceptN':
-                    amnt_fst_args = random.randint(func.min_args//2, min(len(comb), func.max_args)//2)
-                    amnt_snd_args = random.randint(func.min_args//2, min(len(comb), func.max_args - amnt_fst_args))
+                    amnt_fst_args = random.randint(func.min_args // 2, min(len(comb), func.max_args) // 2)
+                    amnt_snd_args = random.randint(func.min_args // 2, min(len(comb), func.max_args - amnt_fst_args))
                     args = random.sample(comb, amnt_fst_args), random.sample(comb, amnt_snd_args)
                 case 'LexLess' | 'LexLessEq':
-                    half_amnt_args = random.randint(func.min_args//2, min(len(variables), func.max_args)//2)
+                    half_amnt_args = random.randint(func.min_args // 2, min(len(variables), func.max_args) // 2)
                     args = random.sample(variables, half_amnt_args), random.sample(variables, half_amnt_args)
                 case 'LexChainLess' | 'LexChainLessEq':
-                    amnt_args = random.randint(func.min_args, min(len(variables), func.max_args)//2)
+                    amnt_args = random.randint(func.min_args // 2, min(len(variables), func.max_args) // 2)
                     all_args = random.sample(variables, amnt_args)
-                    divisors = [i for i in range(1, amnt_args) if amnt_args % i == 0]
+                    divisors = [i for i in range(1, amnt_args + 1) if amnt_args % i == 0]
                     fst_dimension = random.choice(divisors)
                     snd_dimension = int(amnt_args / fst_dimension)
                     args = [all_args[i * fst_dimension:(i + 1) * fst_dimension] for i in range(snd_dimension)],
                 case 'Circuit':
-                    amnt_args = random.randint(func.min_args, min(len(vals), func.max_args))
-                    args = random.sample(vals, amnt_args),
+                    amnt_args = random.randint(func.min_args, func.max_args)
+                    args = random.sample(range(amnt_args), amnt_args),
                 case 'Inverse':
-                    amnt_args = random.randint(func.min_args//2, min(len(vals), func.max_args)//2)
-                    args = random.sample(range(1, amnt_args+1), amnt_args), random.sample(range(1, amnt_args+1), amnt_args)
+                    amnt_args = random.randint(func.min_args // 2, func.max_args // 2)
+                    args = random.sample(range(amnt_args), amnt_args), random.sample(range(amnt_args), amnt_args)
                 case 'IfThenElse':
                     amnt_args = random.randint(func.min_args, min(len(bools), func.max_args))
                     args = random.sample(bools, amnt_args)
@@ -1193,40 +1225,58 @@ def get_new_operator(func: Function, ints, bools, vals, variables):
                     amnt_args = random.randint(func.min_args, min(len(bools), func.max_args))
                     args = random.sample(bools, amnt_args),
                 case 'Table' | 'NegativeTable':
-                    amnt_fst_arg = random.randint(1, min(len(variables), func.max_args//4))
-                    amnt_snd_args = random.randint(1, min(len(comb), func.max_args-amnt_fst_arg) // amnt_fst_arg) * amnt_fst_arg
+                    amnt_fst_arg = random.randint(1, min(len(variables), func.max_args // 4))
+                    amnt_snd_args = random.randint(1, min(len(comb),
+                                                          func.max_args - amnt_fst_arg) // amnt_fst_arg) * amnt_fst_arg
                     fst_args = random.sample(variables, amnt_fst_arg)
                     snd_args = random.sample(comb, amnt_snd_args)
-                    snd_args_transformed = [snd_args[i * amnt_fst_arg:(i + 1) * amnt_fst_arg] for i in range(int(amnt_snd_args/amnt_fst_arg))]
+                    snd_args_transformed = [snd_args[i * amnt_fst_arg:(i + 1) * amnt_fst_arg] for i in
+                                            range(int(amnt_snd_args / amnt_fst_arg))]
                     args = fst_args, snd_args_transformed
                 case 'InDomain':
                     amnt_args = random.randint(func.min_args, min(len(comb), func.max_args))
                     all_args = random.sample(comb, amnt_args)
                     args = all_args[0], all_args[1:]
                 case 'NoOverlap':
-                    amnt_args = random.randint(func.min_args, min(len(comb), func.max_args//3))
-                    args = random.sample(comb, amnt_args), random.sample(comb, amnt_args), random.sample(comb, amnt_args)
+                    amnt_args = random.randint(func.min_args, min(len(comb), func.max_args // 3))
+                    args = random.sample(comb, amnt_args), random.sample(comb, amnt_args), random.sample(comb,
+                                                                                                         amnt_args)
                 case 'GlobalCardinalityCount':
-                    amnt_fst_args = random.randint(1, min(len(vals), func.max_args - 2))
-                    amnt_snd_args = random.randint(1, min(len(vals), (func.max_args - amnt_fst_args)//2))
+                    amnt_fst_args = random.randint(1, min(len(constants), func.max_args - 2))
+                    amnt_snd_args = random.randint(1, min(len(constants), (func.max_args - amnt_fst_args) // 2))
                     counts = [random.randint(0, amnt_fst_args) for _ in range(amnt_snd_args)]
-                    args = random.sample(vals, amnt_fst_args), counts, random.sample(vals, amnt_snd_args)
+                    args = random.sample(constants, amnt_fst_args), counts, random.sample(constants, amnt_snd_args)
                 case _:
                     args = []
             return func.func(*args)
 
-def get_operator(args, has_bool_return):
+
+def get_operator(args: list, ret_type: str | bool):
     """
-    Returns a new expression that needs fewer arguments of each type than available in `args`.
-    It has a boolean return type if `has_bool_return` is True, otherwise it has an int return type.
+    Randomly generates a new Expression that can be created with the given arguments `args` and return type `ret_type`.
+    ~ Parameters:
+        - `args`: all arguments that should be in the newly generated function.
+        - `ret_type`: the return type that the new function should have (usually generated by `get_return_type`).
+            There are four options:
+            -> 'constant' for numbers only
+            -> 'variable' for variables only
+            -> True for boolean (including variables)
+            -> False for int (including numbers and variables)
+    ~ Returns:
+        - A new Expression with arguments from the given list and with given return type
     """
     ints = [e for e in args if not (is_boolexpr(e) or isinstance(e, list))]
     bools = [e for e in args if is_boolexpr(e)]
-    values = [e for e in args if not hasattr(e, 'value')]  # Is this the only way to extract constants only? (e.g. for wsum)
+    constants = [e for e in args if
+                 not hasattr(e, 'value')]  # Is this the only way to extract constants only? (e.g. for wsum)
+    if ret_type == 'constant':
+        return random.choice(constants)  # Some expressions can't be replaced by functions
     variables = get_variables(args)
+    if ret_type == 'variable':
+        return random.choice(variables)  # Some expressions can't be replaced by functions
     ints_cnt = len(ints)
     bools_cnt = len(bools)
-    vals_cnt = len(values)
+    constants_cnt = len(constants)
     vars_cnt = len(variables)
     max_args = 12
 
@@ -1274,8 +1324,8 @@ def get_operator(args, has_bool_return):
             Element: ('gfun', -1, 0, None, 2, max_args),  # [...], idx | Can return a boolean but this is not known beforehand (min 2, max /, /)
                                                         # Denk best enkel de array vullen en de idx gewoon tussen 0 en len-1 pakken
             Count: ('gfun', -1, 0, False, 2, max_args),  # [...], expr | (min 2, max /, /)
-            Among: ('gfun', -1, 0, False, 2, max_args),  # [...], [...] | Second array can only have values, no expressions (not even BoolVal()) (min 2, max /, /)
-            NValueExcept: ('gfun', -1, 0, False, 2, max_args)  # [...], val | Second argument can only have values, no expressions (not even BoolVal()) (min 2, max /, /)
+            Among: ('gfun', -1, 0, False, 2, max_args),  # [...], [...] | Second array can only have constants, no expressions (not even BoolVal()) (min 2, max /, /)
+            NValueExcept: ('gfun', -1, 0, False, 2, max_args)  # [...], val | Second argument can only have constants, no expressions (not even BoolVal()) (min 2, max /, /)
         }.items()
     }
     # Global constraints
@@ -1284,9 +1334,9 @@ def get_operator(args, has_bool_return):
         name: Function(name.__name__, name, *attrs)
         for name, attrs in {
             AllDifferent: ('gcon', -1, 0, True, 2, max_args),  # [...] | (min 2, max /, /)
-            AllDifferentExceptN: ('gcon', -1, 0, True, 2, max_args),  # [...], [...] | Second arg can also be a single non-list value (min 2, max /, /)
+            AllDifferentExceptN: ('gcon', -1, 0, True, 2, max_args),  # [...], [...] | Second arg can also be a single non-list constant (min 2, max /, /)
             AllEqual: ('gcon', -1, 0, True, 2, max_args),  # [...] | (min 2, max /, /)
-            AllEqualExceptN: ('gcon', -1, 0, True, 2, max_args),  # [...], [...] | Second arg can also be a single non-list value (min 2, max /, /)
+            AllEqualExceptN: ('gcon', -1, 0, True, 2, max_args),  # [...], [...] | Second arg can also be a single non-list constant (min 2, max /, /)
             Circuit: ('gcon', -1, 0, True, 2, max_args),  # [...] | Can only have ints, NO BOOLS! (min 2, max /, /)
             Inverse: ('gcon', -1, 0, True, 2, max_args, 2),  # [...], [...] | Can only have ints, NO BOOLS! (min 2, max /, 2n)
             Table: ('gcon', -1, 0, True, 2, max_args),  # [...], [[...],[...],...] | First argument only variables, Second argument should have a multiple amnt of args as the first one (min 2, max /, n + mn?)
@@ -1311,55 +1361,64 @@ def get_operator(args, has_bool_return):
     }
     all_ops = ops | comps | global_fns | global_cons
     # print(f"ints_cnt={ints_cnt},bools_cnt={bools_cnt},has_bool_return={has_bool_return}")
-    after = {k: v for k, v in all_ops.items() if satisfies_args(v, ints_cnt, bools_cnt, vals_cnt, vars_cnt, has_bool_return)}
+    assert isinstance(ret_type, bool), f"Getting here means the return type should be a boolean. It is {ret_type}."
+    after = {k: v for k, v in all_ops.items() if
+             satisfies_args(v, ints_cnt, bools_cnt, constants_cnt, vars_cnt, ret_type)}
     if after:
         func = random.choice(list(after.values()))
     else:
         return None
-    return get_new_operator(func, ints, bools, values, variables)
+    return get_new_operator(func, ints, bools, constants, variables)
 
-def find_all_occurrences(con, target_node):
+
+def find_all_occurrences(con: Expression, target_expr: Expression):
     """
-    Recursively finds all occurrences of `target_node` in the expression `con`.
-    Returns a list of paths (as tuples) to each occurrence.
+    Recursively finds all occurrences of `target_expr` in the expression `con`.
+    ~ Parameters:
+        - `con`: constraint in which we search
+        - `target_expr`: the expression we're searching the occurrences for
+    ~ Returns:
+        - `occurrences`: a list of paths (as tuples) to each occurrence.
     """
     occurrences = []
-    if con is target_node:
+    if con is target_expr:
         occurrences.append(())  # Current node is the target
-    if hasattr(con, 'args') and con.name != 'boolval':
+    if hasattr(con, 'args') and not isinstance(con, NDVarArray) and con.name != 'boolval':
         for i, arg in enumerate(con.args):
-            for path in find_all_occurrences(arg, target_node):
+            for path in find_all_occurrences(arg, target_expr):
                 occurrences.append((i,) + path)  # Add index to the path
     elif isinstance(con, list):
         for i, arg in enumerate(con):
-            for path in find_all_occurrences(arg, target_node):
+            for path in find_all_occurrences(arg, target_expr):
                 occurrences.append((i,) + path)
     return occurrences
 
 
-def replace_at_path(con, path, new_expr):
+def replace_at_path(con: Expression, path: tuple, new_expr: Expression):
     """
-        Replace the subexpression at the given `path` in the expression tree `con` with `new_expr`.
+    Replace the Expression at the given `path` in the expression tree `con` with `new_expr`.
 
-        Parameters:
-            ~ con: The constraint in which we will replace an expression
-            ~ path: The path to the expression we will mutate (e.g. y has path (0, 1) in (x > y) -> p)
-            ~ new_expr: The new expression which will be at the specified `path`
-        Returns:
-            ~ con: The mutated constraint
+    ~ Parameters:
+        - `con`: The constraint in which we will replace an expression
+        - `path`: The path to the expression we will mutate (e.g. y has path (0, 1) in (x > y) -> p)
+        - `new_expr`: The new expression which will be at the specified `path`
+    ~ Returns:
+        - `con`: The mutated constraint
     """
-    if not path:  # END OF PATH
+    if not path:  # Replace main expression
         return new_expr
     new_expr = copy.deepcopy(new_expr)  # Important to avoid infinite recursion!
     parent = con
+
     # Traverse the parents until we have the final parent
     for idx in path[:-1]:
-        if hasattr(parent, 'args') and parent.name != 'boolval':
+        if hasattr(parent, 'args') and not isinstance(parent, NDVarArray) and parent.name != 'boolval':
             parent = parent.args[idx]
         elif isinstance(parent, list):
             parent = parent[idx]
+
     # Change the arguments of the parent
-    if hasattr(parent, 'args') and parent.name != 'boolval':
+    if hasattr(parent, 'args') and not isinstance(parent, NDVarArray) and parent.name != 'boolval':
         args = list(parent.args)
         args[path[-1]] = new_expr
         parent.update_args(args)
@@ -1368,13 +1427,82 @@ def replace_at_path(con, path, new_expr):
     return con
 
 
-def mutate_con(con, old_expr, new_expr):
-    paths = find_all_occurrences(con, old_expr)
-    rand_path = random.choice(paths)
-    return replace_at_path(con, rand_path, new_expr)
+def expr_at_path(con: Expression, path: tuple, expr: Expression):
+    """
+    Helper function for checking whether the given expression is on the given path in the given constraint.
+    Upon encountering `None` in a path, it will return True.
+    """
+    if not path and con is expr:
+        return True
+    # Traverse the parents until we have the final parent
+    for idx in path:
+        if idx is not None:
+            if hasattr(con, 'args') and not isinstance(con, NDVarArray) and con.name != 'boolval':
+                con = con.args[idx]
+            elif isinstance(con, list):
+                con = con[idx]
+        else:
+            return len(find_all_occurrences(con, expr)) > 0
+    return con is expr
 
 
-def type_aware_expression_replacement(constraints):
+def get_return_type(expr: Expression, con: Expression):
+    """
+    Function to get the return type of expressions that are allowed to replace `expr` in a given constraint `con`.
+    There are four options:
+        - boolean (any type of boolean including 'Expression's which are of type boolean (e.g. BoolVal(True), x == 5, p, ...))
+        - int (any type of integer including 'Expression's which are of type int (e.g. 1, 1 + 2, x, ...))
+        - constant (integers that are constants. No 'Expression's allowed. (e.g. 1, 2, ...; NOT: 1 + 2, x, ...))
+        - variable (variables that aren't 'Expression's. (e.g. x, y, p, q; NOT: x == y, x > y, ...))
+    ~ Parameters:
+        - `expr`: the expression which we want to mutate
+        - `con`: the constraint in which the expression is found
+    ~ Returns:
+        - `path`: the path at which the expression would be mutated
+        - `ret_type`: the type that the expression is allowed to be mutated by, given either as a string or a boolean.
+    """
+    # Define functions of which the arguments are restricted to be constants and the remaining path length the argument would be in
+    constant_restricted_functions = {Minimum: (1, (None,)),
+                                     Maximum: (1, (None,)),
+                                     Element: (2, (None,)),
+                                     Among: (2, (1, None)),
+                                     NValueExcept: (1, (1,)),
+                                     Circuit: (1, (None,)),
+                                     Inverse: (2, (None,)),
+                                     GlobalCardinalityCount: (2, (None,)),
+                                     'wsum': (2, (0, None))}
+    variable_restricted_functions = {Table: (2, (0, None)),
+                                     NegativeTable: (2, (0, None)),
+                                     LexLess: (2, (None,)),
+                                     LexLessEq: (2, (None,)),
+                                     LexChainLess: (2, (None,)),
+                                     LexChainLessEq: (2, (None,))}
+
+    paths = find_all_occurrences(con, expr)
+    path = random.choice(paths)
+    path_len = len(path)
+    for i, idx in enumerate(path):
+        if type(con) in constant_restricted_functions:
+            remaining_path_len, remaining_path = constant_restricted_functions[type(con)]
+            if path_len - i == remaining_path_len and expr_at_path(con, remaining_path, expr):
+                return path, 'constant'
+        elif isinstance(con, Operator) and con.name == 'wsum':
+            remaining_path_len, remaining_path = constant_restricted_functions['wsum']
+            if path_len - i == remaining_path_len and expr_at_path(con, remaining_path, expr):
+                return path, 'constant'
+        elif type(con) in variable_restricted_functions:
+            remaining_path_len, remaining_path = variable_restricted_functions[type(con)]
+            if path_len - i == remaining_path_len and expr_at_path(con, remaining_path, expr):
+                return path, 'variable'
+        if hasattr(con, 'args') and not isinstance(con, NDVarArray) and con.name != 'boolval':
+            con = con.args[idx]
+        elif isinstance(con, list):
+            con = con[idx]
+    # We should only get here if the argument isn't in one of the functions above
+    return path, is_boolexpr(expr)
+
+
+def type_aware_expression_replacement(constraints: list):
     """
     Replaces a random expression of a random constraint from a list of given constraints. It replaces this expression
     by an operator with the same return type that takes as arguments the other expressions from all constraints.
@@ -1383,9 +1511,9 @@ def type_aware_expression_replacement(constraints):
             function to swap out the constraints instead of adding them.
 
     ~ Parameters:
-        - constraints: a list of all the constraints to possibly be mutated
+        - `constraints`: a list of all the constraints to possibly be mutated
     ~ Return:
-        - final_cons: a list of the same constraints where one constraint has a mutated expression
+        - `final_cons`: a list of the same constraints where one constraint has a mutated expression
     """
     final_cons = copy.deepcopy(constraints)
     # print(f"All constraints at the moment: {final_cons}")
@@ -1393,17 +1521,17 @@ def type_aware_expression_replacement(constraints):
     rand_con = random.choice(final_cons)
     all_con_exprs = get_all_exprs(rand_con)
     expr = random.choice(all_con_exprs)
-    has_bool_return = is_boolexpr(expr)
+    path, ret_type = get_return_type(expr, rand_con)  # Also gives us the taken path of the expression in the constraint
     # print(f"Changing constarint: {rand_con}")
     # print(f"Old expression: {expr}")
     # 2. Tel het aantal resterende params van elk type (van alle constraints of enkel in de constraint zelf?)
     all_exprs = get_all_exprs_mult(final_cons)
     # 3. Zoek een operator die <= aantal params nodig heeft met zelfde return type
-    new_expr = get_operator(all_exprs, has_bool_return)
+    new_expr = get_operator(all_exprs, ret_type)
     # 4. Vervang expression (+ vervang constraint)
     # print(f"New expression: {new_expr}")
     if new_expr:
-        new_con = mutate_con(rand_con, old_expr=expr, new_expr=new_expr)
+        new_con = replace_at_path(rand_con, path, new_expr=new_expr)
         # 5. Return the new constraints
         # final_cons.remove(rand_con) DOES NOT WORK because it uses == instead of 'is'
         index = None
@@ -1416,13 +1544,17 @@ def type_aware_expression_replacement(constraints):
         final_cons.append(new_con)
     return final_cons
 
+
 class MetamorphicError(Exception):
     pass
+
 
 '''
 returns a list of aritmetic expressions (as lists of indexes to traverse the expression tree)
 that occur in the input expression. 
 One (random) candidate is taken from each level of the expression if there exists one '''
+
+
 def pickaritmetic(con, log=[], candidates=[]):
     if hasattr(con, 'name'):
         if con.name == 'wsum':
