@@ -1,14 +1,16 @@
 import glob
 import math
+import random
 import warnings
 from os.path import join
 
 from verifiers import *
 from fuzz_test_utils import Fuzz_Test_ErrorTypes
-def get_all_verifiers() -> list:
-    # TODO: kiezen adhv aantal gegeven solvers
-    # return [Solution_Verifier,Optimization_Verifier,Model_Count_Verifier,Metamorphic_Verifier,Equivalance_Verifier]
-    return [Solver_Vote_Count_Verifier, Solver_Vote_Sat_Verifier]
+def get_all_verifiers(single_solver) -> list:
+    if single_solver:
+        return [Solution_Verifier,Optimization_Verifier,Model_Count_Verifier,Metamorphic_Verifier,Equivalance_Verifier]
+    else:
+        return [Solver_Vote_Count_Verifier, Solver_Vote_Sat_Verifier]
 
 def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver: list[str], mutations_per_model: int, folders: list, max_error_treshold: int, output_dir: str, time_limit: float) -> None:
     """
@@ -37,7 +39,12 @@ def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver
     execution_time = 0
     try:
         while time.time() < time_limit and current_amount_of_error.value < max_error_treshold:
-            random_verifier = random.choice(get_all_verifiers())(**verifier_kwargs)
+            if isinstance(solver, str):
+                random_verifier = random.choice(get_all_verifiers(single_solver=True))(**verifier_kwargs)
+            elif isinstance(solver, list):
+                random_verifier = random.choice(get_all_verifiers(single_solver=False))(**verifier_kwargs)
+            else:
+                raise Exception(f"The given solvers are not in the correct format. Should be either str or list, but is {type(solver)}.")
             fmodels = []
             for folder in folders:
                 fmodels.extend(glob.glob(join(folder,random_verifier.getType(), "*")))
