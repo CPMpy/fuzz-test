@@ -35,9 +35,8 @@ class Solver_Vote_Sat_Verifier(Verifier):
                             semanticFusionCountingwsum,
                             semanticFusionCounting,
                             semanticFusionCountingMinus,
-                            semanticFusionCountingwsum,
-                            type_aware_operator_replacement,
-                            type_aware_expression_replacement]
+                            semanticFusionCountingwsum]
+        self.gen_mutators = [type_aware_operator_replacement, type_aware_expression_replacement]
         self.mutators = []
         self.original_model = None
 
@@ -55,6 +54,55 @@ class Solver_Vote_Sat_Verifier(Verifier):
 
         self.mutators = [copy.deepcopy(
             self.cons)]  # keep track of list of og_cons alternated with mutators that transformed it into the next list of og_cons.
+
+    def generate_mutations(self) -> None:
+        """
+        Will generate random mutations based on mutations_per_model for the model
+        """
+        for i in range(self.mutations_per_model):
+            # choose a metamorphic mutation, don't choose any from exclude_dict
+
+            if random.random() < 0.8:
+                m = random.choice(self.mm_mutators)
+            else:
+                m = random.choice(self.gen_mutators)  # 20% chance to choose gen-type mutator
+
+            self.mutators += [self.seed]
+            # an error can occur in the transformations, so even before the solve call.
+            # log function and arguments in that case
+            self.mutators += [m]
+            try:
+                if m in {type_aware_operator_replacement, type_aware_expression_replacement}:
+                    self.cons = m(self.cons)  # apply an operator change and REPLACE constraints
+                else:
+                    self.cons += m(self.cons)  # apply a metamorphic mutation and add to constraints
+                self.mutators += [copy.deepcopy(self.cons)]
+            except MetamorphicError as exc:
+                # add to exclude_dict, to avoid running into the same error
+                if self.model_file in self.exclude_dict:
+                    self.exclude_dict[self.model_file] += [m]
+                else:
+                    self.exclude_dict[self.model_file] = [m]
+                function, argument, e = exc.args
+                if isinstance(e, CPMpyException):
+                    # expected behavior if we throw a cpmpy exception, do not log
+                    return None
+                elif function == semanticFusion:
+                    return None
+                    # don't log semanticfusion crash
+
+                print('I', end='', flush=True)
+                return dict(type=Fuzz_Test_ErrorTypes.internalfunctioncrash,
+                            originalmodel_file=self.model_file,
+                            exception=e,
+                            function=function,
+                            argument=argument,
+                            stacktrace=traceback.format_exc(),
+                            mutators=self.mutators,
+                            constraints=self.cons,
+                            originalmodel=self.original_model
+                            )
+        return None
 
     def verify_model(self, is_rerun=False) -> dict:
         try:
