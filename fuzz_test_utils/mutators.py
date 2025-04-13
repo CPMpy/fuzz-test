@@ -1048,13 +1048,19 @@ def get_all_non_op_exprs(con: Expression):
     if hasattr(con, 'args') and not isinstance(con, NDVarArray) and con.name != 'boolval':
         return sum((get_all_non_op_exprs(arg) for arg in con.args), [])
     elif isinstance(con, list):
-        if all([is_num(e) for e in con]):  # wsum constants
-            return []
-        else:
-            return [e for e in con]
+        return sum((get_all_non_op_exprs(e) for e in con), [])
     else:
         return [con]
 
+# import cpmpy as cp
+# m = cp.Model()
+# p = cp.boolvar()
+# a = cp.boolvar()
+# m += cp.NegativeTable([p],[[a], [(~(a)) >= (p)], [p], [a], [(~p).implies(sum([-1*a, -1*p]) <= -2)]])
+# con = m.constraints[0]
+# print(type(con.args[1]))
+# print(con)
+# m.solve()
 
 def get_all_exprs(con: Expression):
     """
@@ -1091,6 +1097,8 @@ def satisfies_args(func: Function, ints: int, bools: int, constants: int, vars: 
             match func.name:
                 case 'wsum':
                     return constants >= 1 and ints + bools >= func.min_args and has_bool_return == func.bool_return
+                case 'pow':
+                    return constants >= 1 and ints + bools >= 1 and has_bool_return == func.bool_return
                 case _:
                     return ((func.int_args == -1 or func.int_args <= ints + bools) and  # enough int args
                             (func.bool_args == -1 or func.bool_args <= bools) and  # enough bool args
@@ -1112,7 +1120,7 @@ def satisfies_args(func: Function, ints: int, bools: int, constants: int, vars: 
                 case 'IfThenElse' | 'Xor':
                     return bools >= func.min_args and has_bool_return
                 case 'Table' | 'NegativeTable':
-                    return vars >= 1 and ints + bools >= func.min_args - 1 and has_bool_return
+                    return vars >= 1 and constants >= max(1, func.min_args - 1) and has_bool_return
                 case 'LexLess' | 'LexLessEq' | 'LexChainLess' | 'LexChainLessEq':
                     return vars >= func.min_args and has_bool_return
                 case 'Circuit' | 'Inverse':
@@ -1135,7 +1143,7 @@ def get_new_operator(func: Function, ints: list, bools: list, constants: list, v
     comb = ints + bools
     match func.type:
         case 'op' | 'comp':
-            # Separate logic for wsum
+            # Separate logic for wsum and pow
             if func.name == 'wsum':  # (-1, 0, False, 2, max_args, 2)
                 amnt_args = random.randint(func.min_args // 2, min(len(constants), func.max_args) // 2)
                 # First take constants
@@ -1143,7 +1151,8 @@ def get_new_operator(func: Function, ints: list, bools: list, constants: list, v
                 # Then the other expressions
                 others = random.sample(comb, amnt_args)
                 return Operator(func.name, [constants, others])
-
+            if func.name == 'pow':
+                args = random.choice(comb), random.choice(constants)
             # Logic for all other operators and comparisons is the same
             if func.int_args == -1:
                 amnt_args = random.randint(func.min_args, min(len(comb),
@@ -1171,7 +1180,8 @@ def get_new_operator(func: Function, ints: list, bools: list, constants: list, v
                 case 'Element':
                     amnt_args = random.randint(func.min_args, min(len(constants), func.max_args))
                     first_arg = random.sample(constants, amnt_args)
-                    idx = random.randint(0, amnt_args - 1)
+                    # idx = random.randint(0, amnt_args - 1)
+                    idx = random.choice(ints)
                     args = first_arg, idx
                 case 'NValue':
                     amnt_args = random.randint(func.min_args, min(len(comb), func.max_args))
@@ -1225,11 +1235,11 @@ def get_new_operator(func: Function, ints: list, bools: list, constants: list, v
                     amnt_args = random.randint(func.min_args, min(len(bools), func.max_args))
                     args = random.sample(bools, amnt_args),
                 case 'Table' | 'NegativeTable':
-                    amnt_fst_arg = random.randint(1, min(len(variables), func.max_args // 4))
-                    amnt_snd_args = random.randint(1, min(len(comb),
+                    amnt_fst_arg = random.randint(1, min(len(variables), len(constants), func.max_args // 4))
+                    amnt_snd_args = random.randint(1, min(len(constants),
                                                           func.max_args - amnt_fst_arg) // amnt_fst_arg) * amnt_fst_arg
                     fst_args = random.sample(variables, amnt_fst_arg)
-                    snd_args = random.sample(comb, amnt_snd_args)
+                    snd_args = random.sample(constants, amnt_snd_args)
                     snd_args_transformed = [snd_args[i * amnt_fst_arg:(i + 1) * amnt_fst_arg] for i in
                                             range(int(amnt_snd_args / amnt_fst_arg))]
                     args = fst_args, snd_args_transformed
@@ -1267,12 +1277,15 @@ def get_operator(args: list, ret_type: str | bool):
     """
     ints = [e for e in args if not (is_boolexpr(e) or isinstance(e, list))]
     bools = [e for e in args if is_boolexpr(e)]
-    constants = [e for e in args if
-                 not hasattr(e, 'value')]  # Is this the only way to extract constants only? (e.g. for wsum)
-    if ret_type == 'constant':
-        return random.choice(constants)  # Some expressions can't be replaced by functions
+    constants = [e for e in args if isinstance(e, int)]
     variables = get_variables(args)
-    if ret_type == 'variable':
+    if ret_type == 'constant':
+        if constants:
+            return random.choice(constants)  # Some expressions can't be replaced by functions
+        intvars = [e for e in variables if not (is_boolexpr(e) or isinstance(e, list))]
+        if intvars:
+            return random.choice(intvars)
+    if ret_type == 'variable' and variables:
         return random.choice(variables)  # Some expressions can't be replaced by functions
     ints_cnt = len(ints)
     bools_cnt = len(bools)
@@ -1470,6 +1483,10 @@ def get_return_type(expr: Expression, con: Expression):
                                      Circuit: (1, (None,)),
                                      Inverse: (2, (None,)),
                                      GlobalCardinalityCount: (2, (None,)),
+                                     Table: (3, (1, None)),
+                                     NegativeTable: (3, (1, None)),
+                                     Count: (1, (1, None)),
+                                     'pow': (1, (1, None)),
                                      'wsum': (2, (0, None))}
     variable_restricted_functions = {Table: (2, (0, None)),
                                      NegativeTable: (2, (0, None)),
@@ -1515,11 +1532,13 @@ def type_aware_expression_replacement(constraints: list):
     ~ Return:
         - `final_cons`: a list of the same constraints where one constraint has a mutated expression
     """
+    # print("="*100)
     final_cons = copy.deepcopy(constraints)
     # print(f"All constraints at the moment: {final_cons}")
     # 1. Neem een (random) expression van een (random) constraint en de return type
     rand_con = random.choice(final_cons)
     all_con_exprs = get_all_exprs(rand_con)
+    # print(f"all_con_exprs: {all_con_exprs}")
     expr = random.choice(all_con_exprs)
     path, ret_type = get_return_type(expr, rand_con)  # Also gives us the taken path of the expression in the constraint
     # print(f"Changing constarint: {rand_con}")
