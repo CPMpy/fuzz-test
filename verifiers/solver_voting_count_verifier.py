@@ -53,11 +53,6 @@ class Solver_Vote_Count_Verifier(Verifier):
         assert len(self.solvers) == 2, f"2 solvers required, {len(self.solvers)} given."
         if 'gurobi' in [s.lower() for s in self.solvers]:
             self.sol_lim = 10000  # TODO: is hardcode best idea?
-            self.sol_count_1 = cp.Model(self.cons).solveAll(solver=self.solvers[0],solution_limit=self.sol_lim)
-            self.sol_count_2 = cp.Model(self.cons).solveAll(solver=self.solvers[1],solution_limit=self.sol_lim)
-        else:
-            self.sol_count_1 = cp.Model(self.cons).solveAll(solver=self.solvers[0])
-            self.sol_count_2 = cp.Model(self.cons).solveAll(solver=self.solvers[1])
 
         # assert self.sol_count_1 == self.sol_count_2, f"{self.solvers} don't agree on amount of solutions (before mutations): {self.sol_count_1} and {self.sol_count_2}"
 
@@ -143,8 +138,7 @@ class Solver_Vote_Count_Verifier(Verifier):
                             originalmodel_file=self.model_file,
                             exception=f"Amount of solutions of the two solvers are not equal."
                                       f" #Solutions of {solver_1}: {new_count_1}."
-                                      f" #Solutions of {solver_2}: {new_count_2}."
-                                      f" Before: {self.sol_count_1} and {self.sol_count_2}",
+                                      f" #Solutions of {solver_2}: {new_count_2}.",
                             constraints=self.cons,
                             mutators=self.mutators,
                             model=model,
