@@ -1153,6 +1153,7 @@ def get_new_operator(func: Function, ints: list, bools: list, constants: list, v
                 return Operator(func.name, [constants, others])
             if func.name == 'pow':
                 args = random.choice(comb), random.choice(constants)
+                return Operator(func.name, args)
             # Logic for all other operators and comparisons is the same
             if func.int_args == -1:
                 amnt_args = random.randint(func.min_args, min(len(comb),
@@ -1193,7 +1194,7 @@ def get_new_operator(func: Function, ints: list, bools: list, constants: list, v
                     args = first_arg, last_arg
                 case 'Among':
                     amnt_fst_arg = random.randint(func.min_args // 2, min(len(comb), func.max_args) // 2)
-                    amnt_snd_arg = random.randint(func.min_args // 2, min(len(constants), func.max_args) // 2)
+                    amnt_snd_arg = random.randint(func.min_args // 2, min(len(constants), func.max_args // 2))
                     first_arg = random.sample(comb, amnt_fst_arg)
                     second_arg = random.sample(constants, amnt_snd_arg)
                     args = first_arg, second_arg
@@ -1216,12 +1217,11 @@ def get_new_operator(func: Function, ints: list, bools: list, constants: list, v
                     half_amnt_args = random.randint(func.min_args // 2, min(len(variables), func.max_args) // 2)
                     args = random.sample(variables, half_amnt_args), random.sample(variables, half_amnt_args)
                 case 'LexChainLess' | 'LexChainLessEq':
-                    amnt_args = random.randint(func.min_args // 2, min(len(variables), func.max_args) // 2)
-                    all_args = random.sample(variables, amnt_args)
-                    divisors = [i for i in range(1, amnt_args + 1) if amnt_args % i == 0]
-                    fst_dimension = random.choice(divisors)
-                    snd_dimension = int(amnt_args / fst_dimension)
-                    args = [all_args[i * fst_dimension:(i + 1) * fst_dimension] for i in range(snd_dimension)],
+                    amnt_fst_args = random.randint(1, min(len(variables), func.max_args // 4))
+                    fst_args = random.sample(variables, amnt_fst_args)
+                    amnt_snd_args = random.randint(1, func.max_args // 4)  # the amnt of arrays of len of the first one
+                    snd_args = [random.sample(variables, amnt_fst_args) for _ in range(amnt_snd_args)]
+                    args = [fst_args] + snd_args,
                 case 'Circuit':
                     amnt_args = random.randint(func.min_args, func.max_args)
                     args = random.sample(range(amnt_args), amnt_args),
@@ -1275,7 +1275,7 @@ def get_operator(args: list, ret_type: str | bool):
     ~ Returns:
         - A new Expression with arguments from the given list and with given return type
     """
-    ints = [e for e in args if not (is_boolexpr(e) or isinstance(e, list))]
+    ints = [e for e in args if not (is_boolexpr(e) or isinstance(e, list) or isinstance(e, NDVarArray) or isinstance(e, tuple))]
     bools = [e for e in args if is_boolexpr(e)]
     constants = [e for e in args if isinstance(e, int)]
     variables = get_variables(args)
@@ -1503,8 +1503,8 @@ def get_return_type(expr: Expression, con: Expression):
             remaining_path_len, remaining_path = constant_restricted_functions[type(con)]
             if path_len - i == remaining_path_len and expr_at_path(con, remaining_path, expr):
                 return path, 'constant'
-        elif isinstance(con, Operator) and con.name == 'wsum':
-            remaining_path_len, remaining_path = constant_restricted_functions['wsum']
+        elif isinstance(con, Operator) and (con.name == 'wsum' or con.name == 'pow'):
+            remaining_path_len, remaining_path = constant_restricted_functions[con.name]
             if path_len - i == remaining_path_len and expr_at_path(con, remaining_path, expr):
                 return path, 'constant'
         elif type(con) in variable_restricted_functions:
