@@ -51,7 +51,7 @@ def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver
             for folder in folders:
                 fmodels.extend(glob.glob(join(folder,random_verifier.getType(), "*")))
             if len(fmodels) > 0:
-                fmodel = random.choice(fmodels)
+                fmodel = random.Random().choice(fmodels)  # random.choice used the random.seed()! Same models were being tested!
 
                 start_time = time.time()
                 error = random_verifier.run(fmodel)
