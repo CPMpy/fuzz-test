@@ -50,7 +50,9 @@ def match_conditions(exc_str):
         (lambda s: "empty range for randrange()" in s, "18_empty_randrange/"),
         (lambda s: "Amount of solutions of the two solvers are not equal." in s, "19_amnt_sol_neq/"),
         (lambda s: "in method 'int_array_set', argument 2 of type 'int'" in s, "20_argx_type_y/"),
-        (lambda s: "'bool' object has no attribute 'has_subexpr'" in s, "21_bool_obj_no_has_subexpr")
+        (lambda s: "'bool' object has no attribute 'has_subexpr'" in s, "21_bool_obj_no_has_subexpr"),
+        (lambda s: len(s) == 0, "22_empty_exception"),
+        (lambda s: "Not a known var " in s, "23_wsum_second_arg_vars")
     ]
 
 def get_output_dir(error_data):

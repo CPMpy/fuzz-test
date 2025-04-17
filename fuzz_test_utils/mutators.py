@@ -960,7 +960,7 @@ def type_aware_operator_replacement(constraints: list):
         return final_cons
 
     except Exception as e:
-        return Exception(e)
+        raise Exception(e)
 
 
 def mutate_op_expression(expr: Expression, con: Expression):
@@ -1135,7 +1135,7 @@ def get_new_operator(func: Function, ints: list, bools: list, constants: list, v
         case 'op' | 'comp':
             # Separate logic for wsum and pow
             if func.name == 'wsum':  # (-1, 0, False, 2, max_args, 2)
-                amnt_args = random.randint(func.min_args // 2, min(len(constants), func.max_args) // 2)
+                amnt_args = random.randint(func.min_args // 2, min(len(constants), func.max_args // 2))
                 # First take constants
                 constants = random.sample(constants, amnt_args)
                 # Then the other expressions
@@ -1522,36 +1522,39 @@ def type_aware_expression_replacement(constraints: list):
     ~ Return:
         - `final_cons`: a list of the same constraints where one constraint has a mutated expression
     """
-    # print("="*100)
-    final_cons = copy.deepcopy(constraints)
-    # print(f"All constraints at the moment: {final_cons}")
-    # 1. Neem een (random) expression van een (random) constraint en de return type
-    rand_con = random.choice(final_cons)
-    all_con_exprs = get_all_exprs(rand_con)
-    # print(f"all_con_exprs: {all_con_exprs}")
-    expr = random.choice(all_con_exprs)
-    path, ret_type = get_return_type(expr, rand_con)  # Also gives us the taken path of the expression in the constraint
-    # print(f"Changing constarint: {rand_con}")
-    # print(f"Old expression: {expr}")
-    # 2. Tel het aantal resterende params van elk type (van alle constraints of enkel in de constraint zelf?)
-    all_exprs = get_all_exprs_mult(final_cons)
-    # 3. Zoek een operator die <= aantal params nodig heeft met zelfde return type
-    new_expr = get_operator(all_exprs, ret_type)
-    # 4. Vervang expression (+ vervang constraint)
-    # print(f"New expression: {new_expr}")
-    if new_expr:
-        new_con = replace_at_path(rand_con, path, new_expr=new_expr)
-        # 5. Return the new constraints
-        # final_cons.remove(rand_con) DOES NOT WORK because it uses == instead of 'is'
-        index = None
-        for i, constraint in enumerate(final_cons):
-            if constraint is rand_con:
-                index = i
-                break
-        if index is not None:
-            del final_cons[index]
-        final_cons.append(new_con)
-    return final_cons
+    try:
+        # print("="*100)
+        final_cons = copy.deepcopy(constraints)
+        # print(f"All constraints at the moment: {final_cons}")
+        # 1. Neem een (random) expression van een (random) constraint en de return type
+        rand_con = random.choice(final_cons)
+        all_con_exprs = get_all_exprs(rand_con)
+        # print(f"all_con_exprs: {all_con_exprs}")
+        expr = random.choice(all_con_exprs)
+        path, ret_type = get_return_type(expr, rand_con)  # Also gives us the taken path of the expression in the constraint
+        # print(f"Changing constarint: {rand_con}")
+        # print(f"Old expression: {expr}")
+        # 2. Tel het aantal resterende params van elk type (van alle constraints of enkel in de constraint zelf?)
+        all_exprs = get_all_exprs_mult(final_cons)
+        # 3. Zoek een operator die <= aantal params nodig heeft met zelfde return type
+        new_expr = get_operator(all_exprs, ret_type)
+        # 4. Vervang expression (+ vervang constraint)
+        # print(f"New expression: {new_expr}")
+        if new_expr:
+            new_con = replace_at_path(rand_con, path, new_expr=new_expr)
+            # 5. Return the new constraints
+            # final_cons.remove(rand_con) DOES NOT WORK because it uses == instead of 'is'
+            index = None
+            for i, constraint in enumerate(final_cons):
+                if constraint is rand_con:
+                    index = i
+                    break
+            if index is not None:
+                del final_cons[index]
+            final_cons.append(new_con)
+        return final_cons
+    except Exception as e:
+        raise Exception(e)
 
 
 def has_positive_parity(expr: Expression, con: Expression, curr_path: tuple) -> tuple | None:
@@ -1588,14 +1591,13 @@ def has_positive_parity(expr: Expression, con: Expression, curr_path: tuple) -> 
         neg_res = has_positive_parity(expr, con.args[0], curr_path)
         return not neg_res, curr_path if neg_res is not None else None
     if con.name == 'and' or con.name == 'or':
-        l, r = con.args
-        subtrees = [(0, l), (1, r)]
-        random.shuffle(subtrees)
+        subtrees = list(enumerate(con.args))
+        random.shuffle(subtrees)  # to randomize argument selection
         for path, subtree in subtrees:
-            if any(expr is e for e in get_all_exprs(subtree)):  # check if expr in l or r
+            if any(expr is e for e in get_all_exprs(subtree)):
                 curr_path += path,
                 return has_positive_parity(expr, subtree, curr_path)
-        raise Exception(f"The given expression {expr} is not in either of the subtrees {l} or {r}.")
+        raise Exception(f"The given expression {expr} is not in either of the subtrees {subtrees}.")
 
     # If the constraint is anything else, we don't know the parity
     return None
@@ -1751,7 +1753,7 @@ def strengthening_weakening_mutator(constraints: list, strengthen: bool = True) 
         return final_cons
 
     except Exception as e:
-        return Exception(e)
+        raise Exception(e)
 
 
 class MetamorphicError(Exception):
