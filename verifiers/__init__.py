@@ -15,6 +15,7 @@ from .equivalance_verifier import Equivalance_Verifier
 from .optimization_verifier import Optimization_Verifier
 from .solver_voting_sat_verifier import Solver_Vote_Sat_Verifier
 from .solver_voting_count_verifier import Solver_Vote_Count_Verifier
+from .strengthening_weakening_verifier import Strengthening_Weakening_Verifier
 from .verifier_runner import run_verifiers, get_all_verifiers
 
 
@@ -39,6 +40,9 @@ def lookup_verifier(verfier_name: str) -> Verifier:
 
     elif verfier_name == "solver_vote_count_verifier":
         return Solver_Vote_Count_Verifier
+
+    elif verfier_name == "strengthening_weakening_verifier":
+        return Strengthening_Weakening_Verifier
 
     else:
         raise ValueError(f"Error verifier with name {verfier_name} does not exist")

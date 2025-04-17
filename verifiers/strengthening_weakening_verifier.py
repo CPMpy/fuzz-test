@@ -1,12 +1,12 @@
 from verifiers import *
 
-class Solver_Vote_Sat_Verifier(Verifier):
+class Strengthening_Weakening_Verifier(Verifier):
     """
         The Solver Count Verifier will verify if the satisfiability is the same for all solvers after running multiple mutations
     """
 
     def __init__(self, solver: str, mutations_per_model: int, exclude_dict: dict, time_limit: float, seed: int):
-        self.name = "solver_vote_sat_verifier"
+        self.name = "strengthening_weakening_verifier"
         self.type = 'sat'
 
         self.solvers = solver
@@ -50,22 +50,29 @@ class Solver_Vote_Sat_Verifier(Verifier):
         if is_rerun:
             print([(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in get_variables(self.cons)])
 
-        # No other preparation necessary
+        assert len(self.solvers) == 2, f"2 solvers required, {len(self.solvers)} given."
+        if 'gurobi' in [s.lower() for s in self.solvers]:
+            self.sol_lim = 10000  # TODO: is hardcode best idea?
+
+        # assert self.sol_count_1 == self.sol_count_2, f"{self.solvers} don't agree on amount of solutions (before mutations): {self.sol_count_1} and {self.sol_count_2}"
 
         self.mutators = [copy.deepcopy(
             self.cons)]  # keep track of list of cons alternated with mutators that transformed it into the next list of cons.
 
-    def generate_mutations(self) -> None:
+    def generate_mutations(self) -> None | dict:
         """
         Will generate random mutations based on mutations_per_model for the model
         """
         for i in range(self.mutations_per_model):
 
-            # choose a mutation
-            if random.random() < 0.8:
+            # choose a mutator. 33% of the time, this will be a strengthening/weakening mutation.
+            rand = random.random()
+            if rand <= 0.33:
+                m = strengthening_weakening_mutator
+            elif rand <= 0.8633:  # ~~ remaining 80% of 0.67 (8/15)
                 m = random.choice(self.mm_mutators)
             else:
-                m = random.choice(self.gen_mutators)  # 20% chance to choose gen-type mutator
+                m = random.choice(self.gen_mutators)  # ~~ remaining 20% to choose gen-type mutator (2/15)
 
             self.mutators += [self.seed]
             # an error can occur in the transformations, so even before the solve call.
@@ -73,10 +80,29 @@ class Solver_Vote_Sat_Verifier(Verifier):
             self.mutators += [m]
             try:
                 if m in self.gen_mutators:
-                    self.cons = m(self.cons)  # apply a generative mutation and REPLACE constraints
+                    self.cons = m(self.cons)  # apply a generative (non-metamorphic) mutation and REPLACE constraints
+                elif m == strengthening_weakening_mutator:
+                    model = cp.Model(self.cons)
+                    solver_1 = self.solvers[0]
+                    solver_2 = self.solvers[1]
+                    if hasattr(self, 'sol_lim'):
+                        count_1 = model.solveAll(solver=solver_1, solution_limit=self.sol_lim)
+                    else:
+                        count_1 = model.solveAll(solver=solver_1)
+                    if count_1 > 1:
+                        self.cons = m(self.cons, strengthen=True)
+                    elif count_1 < 1:
+                        self.cons = m(self.cons, strengthen=False)
+                    elif random.random() < 0.8:  # If only 1 solution remains, we just go on normally instead
+                        m = random.choice(self.mm_mutators)
+                        self.cons += m(self.cons)
+                    else:
+                        m = random.choice(self.gen_mutators)
+                        self.cons = m(self.cons)
                 else:
                     self.cons += m(self.cons)  # apply a metamorphic mutation and add to constraints
                 self.mutators += [copy.deepcopy(self.cons)]
+
             except MetamorphicError as exc:
                 # add to exclude_dict, to avoid running into the same error
                 if self.model_file in self.exclude_dict:
@@ -104,26 +130,29 @@ class Solver_Vote_Sat_Verifier(Verifier):
                             )
         return None
 
-    def verify_model(self, is_rerun=False) -> dict:
+
+    def verify_model(self, is_rerun=False) -> None | dict:
         try:
             model = cp.Model(self.cons)
+            if is_rerun:
+                print([(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in get_variables(self.cons)])
             time_limit = max(1, min(200,
                                     self.time_limit - time.time()))  # set the max time limit to the given time limit or to 1 if the self.time_limit-time.time() would be smaller then 1
 
-            # choosing the solvers
             solver_1 = self.solvers[0]
             solver_2 = self.solvers[1]
-            solver_1_is_sat = model.solve(solver=solver_1, time_limit=time_limit)
-            solver_2_is_sat = model.solve(solver=solver_2, time_limit=time_limit)
-            # for prettier exception printing
-            solver_1_print = "sat" if solver_1_is_sat else "unsat"
-            solver_2_print = "sat" if solver_2_is_sat else "unsat"
+            if hasattr(self, 'sol_lim'):
+                new_count_1 = model.solveAll(solver=solver_1, solution_limit=self.sol_lim)
+                new_count_2 = model.solveAll(solver=solver_2, solution_limit=self.sol_lim)
+            else:
+                new_count_1 = model.solveAll(solver=solver_1)
+                new_count_2 = model.solveAll(solver=solver_2)
 
             if model.status().runtime > time_limit - 10:
                 # timeout, skip
                 print('T', end='', flush=True)
                 return None
-            elif solver_1_is_sat == solver_2_is_sat:
+            elif new_count_1 == new_count_2:
                 # has to be same
                 print('.', end='', flush=True)
                 return None
@@ -131,9 +160,9 @@ class Solver_Vote_Sat_Verifier(Verifier):
                 print('X', end='', flush=True)
                 return dict(type=Fuzz_Test_ErrorTypes.failed_model,
                             originalmodel_file=self.model_file,
-                            exception=f"Results of the two solvers are not equal."
-                                      f" Result of {solver_1}: {solver_1_print}."
-                                      f" Result of {solver_2}: {solver_2_print}.",
+                            exception=f"Amount of solutions of the two solvers are not equal."
+                                      f" #Solutions of {solver_1}: {new_count_1}."
+                                      f" #Solutions of {solver_2}: {new_count_2}.",
                             constraints=self.cons,
                             mutators=self.mutators,
                             model=model,
@@ -162,3 +191,87 @@ class Solver_Vote_Sat_Verifier(Verifier):
                     model=newModel,
                     originalmodel=self.original_model
                     )
+
+    def run(self, model_file: str) -> dict:
+        """
+        This function will run a single test on the given model
+        """
+        try:
+            random.seed(self.seed)
+            self.model_file = model_file
+            self.initialize_run()
+            gen_mutations_error = self.generate_mutations()
+
+            # check if no error occurred while generation the mutations
+            if gen_mutations_error == None:
+                return self.verify_model()
+            else:
+                return gen_mutations_error
+        except AssertionError as e:
+            print("A", end='', flush=True)
+            error_type = Fuzz_Test_ErrorTypes.crashed_model
+            if "is not sat" in str(e):
+                error_type = Fuzz_Test_ErrorTypes.unsat_model
+            elif "has no constraints" in str(e):
+                error_type = Fuzz_Test_ErrorTypes.no_constraints_model
+            return dict(type=error_type,
+                        originalmodel_file=self.model_file,
+                        exception=e,
+                        stacktrace=traceback.format_exc(),
+                        constraints=self.cons,
+                        originalmodel=self.original_model
+                        )
+
+        except Exception as e:
+            print('C', end='', flush=True)
+            return dict(type=Fuzz_Test_ErrorTypes.crashed_model,
+                        originalmodel_file=self.model_file,
+                        exception=e,
+                        stacktrace=traceback.format_exc(),
+                        constraints=self.cons,
+                        mutators=self.mutators,
+                        originalmodel=self.original_model
+                        )
+
+    def rerun(self, error: dict) -> dict:
+        """
+        This function will rerun a previous failed test
+        """
+        try:
+            random.seed(self.seed)
+            self.model_file = error["originalmodel_file"]
+            self.original_model = error["originalmodel"]
+            self.exclude_dict = {}
+            self.initialize_run(is_rerun=True)
+            gen_mutations_error = self.generate_mutations()
+
+            # check if no error occured while generation the mutations
+            if gen_mutations_error == None:
+                return self.verify_model(is_rerun=True)
+            else:
+                return gen_mutations_error
+
+        except AssertionError as e:
+            print("A", end='', flush=True)
+            type = Fuzz_Test_ErrorTypes.crashed_model
+            if "is not sat" in str(e):
+                type = Fuzz_Test_ErrorTypes.unsat_model
+            elif "has no constraints" in str(e):
+                type = Fuzz_Test_ErrorTypes.no_constraints_model
+            return dict(type=type,
+                        originalmodel_file=self.model_file,
+                        exception=e,
+                        stacktrace=traceback.format_exc(),
+                        constraints=self.cons,
+                        originalmodel=self.original_model
+                        )
+
+        except Exception as e:
+            print('C', end='', flush=True)
+            return dict(type=Fuzz_Test_ErrorTypes.crashed_model,
+                        originalmodel_file=self.model_file,
+                        exception=e,
+                        stacktrace=traceback.format_exc(),
+                        constraints=self.cons,
+                        originalmodel=self.original_model
+                        )

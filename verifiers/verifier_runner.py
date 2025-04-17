@@ -12,7 +12,7 @@ def get_all_verifiers(single_solver) -> list:
     if single_solver:
         return [Solution_Verifier,Optimization_Verifier,Model_Count_Verifier,Metamorphic_Verifier,Equivalance_Verifier]
     else:
-        return [Solver_Vote_Count_Verifier, Solver_Vote_Sat_Verifier]
+        return [Solver_Vote_Count_Verifier, Solver_Vote_Sat_Verifier, Strengthening_Weakening_Verifier]
 
 def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver: list[str], mutations_per_model: int, folders: list, max_error_treshold: int, output_dir: str, time_limit: float) -> None:
     """
