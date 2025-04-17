@@ -963,7 +963,6 @@ def type_aware_operator_replacement(constraints: list):
         return Exception(e)
 
 
-# TODO: use this to make a "strengthen_expression" and "weaken_expression"
 def mutate_op_expression(expr: Expression, con: Expression):
     """
     Mutates the constraint containing the expression by mutating said expression.
@@ -1047,20 +1046,11 @@ def get_all_non_op_exprs(con: Expression):
     """
     if hasattr(con, 'args') and not isinstance(con, NDVarArray) and con.name != 'boolval':
         return sum((get_all_non_op_exprs(arg) for arg in con.args), [])
-    elif isinstance(con, list):
+    elif isinstance(con, list) or isinstance(con, NDVarArray):
         return sum((get_all_non_op_exprs(e) for e in con), [])
     else:
         return [con]
 
-# import cpmpy as cp
-# m = cp.Model()
-# p = cp.boolvar()
-# a = cp.boolvar()
-# m += cp.NegativeTable([p],[[a], [(~(a)) >= (p)], [p], [a], [(~p).implies(sum([-1*a, -1*p]) <= -2)]])
-# con = m.constraints[0]
-# print(type(con.args[1]))
-# print(con)
-# m.solve()
 
 def get_all_exprs(con: Expression):
     """
@@ -1282,7 +1272,7 @@ def get_operator(args: list, ret_type: str | bool):
     if ret_type == 'constant':
         if constants:
             return random.choice(constants)  # Some expressions can't be replaced by functions
-        intvars = [e for e in variables if not (is_boolexpr(e) or isinstance(e, list))]
+        intvars = [e for e in variables if not (is_boolexpr(e) or isinstance(e, list) or isinstance(e, NDVarArray))]
         if intvars:
             return random.choice(intvars)
     if ret_type == 'variable' and variables:
@@ -1400,7 +1390,7 @@ def find_all_occurrences(con: Expression, target_expr: Expression):
         for i, arg in enumerate(con.args):
             for path in find_all_occurrences(arg, target_expr):
                 occurrences.append((i,) + path)  # Add index to the path
-    elif isinstance(con, list):
+    elif isinstance(con, list) or isinstance(con, NDVarArray):
         for i, arg in enumerate(con):
             for path in find_all_occurrences(arg, target_expr):
                 occurrences.append((i,) + path)
@@ -1427,7 +1417,7 @@ def replace_at_path(con: Expression, path: tuple, new_expr: Expression):
     for idx in path[:-1]:
         if hasattr(parent, 'args') and not isinstance(parent, NDVarArray) and parent.name != 'boolval':
             parent = parent.args[idx]
-        elif isinstance(parent, list):
+        elif isinstance(parent, list) or isinstance(parent, NDVarArray):
             parent = parent[idx]
 
     # Change the arguments of the parent
@@ -1435,7 +1425,7 @@ def replace_at_path(con: Expression, path: tuple, new_expr: Expression):
         args = list(parent.args)
         args[path[-1]] = new_expr
         parent.update_args(args)
-    elif isinstance(parent, list):
+    elif isinstance(parent, list) or isinstance(parent, NDVarArray):
         parent[path[-1]] = new_expr
     return con
 
@@ -1452,7 +1442,7 @@ def expr_at_path(con: Expression, path: tuple, expr: Expression):
         if idx is not None:
             if hasattr(con, 'args') and not isinstance(con, NDVarArray) and con.name != 'boolval':
                 con = con.args[idx]
-            elif isinstance(con, list):
+            elif isinstance(con, list) or isinstance(con, NDVarArray):
                 con = con[idx]
         else:
             return len(find_all_occurrences(con, expr)) > 0
@@ -1513,7 +1503,7 @@ def get_return_type(expr: Expression, con: Expression):
                 return path, 'variable'
         if hasattr(con, 'args') and not isinstance(con, NDVarArray) and con.name != 'boolval':
             con = con.args[idx]
-        elif isinstance(con, list):
+        elif isinstance(con, list) or isinstance(con, NDVarArray):
             con = con[idx]
     # We should only get here if the argument isn't in one of the functions above
     return path, is_boolexpr(expr)
@@ -1562,6 +1552,206 @@ def type_aware_expression_replacement(constraints: list):
             del final_cons[index]
         final_cons.append(new_con)
     return final_cons
+
+
+def has_positive_parity(expr: Expression, con: Expression, curr_path: tuple) -> tuple | None:
+    """
+    Function to retrieve the parity of an expression `expr` in the given constraint `con`. This means it shows
+    whether the constraint weakens or strengthens when the expression does.
+    ~ Parameters:
+        - `expr`: the expression that would be strengthened/weakened.
+        - `con`: the constraint that would be strengthened/weakened.
+    ~ Returns:
+        - `pos_parity`: True if the constraint strengthens (weakens) upon the expression strengthening,
+                        False if it doesn't,
+                        None if it is unknown.
+    """
+    # Basecase 1: `expr` cannot be strengthened or weakened
+    if hasattr(expr, 'name'):
+        # NOTE: these are the simplest operators to strengthen/weaken (by just changing the operator into another one).
+        #       Other operators could be changed in another way too (e.g. add/remove elements in the second argument
+        #       of the expression x in [1, 2, 3, 4]). This could be included later and then changed accordingly in
+        #       `strengthening_weakening_mutator()`.
+        changeable_ops = {'and', 'or', '->', 'xor', '==', '!=', '<=', '<', '>=', '>'}
+        if expr.name not in changeable_ops:
+            return None
+    else:
+        return None
+
+    # Basecase 2:
+    if expr is con:
+        return True, curr_path
+
+    # Recursively check in the arguments and change result upon encountering "not" operators
+    if con.name == 'not':
+        curr_path += 0,
+        neg_res = has_positive_parity(expr, con.args[0], curr_path)
+        return not neg_res, curr_path if neg_res is not None else None
+    if con.name == 'and' or con.name == 'or':
+        l, r = con.args
+        subtrees = [(0, l), (1, r)]
+        random.shuffle(subtrees)
+        for path, subtree in subtrees:
+            if any(expr is e for e in get_all_exprs(subtree)):  # check if expr in l or r
+                curr_path += path,
+                return has_positive_parity(expr, subtree, curr_path)
+        raise Exception(f"The given expression {expr} is not in either of the subtrees {l} or {r}.")
+
+    # If the constraint is anything else, we don't know the parity
+    return None
+
+
+def strengthen_expr(expr: Expression, path: tuple, con: Expression) -> Expression:
+    """
+    Strengthen the given expression `expr` in the given constraint `con`.
+    ~ Parameters:
+        - `expr`: the expression that will be strengthened.
+        - `con`: the constraint that will be strengthened/weakened.
+    ~ Returns:
+        - `con`: the constraint after the mutation.
+    """
+    match expr.name:  # {'or', '->', '!=', '<=', '>='}
+        case 'or':  # and, xor, !=, <, >
+            args = expr.args
+            if len(args) != 2:
+                return con
+            comps = ['!=', '<', '>']
+            ops = ['and']
+            others = ['xor']
+            new_op = random.choice(comps + ops + others)
+        case '->':  # and, ==, <
+            comps = ['==', '<']
+            ops = ['and']
+            new_op = random.choice(comps + ops)
+            args = expr.args
+        case '!=':  # <, >
+            comps = ['<', '>']
+            new_op = random.choice(comps)
+            args = expr.args
+        case '<=':  # <, ==
+            comps = ['<', '==']
+            new_op = random.choice(comps)
+            args = expr.args
+        case '>=':  # >, ==
+            comps = ['>', '==']
+            new_op = random.choice(comps)
+            args = expr.args
+    if new_op in comps:
+        expr = Comparison(new_op, *args)
+        con = replace_at_path(con, path, expr)
+    elif new_op in ops:
+        expr = Operator(new_op, args)
+        con = replace_at_path(con, path, expr)
+    elif new_op == 'xor':
+        expr = Xor(args)
+        con = replace_at_path(con, path, expr)
+    return con
+
+
+def weaken_expr(expr: Expression, path: tuple, con: Expression) -> Expression:
+    """
+    Weaken the given expression `expr` in the given constraint `con`.
+    ~ Parameters:
+        - `expr`: the expression that will be weakened.
+        - `con`: the constraint that will be strengthened/weakened.
+    ~ Returns:
+        - `con`: the constraint after the mutation.
+    """
+    match expr.name:  # {'and', 'xor', '==', '<', '>'}
+        case 'and':  # or, ->, ==, <=, >=
+            args = expr.args
+            if len(args) != 2:
+                return con
+            comps = ['==', '<=', '>=']
+            ops = ['or', '->']
+            new_op = random.choice(comps + ops)
+        case 'xor':  # or
+            args = expr.args
+            if len(args) != 2:
+                return con
+            new_op = 'or'
+        case '==':  # <=, >=
+            comps = ['<=', '>=']
+            new_op = random.choice(comps)
+            args = expr.args
+        case '<':  # !=, <=
+            comps = ['!=', '<=']
+            new_op = random.choice(comps)
+            args = expr.args
+        case '>':  # != >=
+            comps = ['!=', '>=']
+            new_op = random.choice(comps)
+            args = expr.args
+    if new_op in comps:
+        expr = Comparison(new_op, *args)
+        con = replace_at_path(con, path, expr)
+    elif new_op in ops:
+        expr = Operator(new_op, args)
+        con = replace_at_path(con, path, expr)
+    elif new_op == 'xor':
+        expr = Xor(args)
+        con = replace_at_path(con, path, expr)
+    return con
+
+
+def is_changeable(strengthen: bool, expr: Expression, pos_parity: bool) -> bool:
+    if strengthen ^ pos_parity:  # weakening
+        return expr.name not in {'or', '->', '!=', '<=', '>='}
+    else:  # strengthening
+        return expr.name not in {'and', 'xor', '==', '>', '<'}
+
+
+def strengthening_weakening_mutator(constraints: list, strengthen: bool = True) -> list | Exception:
+    """
+    Strengthens or weakens a (random?) constraint from a list of given constraints by replacing an operator of this constraint.
+    IMPORTANT: This can change satisfiability of the constraint! Only to be used with verifiers that allow this!
+            This means it returns a list of ALL constraints and has to be handled accordingly in the 'generate_mutations'
+            function to swap out the constraints instead of adding them.
+
+    ~ Parameters:
+        - `constraints`: a list of all the constraints to possibly be mutated
+        - `strengthen`: a boolean indicating whether the mutator should strengthen or weaken a constraint
+    ~ Return:
+        - `final_cons`: a list of the same constraints where one constraint has a mutated operator
+    """
+    try:
+        print_str = "strength" if strengthen else "weak"
+        final_cons = copy.deepcopy(constraints)
+        # pick a random constraint and calculate whether they have a mutable expression until they do
+        candidates = list(set(constraints))
+        random.shuffle(candidates)
+        for con in candidates:
+            exprs = []
+            for e in get_all_exprs(con):
+                parity = has_positive_parity(e, con, curr_path=tuple())
+                if parity is not None and is_changeable(strengthen, e, parity[0]):
+                    exprs.append((e, parity))
+            if exprs:
+                break
+        else:  # In case there isn't any mutable (weakening/strengthening depending on `strengthen`) expression in any constraint
+            # print(f"Couldn't find a constraint to {print_str}en.")
+            return final_cons
+
+        # Remove the constraint from the constraints
+        final_cons.remove(con)
+
+        # Choose an expression to change
+        expr, (pos_parity, path) = random.choice(exprs)
+
+        # print(f"{print_str}ening constraint {con} by changing expression {expr}.")
+
+        # Mutate this expression
+        if strengthen ^ pos_parity:  # weaken if parity is different from `strengthen`
+            con = weaken_expr(expr, path, con)
+        else:
+            con = strengthen_expr(expr, path, con)
+
+        # Add the changed constraint back
+        final_cons.append(con)
+        return final_cons
+
+    except Exception as e:
+        return Exception(e)
 
 
 class MetamorphicError(Exception):
