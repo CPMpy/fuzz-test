@@ -53,15 +53,15 @@ class Solver_Vote_Sat_Verifier(Verifier):
         # No other preparation necessary
 
         self.mutators = [copy.deepcopy(
-            self.cons)]  # keep track of list of og_cons alternated with mutators that transformed it into the next list of og_cons.
+            self.cons)]  # keep track of list of cons alternated with mutators that transformed it into the next list of cons.
 
     def generate_mutations(self) -> None:
         """
         Will generate random mutations based on mutations_per_model for the model
         """
         for i in range(self.mutations_per_model):
-            # choose a metamorphic mutation, don't choose any from exclude_dict
 
+            # choose a mutation
             if random.random() < 0.8:
                 m = random.choice(self.mm_mutators)
             else:
@@ -72,8 +72,8 @@ class Solver_Vote_Sat_Verifier(Verifier):
             # log function and arguments in that case
             self.mutators += [m]
             try:
-                if m in {type_aware_operator_replacement, type_aware_expression_replacement}:
-                    self.cons = m(self.cons)  # apply an operator change and REPLACE constraints
+                if m in self.gen_mutators:
+                    self.cons = m(self.cons)  # apply a generative mutation and REPLACE constraints
                 else:
                     self.cons += m(self.cons)  # apply a metamorphic mutation and add to constraints
                 self.mutators += [copy.deepcopy(self.cons)]
@@ -157,7 +157,7 @@ class Solver_Vote_Sat_Verifier(Verifier):
         # if you got here, the model failed...
         return dict(type=Fuzz_Test_ErrorTypes.failed_model,
                     originalmodel_file=self.model_file,
-                    constraints=self.og_cons,
+                    constraints=self.cons,
                     mutators=self.mutators,
                     model=newModel,
                     originalmodel=self.original_model

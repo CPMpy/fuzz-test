@@ -57,9 +57,9 @@ class Solver_Vote_Count_Verifier(Verifier):
         # assert self.sol_count_1 == self.sol_count_2, f"{self.solvers} don't agree on amount of solutions (before mutations): {self.sol_count_1} and {self.sol_count_2}"
 
         self.mutators = [copy.deepcopy(
-            self.cons)]  # keep track of list of og_cons alternated with mutators that transformed it into the next list of og_cons.
+            self.cons)]  # keep track of list of cons alternated with mutators that transformed it into the next list of cons.
 
-    def generate_mutations(self) -> None:
+    def generate_mutations(self) -> None | dict:
         """
         Will generate random mutations based on mutations_per_model for the model
         """
@@ -76,8 +76,8 @@ class Solver_Vote_Count_Verifier(Verifier):
             # log function and arguments in that case
             self.mutators += [m]
             try:
-                if m in {type_aware_operator_replacement, type_aware_expression_replacement}:
-                    self.cons = m(self.cons)  # apply an operator change and REPLACE constraints
+                if m in self.gen_mutators:
+                    self.cons = m(self.cons)  # apply a generative mutation and REPLACE constraints
                 else:
                     self.cons += m(self.cons)  # apply a metamorphic mutation and add to constraints
                 self.mutators += [copy.deepcopy(self.cons)]
@@ -162,7 +162,7 @@ class Solver_Vote_Count_Verifier(Verifier):
         # if you got here, the model failed...
         return dict(type=Fuzz_Test_ErrorTypes.failed_model,
                     originalmodel_file=self.model_file,
-                    constraints=self.og_cons,
+                    constraints=self.cons,
                     mutators=self.mutators,
                     model=newModel,
                     originalmodel=self.original_model

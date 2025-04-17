@@ -57,7 +57,7 @@ class Verifier():
             # log function and arguments in that case
             self.mutators += [m]
             try:
-                if m in {type_aware_operator_replacement, type_aware_expression_replacement}:
+                if m in {type_aware_operator_replacement, type_aware_expression_replacement, strengthening_weakening_mutator}:
                     self.cons = m(self.cons)  # apply an operator change and REPLACE constraints
                 else:
                     self.cons += m(self.cons)  # apply a metamorphic mutation and add to constraints
