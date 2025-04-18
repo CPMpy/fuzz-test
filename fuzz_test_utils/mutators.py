@@ -1109,7 +1109,7 @@ def satisfies_args(func: Function, ints: int, bools: int, constants: int, vars: 
                     return constants >= func.min_args and has_bool_return
                 case 'IfThenElse' | 'Xor':
                     return bools >= func.min_args and has_bool_return
-                case 'Table' | 'NegativeTable':
+                case 'Table' | 'NegativeTable' | 'InDomain':
                     return vars >= 1 and constants >= max(1, func.min_args - 1) and has_bool_return
                 case 'LexLess' | 'LexLessEq' | 'LexChainLess' | 'LexChainLessEq':
                     return vars >= func.min_args and has_bool_return
@@ -1135,7 +1135,7 @@ def get_new_operator(func: Function, ints: list, bools: list, constants: list, v
         case 'op' | 'comp':
             # Separate logic for wsum and pow
             if func.name == 'wsum':  # (-1, 0, False, 2, max_args, 2)
-                amnt_args = random.randint(func.min_args // 2, min(len(constants), func.max_args) // 2)
+                amnt_args = random.randint(func.min_args // 2, min(len(constants), func.max_args // 2))
                 # First take constants
                 constants = random.sample(constants, amnt_args)
                 # Then the other expressions
@@ -1183,13 +1183,13 @@ def get_new_operator(func: Function, ints: list, bools: list, constants: list, v
                     last_arg = random.choice(comb)
                     args = first_arg, last_arg
                 case 'Among':
-                    amnt_fst_arg = random.randint(func.min_args // 2, min(len(comb), func.max_args) // 2)
+                    amnt_fst_arg = random.randint(func.min_args // 2, min(len(comb), func.max_args // 2))
                     amnt_snd_arg = random.randint(func.min_args // 2, min(len(constants), func.max_args // 2))
                     first_arg = random.sample(comb, amnt_fst_arg)
                     second_arg = random.sample(constants, amnt_snd_arg)
                     args = first_arg, second_arg
                 case 'NValueExcept':
-                    amnt_fst_arg = random.randint(func.min_args // 2, min(len(comb), func.max_args) // 2)
+                    amnt_fst_arg = random.randint(func.min_args // 2, min(len(comb), func.max_args // 2))
                     first_arg = random.sample(comb, amnt_fst_arg)
                     second_arg = random.choice(constants)
                     args = first_arg, second_arg
@@ -1200,11 +1200,11 @@ def get_new_operator(func: Function, ints: list, bools: list, constants: list, v
                     amnt_args = random.randint(func.min_args, min(len(comb), func.max_args))
                     args = random.sample(comb, amnt_args)
                 case 'AllDifferentExceptN' | 'AllEqualExceptN':
-                    amnt_fst_args = random.randint(func.min_args // 2, min(len(comb), func.max_args) // 2)
+                    amnt_fst_args = random.randint(func.min_args // 2, min(len(comb), func.max_args // 2))
                     amnt_snd_args = random.randint(func.min_args // 2, min(len(comb), func.max_args - amnt_fst_args))
                     args = random.sample(comb, amnt_fst_args), random.sample(comb, amnt_snd_args)
                 case 'LexLess' | 'LexLessEq':
-                    half_amnt_args = random.randint(func.min_args // 2, min(len(variables), func.max_args) // 2)
+                    half_amnt_args = random.randint(func.min_args // 2, min(len(variables), func.max_args // 2))
                     args = random.sample(variables, half_amnt_args), random.sample(variables, half_amnt_args)
                 case 'LexChainLess' | 'LexChainLessEq':
                     amnt_fst_args = random.randint(1, min(len(variables), func.max_args // 4))
@@ -1234,9 +1234,10 @@ def get_new_operator(func: Function, ints: list, bools: list, constants: list, v
                                             range(int(amnt_snd_args / amnt_fst_arg))]
                     args = fst_args, snd_args_transformed
                 case 'InDomain':
-                    amnt_args = random.randint(func.min_args, min(len(comb), func.max_args))
-                    all_args = random.sample(comb, amnt_args)
-                    args = all_args[0], all_args[1:]
+                    fst_arg = random.choice(variables)
+                    amnt_snd_args = random.randint(func.min_args - 1, min(len(constants), func.max_args - 1))
+                    snd_args = random.sample(constants, amnt_snd_args)
+                    args = fst_arg, snd_args
                 case 'NoOverlap':
                     amnt_args = random.randint(func.min_args, min(len(comb), func.max_args // 3))
                     args = random.sample(comb, amnt_args), random.sample(comb, amnt_args), random.sample(comb,
