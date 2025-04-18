@@ -29,7 +29,7 @@ def create_error_output_text(error_data: dict) -> str:
 
 def match_conditions(exc_str):
     return [
-        (lambda s: "'bool' object is not iterable" in s, "01_bool_obj_not_iterable/"),
+        (lambda s: any(x in s for x in ["'bool' object is not iterable", "'_BoolVarImpl' object is not iterable"]), "01_bool_obj_not_iterable/"),
         (lambda s: "slice indices must be integers or None or have an __index__ method" in s, "02_slice_indices_must_be_ints/"),
         (lambda s: all(x in s for x in ["Expecting value: line", "column ", "(char "]), "03_line_x_column_x/"),
         (lambda s: any(x in s for x in ["lhs cannot be an integer at this point!", "not supported: model.get_or_make_boolean_index(boolval(False))"]), "04_lhs_no_int/"),
@@ -50,20 +50,15 @@ def match_conditions(exc_str):
         (lambda s: "empty range for randrange()" in s, "18_empty_randrange/"),
         (lambda s: "Amount of solutions of the two solvers are not equal." in s, "19_amnt_sol_neq/"),
         (lambda s: "in method 'int_array_set', argument 2 of type 'int'" in s, "20_argx_type_y/"),
-        (lambda s: "'bool' object has no attribute 'has_subexpr'" in s, "21_bool_obj_no_has_subexpr")
+        (lambda s: "'bool' object has no attribute 'has_subexpr'" in s, "21_bool_obj_no_has_subexpr/"),
+        (lambda s: "'int' object has no attribute 'is_bool'" in s, "22_int_obj_no_is_bool/")
     ]
 
 def get_output_dir(error_data):
-    output_dir = "test_output/"
+    output_dir = "quicktest/"
     error = error_data["error"]
     exception = error["exception"]
     exc_str = str(exception)
-    mutators = error['mutators'][2::3]
-    # Split into two different directories for errors including generation-type mutations
-    if any([fn in {type_aware_operator_replacement, type_aware_expression_replacement} for fn in mutators]):
-        output_dir += "GEN/"
-    else:
-        output_dir += "MUT/"
 
     # Check whether the exception matches some format
     for condition, path in match_conditions(exc_str):
