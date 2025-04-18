@@ -1,3 +1,4 @@
+from result_attributes import get_nr_mm_mutations, get_nr_mutations, get_nr_gen_mutations
 from verifiers import *
 
 class Solver_Vote_Count_Verifier(Verifier):
@@ -40,15 +41,13 @@ class Solver_Vote_Count_Verifier(Verifier):
         self.mutators = []
         self.original_model = None
 
-    def initialize_run(self, is_rerun=False) -> None:
+    def initialize_run(self) -> None:
         if self.original_model == None:
             with open(self.model_file, 'rb') as fpcl:
                 self.original_model = pickle.loads(fpcl.read())
         self.cons = self.original_model.constraints
         assert (len(self.cons) > 0), f"{self.model_file} has no constraints"
         self.cons = toplevel_list(self.cons)
-        if is_rerun:
-            print([(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in get_variables(self.cons)])
 
         assert len(self.solvers) == 2, f"2 solvers required, {len(self.solvers)} given."
         if 'gurobi' in [s.lower() for s in self.solvers]:
@@ -64,7 +63,6 @@ class Solver_Vote_Count_Verifier(Verifier):
         Will generate random mutations based on mutations_per_model for the model
         """
         for i in range(self.mutations_per_model):
-            # choose a metamorphic mutation, don't choose any from exclude_dict
 
             if random.random() < 0.8:
                 m = random.choice(self.mm_mutators)
@@ -104,15 +102,17 @@ class Solver_Vote_Count_Verifier(Verifier):
                             stacktrace=traceback.format_exc(),
                             mutators=self.mutators,
                             constraints=self.cons,
+                            variables=[(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in
+                               get_variables(self.cons)],
                             originalmodel=self.original_model
                             )
         return None
     def verify_model(self, is_rerun=False) -> dict:
         try:
             model = cp.Model(self.cons)
-            if is_rerun:
-                print([(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in get_variables(self.cons)])
-            time_limit = max(1, min(200,
+
+            one_run_time_lim = 30  # TODO: change back to 200 after results?
+            time_limit = max(1, min(one_run_time_lim,
                                     self.time_limit - time.time()))  # set the max time limit to the given time limit or to 1 if the self.time_limit-time.time() would be smaller then 1
 
             solver_1 = self.solvers[0]
@@ -142,6 +142,8 @@ class Solver_Vote_Count_Verifier(Verifier):
                             constraints=self.cons,
                             mutators=self.mutators,
                             model=model,
+                            variables=[(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in
+                               get_variables(self.cons)],
                             originalmodel=self.original_model
                             )
 
@@ -157,6 +159,8 @@ class Solver_Vote_Count_Verifier(Verifier):
                         constraints=self.cons,
                         mutators=self.mutators,
                         model=model,
+                        variables=[(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in
+                               get_variables(self.cons)],
                         originalmodel=self.original_model
                         )
         # if you got here, the model failed...
@@ -165,5 +169,7 @@ class Solver_Vote_Count_Verifier(Verifier):
                     constraints=self.cons,
                     mutators=self.mutators,
                     model=newModel,
+                    variables=[(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in
+                               get_variables(self.cons)],
                     originalmodel=self.original_model
                     )

@@ -40,15 +40,13 @@ class Solver_Vote_Sat_Verifier(Verifier):
         self.mutators = []
         self.original_model = None
 
-    def initialize_run(self, is_rerun=False) -> None:
+    def initialize_run(self) -> None:
         if self.original_model == None:
             with open(self.model_file, 'rb') as fpcl:
                 self.original_model = pickle.loads(fpcl.read())
         self.cons = self.original_model.constraints
         assert (len(self.cons) > 0), f"{self.model_file} has no constraints"
         self.cons = toplevel_list(self.cons)
-        if is_rerun:
-            print([(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in get_variables(self.cons)])
 
         # No other preparation necessary
 
@@ -100,11 +98,14 @@ class Solver_Vote_Sat_Verifier(Verifier):
                             stacktrace=traceback.format_exc(),
                             mutators=self.mutators,
                             constraints=self.cons,
+                            variables=[(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in
+                                       get_variables(self.cons)],
                             originalmodel=self.original_model
                             )
         return None
 
-    def verify_model(self, is_rerun=False) -> dict:
+
+    def check_for_bug(self) -> None | dict:
         try:
             model = cp.Model(self.cons)
             time_limit = max(1, min(200,
@@ -132,11 +133,12 @@ class Solver_Vote_Sat_Verifier(Verifier):
                 return dict(type=Fuzz_Test_ErrorTypes.failed_model,
                             originalmodel_file=self.model_file,
                             exception=f"Results of the two solvers are not equal."
-                                      f" Result of {solver_1}: {solver_1_print}."
-                                      f" Result of {solver_2}: {solver_2_print}.",
+                                      f" Result of {self.solvers[0]}: {solver_1_print}."
+                                      f" Result of {self.solvers[1]}: {solver_2_print}.",
                             constraints=self.cons,
                             mutators=self.mutators,
                             model=model,
+                            variables=[(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in get_variables(self.cons)],
                             originalmodel=self.original_model
                             )
 
@@ -152,6 +154,8 @@ class Solver_Vote_Sat_Verifier(Verifier):
                         constraints=self.cons,
                         mutators=self.mutators,
                         model=model,
+                        variables=[(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in
+                                   get_variables(self.cons)],
                         originalmodel=self.original_model
                         )
         # if you got here, the model failed...
@@ -160,5 +164,7 @@ class Solver_Vote_Sat_Verifier(Verifier):
                     constraints=self.cons,
                     mutators=self.mutators,
                     model=newModel,
+                    variables=[(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in
+                               get_variables(self.cons)],
                     originalmodel=self.original_model
                     )
