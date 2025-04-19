@@ -85,6 +85,8 @@ class Verifier():
                             stacktrace=traceback.format_exc(),
                             mutators=self.mutators,
                             constraints=self.cons,
+                            variables=[(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in
+                                       get_variables(self.cons)],
                             originalmodel=self.original_model
                             )
         return None
@@ -133,6 +135,8 @@ class Verifier():
                         exception=e,
                         stacktrace=traceback.format_exc(),
                         constraints=self.cons,
+                        variables=[(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in
+                                   get_variables(self.cons)],
                         originalmodel=self.original_model
                         )
     
@@ -143,6 +147,8 @@ class Verifier():
                         exception=e,
                         stacktrace=traceback.format_exc(),
                         constraints=self.cons,
+                        variables=[(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in
+                                   get_variables(self.cons)],
                         mutators=self.mutators,
                         originalmodel=self.original_model
                         )
@@ -181,6 +187,8 @@ class Verifier():
                         exception=e,
                         stacktrace=traceback.format_exc(),
                         constraints=self.cons,
+                        variables=[(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in
+                                   get_variables(self.cons)],
                         originalmodel=self.original_model
                         )
     
@@ -191,6 +199,8 @@ class Verifier():
                         exception=e,
                         stacktrace=traceback.format_exc(),
                         constraints=self.cons,
+                        variables=[(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in
+                                   get_variables(self.cons)],
                         originalmodel=self.original_model
                         )
 
