@@ -1385,8 +1385,10 @@ def find_all_occurrences(con: Expression, target_expr: Expression):
         - `occurrences`: a list of paths (as tuples) to each occurrence.
     """
     occurrences = []
-    if con is target_expr:
-        occurrences.append(())  # Current node is the target
+    # np.int32 didn't match with `is`
+    if (isinstance(con, np.int32) and isinstance(target_expr, np.int32) and con == target_expr) or \
+            con is target_expr:
+        occurrences.append(())
     if hasattr(con, 'args') and not isinstance(con, NDVarArray) and con.name != 'boolval':
         for i, arg in enumerate(con.args):
             for path in find_all_occurrences(arg, target_expr):
