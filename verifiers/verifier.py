@@ -41,7 +41,7 @@ class Verifier():
         self.original_model = None
 
 
-    def generate_mutations(self) -> None:
+    def generate_mutations(self) -> dict | None:
         """
         Will generate random mutations based on mutations_per_model for the model
         """
@@ -160,7 +160,11 @@ class Verifier():
         This function will rerun a previous failed test
         """
         try:
-            random.seed(self.seed)
+            if 'seed' in error:
+                run_seed = error['seed']
+                random.seed(run_seed)
+            else:
+                random.seed(self.seed)
             self.model_file = error["originalmodel_file"]
             self.original_model = error["originalmodel"]
             self.exclude_dict = {}
