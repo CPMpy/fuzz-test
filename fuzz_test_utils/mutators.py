@@ -1500,7 +1500,7 @@ def get_return_type(expr: Expression, con: Expression):
             remaining_path_len, remaining_path = constant_restricted_functions[con.name]
             if path_len - i == remaining_path_len and expr_at_path(con, remaining_path, expr):
                 return path, 'constant'
-        elif type(con) in variable_restricted_functions:
+        if type(con) in variable_restricted_functions:
             remaining_path_len, remaining_path = variable_restricted_functions[type(con)]
             if path_len - i == remaining_path_len and expr_at_path(con, remaining_path, expr):
                 return path, 'variable'
