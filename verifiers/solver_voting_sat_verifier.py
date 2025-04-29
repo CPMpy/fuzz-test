@@ -66,9 +66,15 @@ class Solver_Vote_Sat_Verifier(Verifier):
             valid_mutators = list(set(self.mm_mutators).union(set(self.gen_mutators)) - set(
                 self.exclude_dict[self.model_file])) if self.model_file in self.exclude_dict else list(set(self.mm_mutators).union(set(self.gen_mutators)))
             if random.random() <= 0.8:  # 80% chance to choose metamorphic mutation
-                m = random.choice([mm_mut for mm_mut in self.mm_mutators if mm_mut in valid_mutators])
+                mutator_list = self.mm_mutators
             else:  # 20% chance to choose generation-based mutation
-                m = random.choice([gen_mut for gen_mut in self.gen_mutators if gen_mut in valid_mutators])
+                mutator_list = self.gen_mutators
+
+            valid = [m for m in mutator_list if m in valid_mutators]
+            if valid:
+                m = random.choice(valid)
+            else:
+                continue
 
             self.mutators += [self.seed]
             # an error can occur in the transformations, so even before the solve call.
@@ -308,12 +314,18 @@ class Solver_Vote_Sat_Verifier(Verifier):
             valid_mutators = list(set(self.mm_mutators).union(set(self.gen_mutators)) - set(
                 self.exclude_dict[self.model_file])) if self.model_file in self.exclude_dict else list(
                 set(self.mm_mutators).union(set(self.gen_mutators)))
-            if random.random() < 0.8:  # 80% chance to choose metamorphic mutation
-                m = random.choice([mm_mut for mm_mut in self.mm_mutators if mm_mut in valid_mutators])
+            if random.random() <= 0.8:  # 80% chance to choose metamorphic mutation
+                mutator_list = self.mm_mutators
                 new_mut_type = 'MM'
             else:  # 20% chance to choose generation-based mutation
-                m = random.choice([gen_mut for gen_mut in self.gen_mutators if gen_mut in valid_mutators])
+                mutator_list = self.gen_mutators
                 new_mut_type = 'GEN'
+
+            valid = [m for m in mutator_list if m in valid_mutators]
+            if valid:
+                m = random.choice(valid)
+            else:
+                continue
 
             # Check whether verify_model returns an error before the new mutation, because the cause is then at the old mutation
             if new_mut_type != last_bug_cause:
