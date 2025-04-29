@@ -55,7 +55,7 @@ def match_conditions(exc_str):
         (lambda s: "'bool' object has no attribute 'has_subexpr'" in s, "21_bool_obj_no_has_subexpr/"),
         (lambda s: "'int' object has no attribute 'is_bool'" in s, "22_int_obj_no_is_bool/"),
         (lambda s: "not supported: model.get_or_make_boolean_index(" in s, "23_not_supported_get_or_make_boolean_index/"),
-        (lambda s: "'BoolVal' object has no attribute 'get_integer_var_value_map'" in s, "24_not_known_var/")
+        (lambda s: any(x in s for x in ["'BoolVal' object has no attribute 'get_integer_var_value_map'", "Not a known var "]), "24_not_known_var/")
     ]
 
 def get_logging_dir(error_data, logging_dir):
@@ -210,6 +210,7 @@ def write_csv(error_data: dict, output_path) -> None:
         ("total_nr_mutations", get_nr_mutations),
         ("nr_mm_mutations", get_nr_mm_mutations),
         ("nr_gen_mutations", get_nr_gen_mutations),
+        ("mutations", get_mutations),
         ("bugged_solver", get_bugged_solver),
         ("objective", get_objective),
         ("variables", get_variables),

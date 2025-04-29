@@ -5,7 +5,7 @@ import random
 import warnings
 from os.path import join
 
-from fuzz_test_utils.output_writer import get_output_dir
+from fuzz_test_utils.output_writer import get_logging_dir, write_csv
 from verifiers import *
 from fuzz_test_utils import Fuzz_Test_ErrorTypes
 def get_all_verifiers(single_solver) -> list:
@@ -60,11 +60,14 @@ def run_verifiers(current_amount_of_tests, current_amount_of_error, lock, solver
                 if error is not None:
                     lock.acquire()
                     try:
+                        if 'seed' in error:  # Give every run its own seed, otherwise same mutations happen
+                            random_seed = error['seed']
                         error_data = {'verifier':random_verifier.getName(),'solver' : solver, 'mutations_per_model' : mutations_per_model, "seed": random_seed, "execution_time": execution_time, "error" :error}
-                        output_dir = get_output_dir(error_data) if get_output_dir(error_data) else output_dir
-                        os.makedirs(output_dir, exist_ok=True)  # create if it doesn't already exist
-                        write_error(error_data,output_dir)
-                        current_amount_of_error.value +=1
+                        logging_dir = get_logging_dir(error_data, output_dir) if get_logging_dir(error_data, output_dir) else output_dir
+                        os.makedirs(logging_dir, exist_ok=True)  # create if it doesn't already exist
+                        write_error(error_data, logging_dir)
+                        write_csv(error_data, 'csv_results.csv')
+                        current_amount_of_error.value += 1
                     finally:
                         lock.release() 
                 lock.acquire()

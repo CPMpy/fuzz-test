@@ -1,4 +1,3 @@
-from result_attributes import get_nr_mm_mutations, get_nr_mutations, get_nr_gen_mutations
 from verifiers import *
 
 class Solver_Vote_Count_Verifier(Verifier):
@@ -15,7 +14,7 @@ class Solver_Vote_Count_Verifier(Verifier):
         self.mutations_per_model = mutations_per_model
         self.exclude_dict = exclude_dict
         self.time_limit = time_limit
-        self.seed = seed
+        self.seed = random.Random().random()
         self.mm_mutators = [xor_morph, and_morph, or_morph, implies_morph, not_morph,
                             linearize_constraint_morph,
                             flatten_morph,
@@ -40,6 +39,10 @@ class Solver_Vote_Count_Verifier(Verifier):
         self.gen_mutators = [type_aware_operator_replacement, type_aware_expression_replacement]
         self.mutators = []
         self.original_model = None
+        self.nr_solve_checks = 0
+        self.bug_cause = 'STARTMODEL'
+        self.nr_timed_out = 0
+        self.last_mut = None
 
     def initialize_run(self) -> None:
         if self.original_model == None:
@@ -63,11 +66,14 @@ class Solver_Vote_Count_Verifier(Verifier):
         Will generate random mutations based on mutations_per_model for the model
         """
         for i in range(self.mutations_per_model):
-
-            if random.random() < 0.8:
-                m = random.choice(self.mm_mutators)
-            else:
-                m = random.choice(self.gen_mutators)  # 20% chance to choose gen-type mutator
+            # choose a mutation (not in exclude_dict)
+            valid_mutators = list(set(self.mm_mutators).union(set(self.gen_mutators)) - set(
+                self.exclude_dict[self.model_file])) if self.model_file in self.exclude_dict else list(
+                set(self.mm_mutators).union(set(self.gen_mutators)))
+            if random.random() <= 0.8:  # 80% chance to choose metamorphic mutation
+                m = random.choice([mm_mut for mm_mut in self.mm_mutators if mm_mut in valid_mutators])
+            else:  # 20% chance to choose generation-based mutation
+                m = random.choice([gen_mut for gen_mut in self.gen_mutators if gen_mut in valid_mutators])
 
             self.mutators += [self.seed]
             # an error can occur in the transformations, so even before the solve call.
@@ -75,9 +81,13 @@ class Solver_Vote_Count_Verifier(Verifier):
             self.mutators += [m]
             try:
                 if m in self.gen_mutators:
+                    self.bug_cause = 'during GEN'
                     self.cons = m(self.cons)  # apply a generative mutation and REPLACE constraints
+                    self.bug_cause = 'GEN'
                 else:
+                    self.bug_cause = 'during MM'
                     self.cons += m(self.cons)  # apply a metamorphic mutation and add to constraints
+                    self.bug_cause = 'MM'
                 self.mutators += [copy.deepcopy(self.cons)]
             except MetamorphicError as exc:
                 # add to exclude_dict, to avoid running into the same error
@@ -94,7 +104,8 @@ class Solver_Vote_Count_Verifier(Verifier):
                     # don't log semanticfusion crash
 
                 print('I', end='', flush=True)
-                return dict(type=Fuzz_Test_ErrorTypes.internalfunctioncrash,
+                return dict(seed=self.seed,
+                            type=Fuzz_Test_ErrorTypes.internalfunctioncrash,
                             originalmodel_file=self.model_file,
                             exception=e,
                             function=function,
@@ -104,55 +115,81 @@ class Solver_Vote_Count_Verifier(Verifier):
                             constraints=self.cons,
                             variables=[(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in
                                get_variables(self.cons)],
-                            originalmodel=self.original_model
+                            originalmodel=self.original_model,
+                            nr_solve_checks=self.nr_solve_checks,
+                            caused_by=self.bug_cause,
+                            nr_timed_out=self.nr_timed_out
                             )
         return None
-    def verify_model(self, is_rerun=False) -> dict:
+    def verify_model(self, is_bug_check=False) -> None | dict:
         try:
             model = cp.Model(self.cons)
 
-            one_run_time_lim = 30  # TODO: change back to 200 after results?
-            time_limit = max(1, min(one_run_time_lim,
+            # if is_bug_check:
+            #     max_search_time = 20
+            # else:
+            #     max_search_time = 40
+            max_search_time = 40
+
+            time_limit = max(1, min(max_search_time,  # TODO: change `max_search_time` back to 200
                                     self.time_limit - time.time()))  # set the max time limit to the given time limit or to 1 if the self.time_limit-time.time() would be smaller then 1
 
-            solver_1 = self.solvers[0]
-            solver_2 = self.solvers[1]
-            if hasattr(self, 'sol_lim'):
-                new_count_1 = model.solveAll(solver=solver_1, solution_limit=self.sol_lim)
-                new_count_2 = model.solveAll(solver=solver_2, solution_limit=self.sol_lim)
-            else:
-                new_count_1 = model.solveAll(solver=solver_1)
-                new_count_2 = model.solveAll(solver=solver_2)
+            # Get the actual solver results and their execution times.
+            # We do it this way because a solver might crash, meaning the other solver doesn't get a turn.
+            solvers_results = []
+            solvers_times = []
+            for s in self.solvers:
+                self.nr_solve_checks += 1
+                if hasattr(self, 'sol_lim'):
+                    solvers_results.append(model.solveAll(solver=s, solution_limit=self.sol_lim, time_limit=time_limit))
+                    solvers_times.append(model.status().runtime)
+                else:
+                    solvers_results.append(model.solveAll(solver=s, time_limit=time_limit))
+                    solvers_times.append(model.status().runtime)
 
-            if model.status().runtime > time_limit - 10:
+            nr_timed_out_solvers = sum([t > time_limit * 0.8 for t in solvers_times])
+            if nr_timed_out_solvers > 0:
                 # timeout, skip
-                print('T', end='', flush=True)
+                self.nr_timed_out += nr_timed_out_solvers
+                if not is_bug_check:
+                    print('T', end='', flush=True)
+                else:
+                    self.bug_cause = 'UNKNOWN'
                 return None
-            elif new_count_1 == new_count_2:
+            elif all(s1 == s2 for i, s1 in enumerate(solvers_results) for j, s2 in enumerate(solvers_results) if i < j):
                 # has to be same
-                print('.', end='', flush=True)
+                if not is_bug_check:
+                    print('.', end='', flush=True)
                 return None
             else:
-                print('X', end='', flush=True)
-                return dict(type=Fuzz_Test_ErrorTypes.failed_model,
+                solver_results_str = ", ".join(
+                    f"{solver}: {result}" for solver, result in zip(self.solvers, solvers_results))
+                if is_bug_check:
+                    print('X', end='', flush=True)
+                return dict(seed=self.seed,
+                            type=Fuzz_Test_ErrorTypes.failed_model,
                             originalmodel_file=self.model_file,
-                            exception=f"Amount of solutions of the two solvers are not equal."
-                                      f" #Solutions of {solver_1}: {new_count_1}."
-                                      f" #Solutions of {solver_2}: {new_count_2}.",
+                            exception=f"Results of the solvers are not equal. Solver results: {solver_results_str}.",
                             constraints=self.cons,
                             mutators=self.mutators,
                             model=model,
                             variables=[(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in
                                get_variables(self.cons)],
-                            originalmodel=self.original_model
+                            originalmodel=self.original_model,
+                            nr_solve_checks=self.nr_solve_checks,
+                            caused_by=self.bug_cause,
+                            nr_timed_out=self.nr_timed_out
                             )
 
         except Exception as e:
             if isinstance(e, (CPMpyException, NotImplementedError)):
                 # expected error message, ignore
                 return None
-            print('E', end='', flush=True)
-            return dict(type=Fuzz_Test_ErrorTypes.internalcrash,
+            if is_bug_check:
+                print('E', end='', flush=True)
+
+            return dict(seed=self.seed,
+                        type=Fuzz_Test_ErrorTypes.internalcrash,
                         originalmodel_file=self.model_file,
                         exception=e,
                         stacktrace=traceback.format_exc(),
@@ -161,15 +198,196 @@ class Solver_Vote_Count_Verifier(Verifier):
                         model=model,
                         variables=[(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in
                                get_variables(self.cons)],
-                        originalmodel=self.original_model
+                        originalmodel=self.original_model,
+                        nr_solve_checks=self.nr_solve_checks,
+                        caused_by=self.bug_cause,
+                        nr_timed_out=self.nr_timed_out
                         )
-        # if you got here, the model failed...
-        return dict(type=Fuzz_Test_ErrorTypes.failed_model,
-                    originalmodel_file=self.model_file,
-                    constraints=self.cons,
-                    mutators=self.mutators,
-                    model=newModel,
-                    variables=[(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in
-                               get_variables(self.cons)],
-                    originalmodel=self.original_model
-                    )
+
+    def run(self, model_file: str) -> dict | None:
+        """
+        This function will run a single tests on the given model
+        """
+        try:
+            random.seed(self.seed)
+            self.model_file = model_file
+            self.initialize_run()
+            gen_mutations_error = self.generate_mutations()
+
+            # check if no error occured while generation the mutations
+            if gen_mutations_error == None:
+                # FOLLOWING 5 LINES CHANGED!
+                verify_model_error = self.verify_model()
+                if verify_model_error == None:
+                    return None
+                else:
+                    return self.find_error_rerun(verify_model_error)
+            else:
+                return gen_mutations_error  # This error requires no rerun
+        except AssertionError as e:
+            print("A", end='', flush=True)
+            error_type = Fuzz_Test_ErrorTypes.crashed_model
+            if "is not sat" in str(e):
+                error_type = Fuzz_Test_ErrorTypes.unsat_model
+            elif "has no constraints" in str(e):
+                error_type = Fuzz_Test_ErrorTypes.no_constraints_model
+            return dict(seed=self.seed,
+                        type=error_type,
+                        originalmodel_file=self.model_file,
+                        exception=e,
+                        stacktrace=traceback.format_exc(),
+                        constraints=self.cons,
+                        variables=[(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in
+                                   get_variables(self.cons)],
+                        originalmodel=self.original_model,
+                        nr_solve_checks=self.nr_solve_checks,
+                        caused_by=self.bug_cause,
+                        nr_timed_out=self.nr_timed_out
+                        )
+
+        except Exception as e:
+            print('C', end='', flush=True)
+            return dict(seed=self.seed,
+                        type=Fuzz_Test_ErrorTypes.crashed_model,
+                        originalmodel_file=self.model_file,
+                        exception=e,
+                        stacktrace=traceback.format_exc(),
+                        constraints=self.cons,
+                        variables=[(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in
+                                   get_variables(self.cons)],
+                        mutators=self.mutators,
+                        originalmodel=self.original_model,
+                        nr_solve_checks=self.nr_solve_checks,
+                        caused_by=self.bug_cause,
+                        nr_timed_out=self.nr_timed_out
+                        )
+
+    def find_error_rerun(self, error_dict) -> dict:
+        try:
+            random.seed(self.seed)
+            error_type = error_dict['type']
+            self.initialize_run()  # initialize empty (self.)model, cons, mutators
+
+            # This should always be the case
+            if error_type in [Fuzz_Test_ErrorTypes.internalcrash, Fuzz_Test_ErrorTypes.failed_model]:  # Error type 'E', often during model.solve() or solveAll or type 'X'
+                return self.bug_search_run_and_verify_model()
+
+        except AssertionError as e:
+            print("A", end='', flush=True)
+            type = Fuzz_Test_ErrorTypes.crashed_model
+            if "is not sat" in str(e):
+                type = Fuzz_Test_ErrorTypes.unsat_model
+            elif "has no constraints" in str(e):
+                type = Fuzz_Test_ErrorTypes.no_constraints_model
+            return dict(seed=self.seed,
+                        type=type,
+                        originalmodel_file=self.model_file,
+                        exception=e,
+                        stacktrace=traceback.format_exc(),
+                        constraints=self.cons,
+                        variables=[(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in
+                                   get_variables(self.cons)],
+                        originalmodel=self.original_model,
+                        nr_solve_checks=self.nr_solve_checks,
+                        caused_by=self.bug_cause,
+                        nr_timed_out=self.nr_timed_out
+                        )
+
+        except Exception as e:
+            print('C', end='', flush=True)
+            return dict(seed=self.seed,
+                        type=Fuzz_Test_ErrorTypes.crashed_model,
+                        originalmodel_file=self.model_file,
+                        exception=e,
+                        stacktrace=traceback.format_exc(),
+                        constraints=self.cons,
+                        variables=[(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in
+                                   get_variables(self.cons)],
+                        originalmodel=self.original_model,
+                        nr_solve_checks=self.nr_solve_checks,
+                        caused_by=self.bug_cause,
+                        nr_timed_out=self.nr_timed_out
+                        )
+
+    def bug_search_run_and_verify_model(self) -> dict:
+        for _ in range(self.mutations_per_model):
+            last_bug_cause = self.bug_cause
+
+            # Generate the type of mutation that will happen
+            valid_mutators = list(set(self.mm_mutators).union(set(self.gen_mutators)) - set(
+                self.exclude_dict[self.model_file])) if self.model_file in self.exclude_dict else list(
+                set(self.mm_mutators).union(set(self.gen_mutators)))
+            if random.random() < 0.8:  # 80% chance to choose metamorphic mutation
+                m = random.choice([mm_mut for mm_mut in self.mm_mutators if mm_mut in valid_mutators])
+                new_mut_type = 'MM'
+            else:  # 20% chance to choose generation-based mutation
+                m = random.choice([gen_mut for gen_mut in self.gen_mutators if gen_mut in valid_mutators])
+                new_mut_type = 'GEN'
+
+            # Check whether verify_model returns an error before the new mutation, because the cause is then at the old mutation
+            if new_mut_type != last_bug_cause:
+                verify_model_error = self.verify_model(is_bug_check=True)
+                if verify_model_error is not None:
+                    return verify_model_error
+
+            # Then, apply the new mutation (which shouldn't give an error itself)
+            gen_mut_error = self.apply_single_mutation(m)
+            assert gen_mut_error is None, "There should be no errors related to the application of mutations here."
+
+        # Finally, check the model at the end. This SHOULD give an error
+        verify_model_error = self.verify_model(is_bug_check=True)
+        if verify_model_error is not None:
+            return verify_model_error
+        else:
+            print('_', end='', flush=True)
+
+    def apply_single_mutation(self, m) -> dict | None:
+        """
+        Will generate one random mutation and apply it to the model
+        """
+        self.mutators += [self.seed]
+        # an error can occur in the transformations, so even before the solve call.
+        # log function and arguments in that case
+        self.mutators += [m]
+        try:
+            if m in self.gen_mutators:
+                self.bug_cause = f'during GEN, after {self.bug_cause}'
+                self.cons = m(self.cons)  # apply a generative mutation and REPLACE constraints
+                self.bug_cause = 'GEN'
+            else:
+                self.bug_cause = f'during MM, after {self.bug_cause}'
+                self.cons += m(self.cons)  # apply a metamorphic mutation and add to constraints
+                self.bug_cause = 'MM'
+            self.mutators += [copy.deepcopy(self.cons)]
+        except MetamorphicError as exc:
+            # add to exclude_dict, to avoid running into the same error
+            if self.model_file in self.exclude_dict:
+                self.exclude_dict[self.model_file] += [m]
+            else:
+                self.exclude_dict[self.model_file] = [m]
+            function, argument, e = exc.args
+            if isinstance(e, CPMpyException):
+                # expected behavior if we throw a cpmpy exception, do not log
+                return None
+            elif function == semanticFusion:
+                return None
+                # don't log semanticfusion crash
+
+            print('I', end='', flush=True)
+            return dict(seed=self.seed,
+                        type=Fuzz_Test_ErrorTypes.internalfunctioncrash,
+                        originalmodel_file=self.model_file,
+                        exception=e,
+                        function=function,
+                        argument=argument,
+                        stacktrace=traceback.format_exc(),
+                        mutators=self.mutators,
+                        constraints=self.cons,
+                        variables=[(var, var.lb, var.ub) if not is_boolexpr(var) else (var, "bool") for var in
+                                   get_variables(self.cons)],
+                        originalmodel=self.original_model,
+                        nr_solve_checks=self.nr_solve_checks,
+                        caused_by=self.bug_cause,
+                        nr_timed_out=self.nr_timed_out
+                        )
+        return None
