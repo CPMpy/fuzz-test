@@ -1757,6 +1757,26 @@ def strengthening_weakening_mutator(constraints: list, strengthen: bool = True) 
         return Exception(e)
 
 
+def change_domain_mutator(constraints: list):
+    try:
+        # Take random variable
+        variables = get_variables(constraints)
+        rand_var = random.choice(variables)
+
+        # Get its value by solving the model
+        Model(constraints).solve()
+
+        # Replace its domain by its value
+        rand_var.lb = rand_var.value()
+        rand_var.ub = rand_var.value()
+
+        # Return the given constraints to be compatible with how the other non-metamorphic mutators are called
+        return constraints
+
+    except Exception as e:
+        raise Exception(e)
+
+
 class MetamorphicError(Exception):
     pass
 

@@ -39,6 +39,7 @@ class Strengthening_Weakening_Verifier(Verifier):
                             semanticFusionCountingMinus,
                             semanticFusionCountingwsum]
         self.gen_mutators = [type_aware_operator_replacement, type_aware_expression_replacement]
+        self.str_wkn_mutators = [strengthening_weakening_mutator, change_domain_mutator]
         self.mutators = []
         self.original_model = None
         self.nr_solve_checks = 0
@@ -71,16 +72,22 @@ class Strengthening_Weakening_Verifier(Verifier):
 
             # choose a mutator. 33% of the time, this will be a strengthening/weakening mutation.
             # choose a mutation (not in exclude_dict)
-            valid_mutators = list(set(self.mm_mutators).union(set(self.gen_mutators)).union({strengthening_weakening_mutator}) - set(
+            valid_mutators = list(set(self.mm_mutators).union(set(self.gen_mutators)).union(set(self.str_wkn_mutators)) - set(
                 self.exclude_dict[self.model_file])) if self.model_file in self.exclude_dict else list(
-                set(self.mm_mutators).union(set(self.gen_mutators)).union({strengthening_weakening_mutator}))
+                set(self.mm_mutators).union(set(self.gen_mutators)).union(set(self.str_wkn_mutators)))
             rand = random.random()
             if rand <= 0.33:
-                m = strengthening_weakening_mutator if strengthening_weakening_mutator in valid_mutators else random.choice(self.mm_mutators)
+                mutator_list = self.str_wkn_mutators
             elif rand <= 0.8633:  # ~~ remaining 80% of 0.67 (8/15)
-                m = random.choice([mm_mut for mm_mut in self.mm_mutators if mm_mut in valid_mutators])
+                mutator_list = self.mm_mutators
             else:
-                m = random.choice([gen_mut for gen_mut in self.gen_mutators if gen_mut in valid_mutators])
+                mutator_list = self.gen_mutators
+
+            valid = [m for m in mutator_list if m in valid_mutators]
+            if valid:
+                m = random.choice(valid)
+            else:
+                continue  # No valid mutator? => go to next mutation
 
             self.mutators += [self.seed]
             # an error can occur in the transformations, so even before the solve call.
@@ -91,22 +98,18 @@ class Strengthening_Weakening_Verifier(Verifier):
                     self.bug_cause = 'during GEN'
                     self.cons = m(self.cons)  # apply a generative (non-metamorphic) mutation and REPLACE constraints
                     self.bug_cause = 'GEN'
-                elif m == strengthening_weakening_mutator:
+                elif m in self.str_wkn_mutators:
                     model = cp.Model(self.cons)
-                    # s = random.choice(self.solvers) if 'ortools' not in self.solvers else 'ortools'
-                    s = 'ortools'  # TODO: CHANGE
-                    # print("I add to nrsolvechecks")
+                    s = random.choice(self.solvers)
                     self.nr_solve_checks += 1
-                    if hasattr(self, 'sol_lim'):
-                        count = model.solveAll(solver=s, solution_limit=self.sol_lim, time_limit=5)  # should find at least 1 solution in 5s
-                    else:
-                        count = model.solveAll(solver=s, time_limit=5)
+                    count = model.solveAll(solver=s, solution_limit=2, time_limit=5)  # should find at least 1 solution in 5s
                     if count > 1:
                         self.bug_cause = 'during STR'
-                        self.cons = m(self.cons, strengthen=True)
+                        self.cons = m(self.cons)
                         self.bug_cause = 'STR'
                     elif count < 1:
                         self.bug_cause = 'during WKN'
+                        m = strengthening_weakening_mutator
                         self.cons = m(self.cons, strengthen=False)
                         self.bug_cause = 'WKN'
                     elif random.random() < 0.8:  # If only 1 solution remains, we just go on normally instead
@@ -363,14 +366,20 @@ class Strengthening_Weakening_Verifier(Verifier):
                 set(self.mm_mutators).union(set(self.gen_mutators)).union({strengthening_weakening_mutator}))
             rand = random.random()
             if rand <= 0.33:
-                m = strengthening_weakening_mutator if strengthening_weakening_mutator in valid_mutators else random.choice(self.mm_mutators)
+                mutator_list = self.str_wkn_mutators
                 new_mut_type = 'STRWK'
             elif rand <= 0.8633:  # ~~ remaining 80% of 0.67 (8/15)
-                m = random.choice([mm_mut for mm_mut in self.mm_mutators if mm_mut in valid_mutators])
+                mutator_list = self.mm_mutators
                 new_mut_type = 'MM'
             else:
-                m = random.choice([gen_mut for gen_mut in self.gen_mutators if gen_mut in valid_mutators])
+                mutator_list = self.gen_mutators
                 new_mut_type = 'GEN'
+
+            valid = [m for m in mutator_list if m in valid_mutators]
+            if valid:
+                m = random.choice(valid)
+            else:
+                continue  # No valid mutator? => go to next mutation
 
             # Check whether verify_model returns an error before the new mutation, because the cause is then at the old mutation
             if new_mut_type != last_bug_cause:
