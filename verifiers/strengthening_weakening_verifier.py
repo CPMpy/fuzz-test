@@ -76,9 +76,9 @@ class Strengthening_Weakening_Verifier(Verifier):
                 self.exclude_dict[self.model_file])) if self.model_file in self.exclude_dict else list(
                 set(self.mm_mutators).union(set(self.gen_mutators)).union(set(self.str_wkn_mutators)))
             rand = random.random()
-            if rand <= 0.33:
+            if rand <= 1/3:
                 mutator_list = self.str_wkn_mutators
-            elif rand <= 0.8633:  # ~~ remaining 80% of 0.67 (8/15)
+            elif rand <= 1/3 + 0.8 * 2/3:  # ~~ remaining 80%
                 mutator_list = self.mm_mutators
             else:
                 mutator_list = self.gen_mutators
@@ -104,7 +104,8 @@ class Strengthening_Weakening_Verifier(Verifier):
                     self.nr_solve_checks += 1
                     count = model.solveAll(solver=s, solution_limit=2, time_limit=5)  # should find at least 1 solution in 5s
                     if count > 1:
-                        self.bug_cause = 'during STR'
+                        if m == strengthening_weakening_mutator:
+                            self.bug_cause = 'during STR'
                         self.cons = m(self.cons)
                         self.bug_cause = 'STR'
                     elif count < 1:
@@ -145,7 +146,6 @@ class Strengthening_Weakening_Verifier(Verifier):
                     return None
                     # don't log semanticfusion crash
 
-                print('I', end='', flush=True)
                 return dict(seed=self.seed,
                             type=Fuzz_Test_ErrorTypes.internalfunctioncrash,
                             originalmodel_file=self.model_file,
@@ -193,11 +193,10 @@ class Strengthening_Weakening_Verifier(Verifier):
             nr_timed_out_solvers = sum([t > time_limit * 0.8 for t in solvers_times])
             if nr_timed_out_solvers > 0:
                 # timeout, skip
+                self.bug_cause = 'UNKNOWN'
                 self.nr_timed_out += nr_timed_out_solvers
                 if not is_bug_check:
                     print('T', end='', flush=True)
-                else:
-                    self.bug_cause = 'UNKNOWN'
                 return None
             elif all(s1 == s2 for i, s1 in enumerate(solvers_results) for j, s2 in enumerate(solvers_results) if i < j):
                 # has to be same
@@ -267,7 +266,7 @@ class Strengthening_Weakening_Verifier(Verifier):
                 else:
                     return self.find_error_rerun(verify_model_error)
             else:
-                return gen_mutations_error  # This error requires no rerun
+                return self.find_error_rerun(gen_mutations_error)
         except AssertionError as e:
             print("A", end='', flush=True)
             error_type = Fuzz_Test_ErrorTypes.crashed_model
@@ -316,6 +315,9 @@ class Strengthening_Weakening_Verifier(Verifier):
             # This should always be the case
             if error_type in [Fuzz_Test_ErrorTypes.internalcrash, Fuzz_Test_ErrorTypes.failed_model]:  # Error type 'E', often during model.solve() or solveAll or type 'X'
                 return self.bug_search_run_and_verify_model()
+            elif error_type == Fuzz_Test_ErrorTypes.internalfunctioncrash:
+                mutations = error_dict['mutators'][2::3]
+                return self.bug_search_run_and_verify_model(nr_mutations=len(mutations))
 
         except AssertionError as e:
             print("A", end='', flush=True)
@@ -354,7 +356,9 @@ class Strengthening_Weakening_Verifier(Verifier):
                         nr_timed_out=self.nr_timed_out
                         )
 
-    def bug_search_run_and_verify_model(self) -> dict:
+    def bug_search_run_and_verify_model(self, nr_mutations=None) -> dict:
+        if nr_mutations is not None:
+            self.mutations_per_model = nr_mutations
         for _ in range(self.mutations_per_model):
             last_bug_cause = self.bug_cause
 
@@ -365,10 +369,10 @@ class Strengthening_Weakening_Verifier(Verifier):
                     self.exclude_dict[self.model_file])) if self.model_file in self.exclude_dict else list(
                 set(self.mm_mutators).union(set(self.gen_mutators)).union({strengthening_weakening_mutator}))
             rand = random.random()
-            if rand <= 0.33:
+            if rand <= 1/3:
                 mutator_list = self.str_wkn_mutators
                 new_mut_type = 'STRWK'
-            elif rand <= 0.8633:  # ~~ remaining 80% of 0.67 (8/15)
+            elif rand <= 1/3 + 0.8 * 2/3:  # ~~ remaining 80%
                 mutator_list = self.mm_mutators
                 new_mut_type = 'MM'
             else:
@@ -387,9 +391,10 @@ class Strengthening_Weakening_Verifier(Verifier):
                 if verify_model_error is not None:
                     return verify_model_error
 
-            # Then, apply the new mutation (which shouldn't give an error itself)
+            # Then, apply the new mutation and check whether it gives an error
             gen_mut_error = self.apply_single_mutation(m)
-            assert gen_mut_error is None, "There should be no errors related to the application of mutations here."
+            if gen_mut_error is not None:
+                return gen_mut_error
 
         # Finally, check the model at the end. This SHOULD give an error
         verify_model_error = self.verify_model(is_bug_check=True)
@@ -423,7 +428,8 @@ class Strengthening_Weakening_Verifier(Verifier):
                 else:
                     count = model.solveAll(solver=s, time_limit=5)
                 if count > 1:
-                    self.bug_cause = 'during STR'
+                    if m == strengthening_weakening_mutator:  # solve call happening otherwise
+                        self.bug_cause = 'during STR'
                     self.cons = m(self.cons, strengthen=True)
                     self.bug_cause = 'STR'
                 elif count < 1:

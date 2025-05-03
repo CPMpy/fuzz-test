@@ -104,7 +104,6 @@ class Solver_Vote_Sat_Verifier(Verifier):
                     return None
                     # don't log semanticfusion crash
 
-                print('I', end='', flush=True)
                 return dict(seed=self.seed,
                             type=Fuzz_Test_ErrorTypes.internalfunctioncrash,
                             originalmodel_file=self.model_file,
@@ -148,11 +147,10 @@ class Solver_Vote_Sat_Verifier(Verifier):
             nr_timed_out_solvers = sum([t > time_limit * 0.8 for t in solvers_times])
             if nr_timed_out_solvers > 0:
                 # timeout, skip
+                self.bug_cause = 'UNKNOWN'
                 self.nr_timed_out += nr_timed_out_solvers
                 if not is_bug_check:
                     print('T', end='', flush=True)
-                else:
-                    self.bug_cause = 'UNKNOWN'
                 return None
             elif all(s1 == s2 for i, s1 in enumerate(solvers_results) for j, s2 in enumerate(solvers_results) if i < j):
                 # has to be same
@@ -220,7 +218,7 @@ class Solver_Vote_Sat_Verifier(Verifier):
                 else:
                     return self.find_error_rerun(verify_model_error)
             else:
-                return gen_mutations_error  # This error requires no rerun
+                return self.find_error_rerun(gen_mutations_error)
         except AssertionError as e:
             print("A", end='', flush=True)
             error_type = Fuzz_Test_ErrorTypes.crashed_model
@@ -268,6 +266,9 @@ class Solver_Vote_Sat_Verifier(Verifier):
             # This should always be the case
             if error_type in [Fuzz_Test_ErrorTypes.internalcrash, Fuzz_Test_ErrorTypes.failed_model]:  # Error type 'E', often during model.solve() or solveAll or type 'X'
                 return self.bug_search_run_and_verify_model()
+            elif error_type == Fuzz_Test_ErrorTypes.internalfunctioncrash:
+                mutations = error_dict['mutators'][2::3]
+                return self.bug_search_run_and_verify_model(nr_mutations=len(mutations))
 
         except AssertionError as e:
             print("A", end='', flush=True)
@@ -306,7 +307,9 @@ class Solver_Vote_Sat_Verifier(Verifier):
                         nr_timed_out=self.nr_timed_out
                         )
 
-    def bug_search_run_and_verify_model(self) -> dict:
+    def bug_search_run_and_verify_model(self, nr_mutations=None) -> dict:
+        if nr_mutations is not None:
+            self.mutations_per_model = nr_mutations
         for _ in range(self.mutations_per_model):
             last_bug_cause = self.bug_cause
 
@@ -333,9 +336,10 @@ class Solver_Vote_Sat_Verifier(Verifier):
                 if verify_model_error is not None:
                     return verify_model_error
 
-            # Then, apply the new mutation (which shouldn't give an error itself)
+            # Then, apply the new mutation and check whether it gives an error
             gen_mut_error = self.apply_single_mutation(m)
-            assert gen_mut_error is None, "There should be no errors related to the application of mutations here."
+            if gen_mut_error is not None:
+                return gen_mut_error
 
         # Finally, check the model at the end. This SHOULD give an error
         verify_model_error = self.verify_model(is_bug_check=True)
