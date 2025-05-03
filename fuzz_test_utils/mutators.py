@@ -1591,14 +1591,14 @@ def has_positive_parity(expr: Expression, con: Expression, curr_path: tuple) -> 
         neg_res = has_positive_parity(expr, con.args[0], curr_path)
         return not neg_res, curr_path if neg_res is not None else None
     if con.name == 'and' or con.name == 'or':
-        l, r = con.args
-        subtrees = [(0, l), (1, r)]
+        args = con.args
+        subtrees = list(enumerate(args))
         random.shuffle(subtrees)
         for path, subtree in subtrees:
-            if any(expr is e for e in get_all_exprs(subtree)):  # check if expr in l or r
+            if any(expr is e for e in get_all_exprs(subtree)):  # check if expr is in the subtree
                 curr_path += path,
                 return has_positive_parity(expr, subtree, curr_path)
-        raise Exception(f"The given expression {expr} is not in either of the subtrees {l} or {r}.")
+        raise Exception(f"The given expression {expr} is not in any of the arguments: {args}.")
 
     # If the constraint is anything else, we don't know the parity
     return None
@@ -1754,7 +1754,7 @@ def strengthening_weakening_mutator(constraints: list, strengthen: bool = True) 
         return final_cons
 
     except Exception as e:
-        return Exception(e)
+        raise Exception(e)
 
 
 def change_domain_mutator(constraints: list):
