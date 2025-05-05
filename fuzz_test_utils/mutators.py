@@ -1530,25 +1530,24 @@ def type_aware_expression_replacement(constraints: list):
         - `final_cons`: a list of the same constraints where one constraint has a mutated expression
     """
     try:
-        # print("="*100)
         final_cons = copy.deepcopy(constraints)
-        # print(f"All constraints at the moment: {final_cons}")
+
         # 1. Neem een (random) expression van een (random) constraint en de return type
         rand_con = random.choice(final_cons)
         all_con_exprs = get_all_exprs(rand_con)
-        # print(f"all_con_exprs: {all_con_exprs}")
         expr = random.choice(all_con_exprs)
         path, ret_type = get_return_type(expr, rand_con)  # Also gives us the taken path of the expression in the constraint
-        # print(f"Changing constarint: {rand_con}")
-        # print(f"Old expression: {expr}")
-        # 2. Tel het aantal resterende params van elk type (van alle constraints of enkel in de constraint zelf?)
+
+        # 2. Tel het aantal resterende params van elk type
         all_exprs = get_all_exprs_mult(final_cons)
+
         # 3. Zoek een operator die <= aantal params nodig heeft met zelfde return type
         new_expr = get_operator(all_exprs, ret_type)
+
         # 4. Vervang expression (+ vervang constraint)
-        # print(f"New expression: {new_expr}")
         if new_expr:
             new_con = replace_at_path(rand_con, path, new_expr=new_expr)
+
             # 5. Return the new constraints
             # final_cons.remove(rand_con) DOES NOT WORK because it uses == instead of 'is'
             index = None
@@ -1577,16 +1576,16 @@ def has_positive_parity(expr: Expression, con: Expression, curr_path: tuple) -> 
                         None if it is unknown.
     """
     # Basecase 1: `expr` cannot be strengthened or weakened
-    changeable_ops = {'and', 'or', '->', 'xor', '==', '!=', '<=', '<', '>=', '>'}
-    changeable_globals = {AllDifferent, AllDifferentExceptN, AllEqual, AllEqualExceptN,
-                          Table, NegativeTable, IncreasingStrict, DecreasingStrict,
-                          LexLess, LexChainLess, Increasing, Decreasing, LexLessEq,
-                          LexChainLessEq, InDomain}
     if hasattr(expr, 'name'):
         # NOTE: these are the simplest operators to strengthen/weaken (by just changing the operator into another one).
         #       Other operators could be changed in another way too (e.g. add/remove elements in the second argument
         #       of the expression x in [1, 2, 3, 4]). This could be included later and then changed accordingly in
         #       `strengthening_weakening_mutator()`.
+        changeable_ops = {'and', 'or', '->', 'xor', '==', '!=', '<=', '<', '>=', '>'}
+        changeable_globals = {AllDifferent, AllDifferentExceptN, AllEqual, AllEqualExceptN,
+                              Table, NegativeTable, IncreasingStrict, DecreasingStrict,
+                              LexLess, LexChainLess, Increasing, Decreasing, LexLessEq,
+                              LexChainLessEq, InDomain}
         if not (expr.name in changeable_ops or type(expr) in changeable_globals):
             return None
     else:
@@ -1672,7 +1671,7 @@ def strengthen_expr(expr: Expression, path: tuple, con: Expression) -> Expressio
             new_snd_args = snd_args[:random_idx] + snd_args[random_idx + 1:]
             expr.update_args((fst_args, new_snd_args))
 
-    if 'new_op' in locals():  # Rewrite this function later
+    if 'new_op' in locals():  # Rewrite this later
         if new_op in comps:
             expr = Comparison(new_op, *args)
         elif new_op in ops:
@@ -1745,7 +1744,7 @@ def weaken_expr(expr: Expression, path: tuple, con: Expression) -> Expression:
             new_fst_args = fst_args[:random_idx] + fst_args[random_idx + 1:]
             expr.update_args((new_fst_args, snd_args))
 
-    if 'new_op' in locals():  # Rewrite this function later
+    if 'new_op' in locals():  # Rewrite this later
         if new_op in comps:
             expr = Comparison(new_op, *args)
         elif new_op in ops:
@@ -1758,6 +1757,7 @@ def weaken_expr(expr: Expression, path: tuple, con: Expression) -> Expression:
 
 
 def is_changeable(strengthen: bool, expr: Expression, pos_parity: bool) -> bool:
+    # Sets to be extended when more weakening and strengthening options get added
     if strengthen ^ pos_parity:  # weakening
         is_changeable_op = expr.name in {'and', 'xor', '==', '>', '<'}
         is_changeable_global = type(expr) in {AllDifferent, AllDifferentExceptN, AllEqual, AllEqualExceptN,
@@ -1783,10 +1783,9 @@ def strengthening_weakening_mutator(constraints: list, strengthen: bool = True) 
         - `final_cons`: a list of the same constraints where one constraint has a mutated operator
     """
     try:
-        # print_str = "strength" if strengthen else "weak"
         final_cons = copy.deepcopy(constraints)
-        # pick a random constraint and calculate whether they have a mutable expression until they do
 
+        # pick a random constraint and calculate whether they have a mutable expression until they do
         candidates = []
         for item in constraints:
             if not any(item is cand for cand in candidates):
@@ -1802,7 +1801,6 @@ def strengthening_weakening_mutator(constraints: list, strengthen: bool = True) 
             if exprs:
                 break
         else:  # In case there isn't any mutable (weakening/strengthening depending on `strengthen`) expression in any constraint
-            # print(f"Couldn't find a constraint to {print_str}en.")
             return final_cons
 
         # Remove the constraint from the constraints
@@ -1810,8 +1808,6 @@ def strengthening_weakening_mutator(constraints: list, strengthen: bool = True) 
 
         # Choose an expression to change
         expr, (pos_parity, path) = random.choice(exprs)
-
-        # print(f"{print_str}ening constraint {con} by changing expression {expr}.")
 
         # Mutate this expression
         if strengthen ^ pos_parity:  # weaken if parity is different from `strengthen`
