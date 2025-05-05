@@ -78,7 +78,7 @@ class Strengthening_Weakening_Verifier(Verifier):
             rand = random.random()
             if rand <= 1/3:
                 mutator_list = self.str_wkn_mutators
-            elif rand <= 1/3 + 0.8 * 2/3:  # ~~ remaining 80%
+            elif rand - 1/3 <= 2/3 * 0.8:  # ~~ remaining 80%
                 mutator_list = self.mm_mutators
             else:
                 mutator_list = self.gen_mutators
@@ -113,7 +113,7 @@ class Strengthening_Weakening_Verifier(Verifier):
                         m = strengthening_weakening_mutator
                         self.cons = m(self.cons, strengthen=False)
                         self.bug_cause = 'WKN'
-                    elif random.random() < 0.8:  # If only 1 solution remains, we just go on normally instead
+                    elif random.random() <= 0.8:  # If only 1 solution remains, we just go on normally instead
                         m = random.choice(self.mm_mutators)
                         self.bug_cause = 'during MM'
                         self.cons += m(self.cons)
@@ -372,7 +372,7 @@ class Strengthening_Weakening_Verifier(Verifier):
             if rand <= 1/3:
                 mutator_list = self.str_wkn_mutators
                 new_mut_type = 'STRWK'
-            elif rand <= 1/3 + 0.8 * 2/3:  # ~~ remaining 80%
+            elif rand - 1/3 <= 2/3 * 0.8:  # ~~ remaining 80%
                 mutator_list = self.mm_mutators
                 new_mut_type = 'MM'
             else:
@@ -436,7 +436,7 @@ class Strengthening_Weakening_Verifier(Verifier):
                     self.bug_cause = 'during WKN'
                     self.cons = m(self.cons, strengthen=False)
                     self.bug_cause = 'WKN'
-                elif random.random() < 0.8:  # If only 1 solution remains, we just go on normally instead
+                elif random.random() <= 0.8:  # If only 1 solution remains, we just go on normally instead
                     m = random.choice(self.mm_mutators)
                     self.bug_cause = 'during MM'
                     self.cons += m(self.cons)
