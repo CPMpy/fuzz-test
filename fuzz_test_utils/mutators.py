@@ -936,7 +936,11 @@ def type_aware_operator_replacement(constraints: list):
     try:
         final_cons = copy.deepcopy(constraints)
         # pick a random constraint and calculate whether they have a mutable expression until they do
-        candidates = list(set(constraints))
+        candidates = []
+        for item in constraints:
+            if not any(item is cand for cand in candidates):
+                candidates.append(item)
+        # candidates = list(set(constraints))  # does not work with NDVarArray
         random.shuffle(candidates)
         for con in candidates:
             exprs = get_all_mutable_op_exprs(con)  # e.g. for (x + y) // z > 0. The tree goes >(0, //(+(x,y), z))
@@ -1045,7 +1049,7 @@ def get_all_non_op_exprs(con: Expression):
     Helper function to get all expressions WITHOUT an operator in a given constraint
     """
     if hasattr(con, 'args') and not isinstance(con, NDVarArray) and con.name != 'boolval':
-        return sum((get_all_non_op_exprs(arg) for arg in con.args), [])
+        return sum((get_all_non_op_exprs(arg) for arg in con.args), [con])
     elif isinstance(con, list) or isinstance(con, NDVarArray):
         return sum((get_all_non_op_exprs(e) for e in con), [])
     else:
@@ -1573,13 +1577,17 @@ def has_positive_parity(expr: Expression, con: Expression, curr_path: tuple) -> 
                         None if it is unknown.
     """
     # Basecase 1: `expr` cannot be strengthened or weakened
+    changeable_ops = {'and', 'or', '->', 'xor', '==', '!=', '<=', '<', '>=', '>'}
+    changeable_globals = {AllDifferent, AllDifferentExceptN, AllEqual, AllEqualExceptN,
+                          Table, NegativeTable, IncreasingStrict, DecreasingStrict,
+                          LexLess, LexChainLess, Increasing, Decreasing, LexLessEq,
+                          LexChainLessEq, InDomain}
     if hasattr(expr, 'name'):
         # NOTE: these are the simplest operators to strengthen/weaken (by just changing the operator into another one).
         #       Other operators could be changed in another way too (e.g. add/remove elements in the second argument
         #       of the expression x in [1, 2, 3, 4]). This could be included later and then changed accordingly in
         #       `strengthening_weakening_mutator()`.
-        changeable_ops = {'and', 'or', '->', 'xor', '==', '!=', '<=', '<', '>=', '>'}
-        if expr.name not in changeable_ops:
+        if not (expr.name in changeable_ops or type(expr) in changeable_globals):
             return None
     else:
         return None
@@ -1642,15 +1650,37 @@ def strengthen_expr(expr: Expression, path: tuple, con: Expression) -> Expressio
             comps = ['>', '==']
             new_op = random.choice(comps)
             args = expr.args
-    if new_op in comps:
-        expr = Comparison(new_op, *args)
-        con = replace_at_path(con, path, expr)
-    elif new_op in ops:
-        expr = Operator(new_op, args)
-        con = replace_at_path(con, path, expr)
-    elif new_op == 'xor':
-        expr = Xor(args)
-        con = replace_at_path(con, path, expr)
+
+    match expr:
+        case Increasing():
+            expr.name = 'IncreasingStrict'
+        case Decreasing():
+            expr.name = 'DecreasingStrict'
+        case LexLessEq():
+            expr.name = 'LexLess'
+        case LexChainLessEq():
+            expr.name = 'LexChainLess'
+        case NegativeTable():
+            fst_args, snd_args = expr.args
+            random_idx = random.randrange(len(fst_args))
+            new_fst_args = fst_args[:random_idx] + fst_args[random_idx + 1:]
+            new_snd_args = [arg[:random_idx] + arg[random_idx + 1:] for arg in snd_args]
+            expr.update_args((new_fst_args, new_snd_args))
+        case InDomain():
+            fst_args, snd_args = expr.args
+            random_idx = random.randrange(len(snd_args))
+            new_snd_args = snd_args[:random_idx] + snd_args[random_idx + 1:]
+            expr.update_args((fst_args, new_snd_args))
+
+    if 'new_op' in locals():  # Rewrite this function later
+        if new_op in comps:
+            expr = Comparison(new_op, *args)
+        elif new_op in ops:
+            expr = Operator(new_op, args)
+        elif new_op == 'xor':
+            expr = Xor(args)
+
+    con = replace_at_path(con, path, expr)
     return con
 
 
@@ -1688,23 +1718,55 @@ def weaken_expr(expr: Expression, path: tuple, con: Expression) -> Expression:
             comps = ['!=', '>=']
             new_op = random.choice(comps)
             args = expr.args
-    if new_op in comps:
-        expr = Comparison(new_op, *args)
-        con = replace_at_path(con, path, expr)
-    elif new_op in ops:
-        expr = Operator(new_op, args)
-        con = replace_at_path(con, path, expr)
-    elif new_op == 'xor':
-        expr = Xor(args)
-        con = replace_at_path(con, path, expr)
+
+    match expr:
+        case IncreasingStrict():
+            expr.name = 'Increasing'
+        case DecreasingStrict():
+            expr.name = 'Decreasing'
+        case LexLess():
+            expr.name = 'LexLessEq'
+        case LexChainLess():
+            expr.name = 'LexChainLessEq'
+        case Table():
+            fst_args, snd_args = expr.args
+            random_idx = random.randrange(len(fst_args))
+            new_fst_args = fst_args[:random_idx] + fst_args[random_idx + 1:]
+            new_snd_args = [arg[:random_idx] + arg[random_idx + 1:] for arg in snd_args]
+            expr.update_args((new_fst_args, new_snd_args))
+        case AllDifferent() | AllEqual():
+            old_args = expr.args
+            random_idx = random.randrange(len(old_args))
+            new_args = old_args[:random_idx] + old_args[random_idx + 1:]
+            expr.update_args(new_args)
+        case AllDifferentExceptN() | AllEqualExceptN():
+            fst_args, snd_args = expr.args
+            random_idx = random.randrange(len(fst_args))
+            new_fst_args = fst_args[:random_idx] + fst_args[random_idx + 1:]
+            expr.update_args((new_fst_args, snd_args))
+
+    if 'new_op' in locals():  # Rewrite this function later
+        if new_op in comps:
+            expr = Comparison(new_op, *args)
+        elif new_op in ops:
+            expr = Operator(new_op, args)
+        elif new_op == 'xor':
+            expr = Xor(args)
+
+    con = replace_at_path(con, path, expr)
     return con
 
 
 def is_changeable(strengthen: bool, expr: Expression, pos_parity: bool) -> bool:
     if strengthen ^ pos_parity:  # weakening
-        return expr.name not in {'or', '->', '!=', '<=', '>='}
+        is_changeable_op = expr.name in {'and', 'xor', '==', '>', '<'}
+        is_changeable_global = type(expr) in {AllDifferent, AllDifferentExceptN, AllEqual, AllEqualExceptN,
+                                              Table, NegativeTable, IncreasingStrict, DecreasingStrict,
+                                              LexLess, LexChainLess}
     else:  # strengthening
-        return expr.name not in {'and', 'xor', '==', '>', '<'}
+        is_changeable_op = expr.name in {'or', '->', '!=', '<=', '>='}
+        is_changeable_global = type(expr) in {Increasing, Decreasing, LexLessEq, LexChainLessEq, NegativeTable, InDomain}
+    return is_changeable_op or is_changeable_global
 
 
 def strengthening_weakening_mutator(constraints: list, strengthen: bool = True) -> list | Exception:
@@ -1721,10 +1783,15 @@ def strengthening_weakening_mutator(constraints: list, strengthen: bool = True) 
         - `final_cons`: a list of the same constraints where one constraint has a mutated operator
     """
     try:
-        print_str = "strength" if strengthen else "weak"
+        # print_str = "strength" if strengthen else "weak"
         final_cons = copy.deepcopy(constraints)
         # pick a random constraint and calculate whether they have a mutable expression until they do
-        candidates = list(set(constraints))
+
+        candidates = []
+        for item in constraints:
+            if not any(item is cand for cand in candidates):
+                candidates.append(item)
+        # candidates = list(set(constraints))  # does not work with NDVarArray
         random.shuffle(candidates)
         for con in candidates:
             exprs = []
