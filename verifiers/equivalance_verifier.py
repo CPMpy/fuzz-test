@@ -1,11 +1,13 @@
+from fuzz_test_utils.fuzz_test_errors import FuzzTestErrorType
 from verifiers import *
+from verifiers.utils import FuzzExit
 
 class Equivalance_Verifier(Verifier):
     """
         The Equivalance Verifier will verify if all the solution are the same after running multiple mutations
     """
 
-    def __init__(self,solver: str, mutations_per_model: int, exclude_dict: dict, time_limit: float, seed: int):
+    def __init__(self, solver: str, mutations_per_model: int, exclude_dict: dict, time_limit: float, seed: int):
         super().__init__("equivalance verifier", 'sat',solver,mutations_per_model,exclude_dict,time_limit,seed)
         self.mm_mutators = [xor_morph, and_morph, or_morph, implies_morph, not_morph,
                         linearize_constraint_morph,
@@ -37,14 +39,14 @@ class Equivalance_Verifier(Verifier):
         self.cons = toplevel_list(self.cons)
         self.original_vars = get_variables(self.cons)
         self.original_sols = set()
-        cp.Model(self.cons).solveAll(solver=self.solver,time_limit=max(1,min(250,self.time_limit-time.time())), display=lambda: self.original_sols.add(tuple([v.value() for v in self.original_vars])))
+        cp.Model(self.cons).solveAll(solver=self.solver,time_limit=max(1,min(250,self.time_limit)), display=lambda: self.original_sols.add(tuple([v.value() for v in self.original_vars])))
         self.mutators = [copy.deepcopy(self.cons)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
             
     def verify_model(self) -> dict:
         try:
             model = cp.Model(self.cons)
             new_sols = set()
-            time_limit = max(1,min(200,self.time_limit-time.time())) # set the max time limit to the given time limit or to 1 if the self.time_limit-time.time() would be smaller then 1
+            time_limit = max(1,min(200,self.time_limit)) # set the max time limit to the given time limit or to 1 if the self.time_limit-time.time() would be smaller then 1
 
             model.solveAll(
                 solver=self.solver, 
@@ -53,44 +55,66 @@ class Equivalance_Verifier(Verifier):
             
             change = new_sols.symmetric_difference(self.original_sols)
             
-            if model.status().runtime > time_limit-10:
-                # timeout, skip
-                print('T', end='', flush=True)
-                return None
+            if self.model_timed_out(model):
+                # timeout
+                return FuzzExit(
+                            type=FuzzTestErrorType.timeout,
+                            verifier=self,
+                            exception="timeout",
+                            mutators=self.mutators,
+                            model=model,
+                            originalmodel=self.original_model,
+                            originalmodel_file=self.model_file
+                        )
             elif len(change) == 0:
                 # has to be same
-                print('.', end='', flush=True)
-                return None
+                return FuzzExit(
+                            type=FuzzTestErrorType.ok,
+                            verifier=self,
+                            mutators=self.mutators,
+                            model=model,
+                            originalmodel=self.original_model,
+                            originalmodel_file=self.model_file
+                        )
             else:
-                print('X', end='', flush=True)
-                return dict(type=Fuzz_Test_ErrorTypes.failed_model,
-                    originalmodel_file=self.model_file, 
-                    exception=f"symmetric difference between new solutions and original solutions is not 0 it is {len(change)}",
-                    constraints=self.cons,
-                    mutators=self.mutators, 
-                    model=model,
-                    originalmodel=self.original_model
-                    )
+                return FuzzExit(
+                            type=FuzzTestErrorType.failed_model,
+                            verifier=self,
+                            exception=f"symmetric difference between new solutions and original solutions is not 0 it is {len(change)}",
+                            mutators=self.mutators,
+                            model=model,
+                            originalmodel=self.original_model,
+                            originalmodel_file=self.model_file
+                        )
         
         except Exception as e:
             if isinstance(e,(CPMpyException, NotImplementedError)):
-                #expected error message, ignore
-                return True
-            print('E', end='', flush=True)
-            return dict(type=Fuzz_Test_ErrorTypes.internalcrash,
-                        originalmodel_file=self.model_file, 
+                # expected error message
+                return FuzzExit(
+                            type=FuzzTestErrorType.expected_error,
+                            verifier=self,
+                            exception=e,
+                            mutators=self.mutators,
+                            model=model,
+                            originalmodel=self.original_model,
+                            originalmodel_file=self.model_file
+                        )
+            return FuzzExit(
+                        type=FuzzTestErrorType.internalcrash,
+                        verifier=self,
                         exception=e,
                         stacktrace=traceback.format_exc(),
-                        constraints=self.cons,
                         mutators=self.mutators,
-                        model=model, 
-                        originalmodel=self.original_model
-                        )
+                        model=model,
+                        originalmodel=self.original_model,
+                        originalmodel_file=self.model_file
+                    )
         # if you got here, the model failed...
-        return dict(type=Fuzz_Test_ErrorTypes.failed_model,
-                    originalmodel_file=self.model_file,
-                    constraints=self.cons,
+        return FuzzExit(
+                    type=FuzzTestErrorType.failed_model,
+                    verifier=self,
                     mutators=self.mutators,
-                    model=newModel,
-                    originalmodel=self.original_model
-                    )  
+                    model=model,
+                    originalmodel=self.original_model,
+                    originalmodel_file=self.model_file
+                )

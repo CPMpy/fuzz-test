@@ -1,2 +1,4 @@
 cpmpy
 coverage
+pytest
+colorama

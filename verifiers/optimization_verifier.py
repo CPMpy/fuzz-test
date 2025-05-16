@@ -1,4 +1,6 @@
+from fuzz_test_utils.fuzz_test_errors import FuzzTestErrorType
 from verifiers import *
+from verifiers.utils import FuzzExit
 
 class Optimization_Verifier(Verifier):
     """
@@ -42,68 +44,94 @@ class Optimization_Verifier(Verifier):
             model.minimize(self.objective)
         else:
             model.maximize(self.objective)
-        assert (model.solve(solver=self.solver, time_limit=max(self.time_limit-time.time(),1))), f"{self.model_file} is not sat"
+        assert (model.solve(solver=self.solver, time_limit=max(self.time_limit,1))), f"{self.model_file} is not sat"
         self.value_before = model.objective_value() #store objective value to compare after transformations
         
     def verify_model(self) -> dict:
         try:
-            newModel = cp.Model(self.cons)
+            model = cp.Model(self.cons)
             if self.minimize:
-                newModel.minimize(self.objective)
+                model.minimize(self.objective)
             else:
-                newModel.maximize(self.objective)
+                model.maximize(self.objective)
 
-            time_limit=max(min(200,self.time_limit-time.time()),1) # set the max time limit to the given time limit or to 1 if the self.time_limit-time.time() would be smaller then 1
+            time_limit=max(min(200,self.time_limit),1) # set the max time limit to the given time limit or to 1 if the self.time_limit-time.time() would be smaller then 1
             
-            sat = newModel.solve(solver=self.solver, time_limit=time_limit)
-            if newModel.status().runtime > time_limit-10:
-                # timeout, skip
-                print('T', end='', flush=True)
-                return None
-            elif newModel.objective_value() != self.value_before:
-                #objective value changed
-                print('c', end='', flush=True)
-                return dict(type=Fuzz_Test_ErrorTypes.failed_model,
-                    originalmodel_file=self.model_file, 
-                    exception=f"mutated model objective_value has changed new objective_value: {newModel.objective_value()}, original objective_value: {self.value_before}",
-                    constraints=self.cons,
-                    mutators=self.mutators, 
-                    model=newModel,
-                    originalmodel=self.original_model
-                )
+            sat = model.solve(solver=self.solver, time_limit=time_limit)
+            if self.model_timed_out(model):
+                # timeout
+                return FuzzExit(
+                            type=FuzzTestErrorType.timeout,
+                            verifier=self,
+                            exception="timeout",
+                            mutators=self.mutators,
+                            model=model,
+                            originalmodel=self.original_model,
+                            originalmodel_file=self.model_file
+                        )
+            elif model.objective_value() != self.value_before:
+                # objective value changed
+                return FuzzExit(
+                            type=FuzzTestErrorType.failed_model,
+                            verifier=self,
+                            exception=f"mutated model objective_value has changed new objective_value: {model.objective_value()}, original objective_value: {self.value_before}",
+                            mutators=self.mutators,
+                            model=model,
+                            originalmodel=self.original_model,
+                            originalmodel_file=self.model_file,
+                            alternative_label='c'
+                        )
             elif sat:
                 # has to be SAT...
-                print('.', end='', flush=True)
-                return None
+                return FuzzExit(
+                            type=FuzzTestErrorType.ok,
+                            verifier=self,
+                            mutators=self.mutators,
+                            model=model,
+                            originalmodel=self.original_model,
+                            originalmodel_file=self.model_file
+                        )
             else:
-                print('X', end='', flush=True)
-                return dict(type=Fuzz_Test_ErrorTypes.failed_model,
-                    originalmodel_file=self.model_file, 
-                    exception=f"mutated model is not sat",
-                    constraints=self.cons,
-                    mutators=self.mutators, 
-                    model=newModel,
-                    originalmodel=self.original_model
-                    )
+                return FuzzExit(
+                            type=FuzzTestErrorType.failed_model,
+                            verifier=self,
+                            exception="mutated model is not sat",
+                            mutators=self.mutators,
+                            model=model,
+                            originalmodel=self.original_model,
+                            originalmodel_file=self.model_file
+                        )
 
         except Exception as e:
-            print('E', end='', flush=True)
-            return dict(type=Fuzz_Test_ErrorTypes.internalcrash,
-                        originalmodel_file=self.model_file,
+            # TODO: was missing here?
+            # if isinstance(e,(CPMpyException, NotImplementedError)):
+            #     # expected error message
+            #     return FuzzExit(
+            #                 type=FuzzTestErrorType.expected_error,
+            #                 exception=e,
+            #                 mutators=self.mutators,
+            #                 model=model,
+            #                 originalmodel=self.original_model,
+            #                 originalmodel_file=self.model_file
+            #             )
+            return FuzzExit(
+                        type=FuzzTestErrorType.internalcrash,
+                        verifier=self,
                         exception=e,
                         stacktrace=traceback.format_exc(),
-                        constraints=self.cons,
                         mutators=self.mutators,
-                        model=newModel,
-                        originalmodel=self.original_model
-                        )
-        
-        # if you got here, the model failed...
-        return dict(type=Fuzz_Test_ErrorTypes.failed_model,
-                    originalmodel_file=self.model_file,
-                    constraints=self.cons,
-                    mutators=self.mutators,
-                    model=newModel,
-                    originalmodel=self.original_model
+                        model=model,
+                        originalmodel=self.original_model,
+                        originalmodel_file=self.model_file
                     )
+        # if you got here, the model failed...
+        return FuzzExit(
+                    type=FuzzTestErrorType.failed_model,
+                    verifier=self,
+                    mutators=self.mutators,
+                    model=model,
+                    originalmodel=self.original_model,
+                    originalmodel_file=self.model_file
+                )
+
         

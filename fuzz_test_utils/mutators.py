@@ -7,6 +7,7 @@ from cpmpy.transformations.to_cnf import flat2cnf
 from cpmpy import intvar, Model
 from cpmpy.expressions.core import Operator, Comparison
 from cpmpy.transformations.decompose_global import decompose_in_tree
+from cpmpy.transformations.safening import no_partial_functions
 from cpmpy.transformations.get_variables import get_variables
 from cpmpy.transformations.linearize import linearize_constraint, only_positive_bv, canonical_comparison
 from cpmpy.expressions.utils import is_boolexpr, is_any_list
@@ -161,9 +162,9 @@ def normalized_numexpr_morph(const):
                     if isinstance(arg.args, tuple):
                         listargs = list(arg.args)
                         listargs[i] = con
-                        arg.args = tuple(listargs)
+                        arg._args = tuple(listargs)
                     else:
-                        arg.args[i] = con
+                        arg._args[i] = con
                 else:
                     arg = arg.args[i]
 
@@ -172,15 +173,16 @@ def normalized_numexpr_morph(const):
         raise MetamorphicError(normalized_numexpr_morph, cons, e)
 
 
-def linearize_constraint_morph(cons,linearize_all=False,supported={}):
+def linearize_constraint_morph(cons,linearize_all=False, supported={}, safen_toplevel={}):
     if linearize_all:
         randcons = cons
     else:
         n = random.randint(1, len(cons))
         randcons = random.choices(cons, k=n)
 
-    #only apply linearize after only_bv_reifies
-    decomcons = decompose_in_tree_morph(randcons,decompose_all=True,supported=supported)
+    safencons = no_partial_functions_morph(randcons, safen_toplevel=safen_toplevel)
+    # safencons = randcons
+    decomcons = decompose_in_tree_morph(safencons, decompose_all=True, supported=supported)
     flatcons = only_bv_reifies_morph(decomcons, morph_all=True)
     try:
         return linearize_constraint(flatcons, supported={'mul'})
@@ -218,6 +220,11 @@ def decompose_in_tree_morph(cons,decompose_all=False,supported={}):
     except Exception as e:
         raise MetamorphicError(decompose_in_tree, cons, e)
 
+def no_partial_functions_morph(cons,safen_toplevel={}):
+    try:
+        return no_partial_functions(cons,safen_toplevel=safen_toplevel)
+    except Exception as e:
+        raise MetamorphicError(no_partial_functions, cons, e)
 
 def only_bv_reifies_morph(cons,morph_all=True):
     if morph_all:
@@ -232,7 +239,7 @@ def only_bv_reifies_morph(cons,morph_all=True):
         raise MetamorphicError(only_bv_reifies, flatcons, e)
 
 def only_positive_bv_morph(cons):
-    lincons = linearize_constraint_morph(cons,linearize_all=True,supported={})
+    lincons = linearize_constraint_morph(cons, linearize_all=True, supported={}, safen_toplevel={})
     try:
         return only_positive_bv(lincons)
     except Exception as e:
@@ -320,7 +327,7 @@ def semanticFusion(const):
                 c+=1
                 if c == len(firstcon):
                     if isinstance(arg.args, tuple):
-                        arg.args = list(arg.args)
+                        arg._args = list(arg.args)
                     arg.args[i] = firstexpr
                 else:
                     arg = arg.args[i]
@@ -334,8 +341,8 @@ def semanticFusion(const):
                 c += 1
                 if c == len(secondcon):
                     if isinstance(arg.args, tuple):
-                        arg.args = list(arg.args)
-                    arg.args[i] = secondexpr
+                        arg._args = list(arg.args)
+                    arg._args[i] = secondexpr
                 else:
                     arg = arg.args[i]
 
@@ -406,7 +413,7 @@ def semanticFusionMinus(const):
                 c+=1
                 if c == len(firstcon):
                     if isinstance(arg.args, tuple):
-                        arg.args = list(arg.args)
+                        arg._args = list(arg.args)
                     arg.args[i] = firstexpr
                 else:
                     arg = arg.args[i]
@@ -420,8 +427,8 @@ def semanticFusionMinus(const):
                 c += 1
                 if c == len(secondcon):
                     if isinstance(arg.args, tuple):
-                        arg.args = list(arg.args)
-                    arg.args[i] = secondexpr
+                        arg._args = list(arg.args)
+                    arg._args[i] = secondexpr
                 else:
                     arg = arg.args[i]
 
@@ -495,7 +502,7 @@ def semanticFusionwsum(const):
                 c+=1
                 if c == len(firstcon):
                     if isinstance(arg.args, tuple):
-                        arg.args = list(arg.args)
+                        arg._args = list(arg.args)
                     arg.args[i] = firstexpr
                 else:
                     arg = arg.args[i]
@@ -509,8 +516,8 @@ def semanticFusionwsum(const):
                 c += 1
                 if c == len(secondcon):
                     if isinstance(arg.args, tuple):
-                        arg.args = list(arg.args)
-                    arg.args[i] = secondexpr
+                        arg._args = list(arg.args)
+                    arg._args[i] = secondexpr
                 else:
                     arg = arg.args[i]
 
@@ -584,7 +591,7 @@ def semanticFusionCountingwsum(const):
                 c+=1
                 if c == len(firstcon):
                     if isinstance(arg.args, tuple):
-                        arg.args = list(arg.args)
+                        arg._args = list(arg.args)
                     arg.args[i] = firstexpr
                 else:
                     arg = arg.args[i]
@@ -598,8 +605,8 @@ def semanticFusionCountingwsum(const):
                 c += 1
                 if c == len(secondcon):
                     if isinstance(arg.args, tuple):
-                        arg.args = list(arg.args)
-                    arg.args[i] = secondexpr
+                        arg._args = list(arg.args)
+                    arg._args[i] = secondexpr
                 else:
                     arg = arg.args[i]
 
@@ -672,7 +679,7 @@ def semanticFusionCounting(const):
                 c+=1
                 if c == len(firstcon):
                     if isinstance(arg.args, tuple):
-                        arg.args = list(arg.args)
+                        arg._args = list(arg.args)
                     arg.args[i] = firstexpr
                 else:
                     arg = arg.args[i]
@@ -686,8 +693,8 @@ def semanticFusionCounting(const):
                 c += 1
                 if c == len(secondcon):
                     if isinstance(arg.args, tuple):
-                        arg.args = list(arg.args)
-                    arg.args[i] = secondexpr
+                        arg._args = list(arg.args)
+                    arg._args[i] = secondexpr
                 else:
                     arg = arg.args[i]
 
@@ -758,8 +765,8 @@ def semanticFusionCountingMinus(const):
                 c+=1
                 if c == len(firstcon):
                     if isinstance(arg.args, tuple):
-                        arg.args = list(arg.args)
-                    arg.args[i] = firstexpr
+                        arg._args = list(arg.args)
+                    arg._args[i] = firstexpr
                 else:
                     arg = arg.args[i]
 
@@ -772,7 +779,7 @@ def semanticFusionCountingMinus(const):
                 c += 1
                 if c == len(secondcon):
                     if isinstance(arg.args, tuple):
-                        arg.args = list(arg.args)
+                        arg._args = list(arg.args)
                     arg.args[i] = secondexpr
                 else:
                     arg = arg.args[i]
@@ -834,9 +841,9 @@ def aritmetic_comparison_morph(const):
                     if isinstance(arg.args, tuple):
                         listargs = list(arg.args)
                         listargs[i] = newcon
-                        arg.args = tuple(listargs)
+                        arg._args = tuple(listargs)
                     else:
-                        arg.args[i] = newcon
+                        arg._args[i] = newcon
                 else:
                     arg = arg.args[i]
 

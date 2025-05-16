@@ -1,4 +1,6 @@
+from fuzz_test_utils.fuzz_test_errors import FuzzTestErrorType
 from verifiers import *
+from verifiers.utils import FuzzExit
 
 class Metamorphic_Verifier(Verifier):
     """
@@ -34,7 +36,7 @@ class Metamorphic_Verifier(Verifier):
         self.cons = self.original_model.constraints
         assert (len(self.cons)>0), f"{self.model_file} has no constraints"
         self.cons = toplevel_list(self.cons)
-        time_limit = max(self.time_limit-time.time(),1)
+        time_limit = max(self.time_limit,1)
         assert (cp.Model(self.cons).solve(solver= self.solver, time_limit=time_limit)), f"{self.model_file} is not sat"
         self.mutators = [copy.deepcopy(self.cons)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
         
@@ -44,47 +46,68 @@ class Metamorphic_Verifier(Verifier):
             time_limit= max(1,min(200,self.time_limit-time.time())) # set the max time limit to the given time limit or to 1 if the self.time_limit-time.time() would be smaller then 1
 
             sat = model.solve(solver=self.solver, time_limit=time_limit)
-            if model.status().runtime > time_limit-10:
-                # timeout, skip
-                print('T', end='', flush=True)
-                return None
+            if self.model_timed_out(model):
+                # timeout
+                return FuzzExit(
+                            type=FuzzTestErrorType.timeout,
+                            verifier=self,
+                            exception="timeout",
+                            mutators=self.mutators,
+                            model=model,
+                            originalmodel=self.original_model,
+                            originalmodel_file=self.model_file
+                        )
             elif sat:
                 # has to be SAT...
-                print('.', end='', flush=True)
-                return None
+                return FuzzExit(
+                            type=FuzzTestErrorType.ok,
+                            verifier=self,
+                            mutators=self.mutators,
+                            model=model,
+                            originalmodel=self.original_model,
+                            originalmodel_file=self.model_file
+                        )
             else:
-                print('X', end='', flush=True)
-                return dict(type=Fuzz_Test_ErrorTypes.failed_model,
-                    originalmodel_file=self.model_file, 
-                    exception=f"mutated model is not sat",
-                    constraints=self.cons,
-                    mutators=self.mutators, 
-                    model=model,
-                    originalmodel=self.original_model
-                    )
+                return FuzzExit(
+                            type=FuzzTestErrorType.failed_model,
+                            verifier=self,
+                            exception="mutated model is not sat",
+                            mutators=self.mutators,
+                            model=model,
+                            originalmodel=self.original_model,
+                            originalmodel_file=self.model_file
+                        )
                 
         except Exception as e:
             if isinstance(e,(CPMpyException, NotImplementedError)):
-                #expected error message, ignore
-                print('s', end='', flush=True)
-                return None
-            print('E', end='', flush=True)
-            return dict(type=Fuzz_Test_ErrorTypes.internalcrash,
-                        originalmodel_file=self.model_file,
+                # expected error message
+                return FuzzExit(
+                            type=FuzzTestErrorType.expected_error,
+                            verifier=self,
+                            exception=e,
+                            mutators=self.mutators,
+                            model=model,
+                            originalmodel=self.original_model,
+                            originalmodel_file=self.model_file
+                        )
+            return FuzzExit(
+                        type=FuzzTestErrorType.internalcrash,
+                        verifier=self,
                         exception=e,
                         stacktrace=traceback.format_exc(),
-                        constraints=self.cons,
                         mutators=self.mutators,
                         model=model,
-                        originalmodel=self.original_model
-                        )
+                        originalmodel=self.original_model,
+                        originalmodel_file=self.model_file
+                    )
         
         # if you got here, the model failed...
-        return dict(type=Fuzz_Test_ErrorTypes.failed_model,
-                    originalmodel_file=self.model_file,
-                    constraints=self.cons,
+        return FuzzExit(
+                    type=FuzzTestErrorType.failed_model,
+                    verifier=self,
                     mutators=self.mutators,
-                    model=newModel,
-                    originalmodel=self.original_model
-                    )
+                    model=model,
+                    originalmodel=self.original_model,
+                    originalmodel_file=self.model_file
+                )
         
