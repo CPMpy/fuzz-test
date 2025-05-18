@@ -1,7 +1,6 @@
 import copy
 import random
 
-import cpmpy
 import numpy as np
 from cpmpy.expressions.globalfunctions import GlobalFunction, Abs, Minimum, Maximum, Element, Count, Among, NValue, \
     NValueExcept
@@ -31,8 +30,7 @@ class Function:
     def __init__(self, name, func, type_: str, int_args: int, bool_args: int,
                  bool_return: bool | None,
                  min_args: int = None,
-                 max_args: int = None,
-                 multiple: int = 1):
+                 max_args: int = None):
         """
         type        = string that describes the type of function it is
         int_args    = the amount of args of type int it requires
@@ -40,7 +38,6 @@ class Function:
         bool_return = a boolean representing whether it returns a boolean (False means int return type, None means it can be either)
         min_args    = the minimum amount of args the function takes
         max_args    = the maximum amount of args the function takes
-        multiple    = the arguments have to be a multiple of this int
         """
         self.name = name
         self.func = func
@@ -50,16 +47,13 @@ class Function:
         self.bool_return = bool_return
         self.min_args = min_args
         self.max_args = max_args
-        self.multiple = multiple
 
     def __repr__(self):
         return (f"Operation({self.name}, {self.type}, {self.int_args}, {self.bool_args}, "
-                f"{self.bool_return}, min_args={self.min_args}, max_args={self.max_args}, multiple={self.multiple})")
+                f"{self.bool_return}, min_args={self.min_args}, max_args={self.max_args})")
 
 
 '''TRUTH TABLE BASED MORPHS'''
-
-
 def not_morph(cons):
     con = random.choice(cons)
     ncon = ~con
@@ -1058,7 +1052,7 @@ def get_all_non_op_exprs(con: Expression):
 
 def get_all_exprs(con: Expression):
     """
-    Helper function to get all expressions in a given constraint (Might be unnecessary but let's use this for now)
+    Helper function to get all expressions in a given constraint
     """
     return get_all_op_exprs(con)[::-1] + get_all_non_op_exprs(con)
 
@@ -1123,7 +1117,7 @@ def satisfies_args(func: Function, ints: int, bools: int, constants: int, vars: 
                     return ints + bools >= func.min_args and has_bool_return
 
 
-def get_new_operator(func: Function, ints: list, bools: list, constants: list, variables: list):
+def generate_new_operator(func: Function, ints: list, bools: list, constants: list, variables: list):
     """
     Creates a new function of the given type with the arguments given
     ~ Parameters:
@@ -1286,11 +1280,11 @@ def get_operator(args: list, ret_type: str | bool):
     bools_cnt = len(bools)
     constants_cnt = len(constants)
     vars_cnt = len(variables)
-    max_args = 12
+    max_args = 12  # TODO: parametriseer?
 
     # Operators:
     ops = {
-        # name: (type, int_args, bool_args, bool_return, min_args, max_args, multiple)       .._args -1 = n-ary, min 2
+        # name: (type, int_args, bool_args, bool_return, min_args, max_args)       .._args -1 = n-ary, min 2
         name: Function(name, name, *attrs)
         for name, attrs in {
             'and': ('op', 0, -1, True, 2, max_args),
@@ -1298,7 +1292,7 @@ def get_operator(args: list, ret_type: str | bool):
             '->': ('op', 0, 2, True, 2, 2),
             'not': ('op', 0, 1, True, 1, 1),
             'sum': ('op', -1, 0, False, 2, max_args),
-            'wsum': ('op', -1, 0, False, 2, max_args, 2),
+            'wsum': ('op', -1, 0, False, 2, max_args),
             'sub': ('op', 2, 0, False, 2, 2),
             'mul': ('op', 2, 0, False, 2, 2),
             'div': ('op', 2, 0, False, 2, 2),
@@ -1326,14 +1320,14 @@ def get_operator(args: list, ret_type: str | bool):
         name: Function(name.__name__, name, *attrs)
         for name, attrs in {
             Abs: ('gfun', 1, 0, False, 1, 1),  # expr | (min 1, max 1, /)
-            Minimum: ('gfun', -1, 0, None, 2, max_args),  # [...] | Can return a boolean but this is not known beforehand (min 2, max /, /)
-            Maximum: ('gfun', -1, 0, None, 2, max_args),  # [...] | Can return a boolean but this is not known beforehand (min 2, max /, /)
-            NValue: ('gfun', -1, 0, False, 2, max_args),  # [...] | (min 2, max /, /)
-            Element: ('gfun', -1, 0, None, 2, max_args),  # [...], idx | Can return a boolean but this is not known beforehand (min 2, max /, /)
+            Minimum: ('gfun', -1, 0, None, 2, max_args),  # [...] | Can return a boolean but this is not known beforehand (min 2, max /)
+            Maximum: ('gfun', -1, 0, None, 2, max_args),  # [...] | Can return a boolean but this is not known beforehand (min 2, max /)
+            NValue: ('gfun', -1, 0, False, 2, max_args),  # [...] | (min 2, max /)
+            Element: ('gfun', -1, 0, None, 2, max_args),  # [...], idx | Can return a boolean but this is not known beforehand (min 2, max /)
                                                         # Denk best enkel de array vullen en de idx gewoon tussen 0 en len-1 pakken
-            Count: ('gfun', -1, 0, False, 2, max_args),  # [...], expr | (min 2, max /, /)
-            Among: ('gfun', -1, 0, False, 2, max_args),  # [...], [...] | Second array can only have constants, no expressions (not even BoolVal()) (min 2, max /, /)
-            NValueExcept: ('gfun', -1, 0, False, 2, max_args)  # [...], val | Second argument can only have constants, no expressions (not even BoolVal()) (min 2, max /, /)
+            Count: ('gfun', -1, 0, False, 2, max_args),  # [...], expr | (min 2, max /)
+            Among: ('gfun', -1, 0, False, 2, max_args),  # [...], [...] | Second array can only have constants, no expressions (not even BoolVal()) (min 2, max /)
+            NValueExcept: ('gfun', -1, 0, False, 2, max_args)  # [...], val | Second argument can only have constants, no expressions (not even BoolVal()) (min 2, max /)
         }.items()
     }
     # Global constraints
@@ -1341,30 +1335,30 @@ def get_operator(args: list, ret_type: str | bool):
         # name: (type, int_args, bool_args, bool_return, min_args, max_args, multiple)       .._args -1 = n-ary, min 2
         name: Function(name.__name__, name, *attrs)
         for name, attrs in {
-            AllDifferent: ('gcon', -1, 0, True, 2, max_args),  # [...] | (min 2, max /, /)
-            AllDifferentExceptN: ('gcon', -1, 0, True, 2, max_args),  # [...], [...] | Second arg can also be a single non-list constant (min 2, max /, /)
-            AllEqual: ('gcon', -1, 0, True, 2, max_args),  # [...] | (min 2, max /, /)
-            AllEqualExceptN: ('gcon', -1, 0, True, 2, max_args),  # [...], [...] | Second arg can also be a single non-list constant (min 2, max /, /)
-            Circuit: ('gcon', -1, 0, True, 2, max_args),  # [...] | Can only have ints, NO BOOLS! (min 2, max /, /)
-            Inverse: ('gcon', -1, 0, True, 2, max_args, 2),  # [...], [...] | Can only have ints, NO BOOLS! (min 2, max /, 2n)
-            Table: ('gcon', -1, 0, True, 2, max_args),  # [...], [[...],[...],...] | First argument only variables, Second argument should have a multiple amnt of args as the first one (min 2, max /, n + mn?)
-            NegativeTable: ('gcon', -1, 0, True, 2, max_args),  # [...], [[...],[...],...] | First argument only variables, Second argument should have a multiple amnt of args as the first one (min 2, max /, n + mn?)
-            IfThenElse: ('gcon', 0, 3, True, 3, 3),  # arg1, arg2, arg3 (min 3, max 3, /)
-            InDomain: ('gcon', -1, 0, True, 2, max_args),  # val, [...] | (min 2, max /, /)
-            Xor: ('gcon', 0, -1, True, 1, max_args),  # [...] | (min 1, max /, /)
+            AllDifferent: ('gcon', -1, 0, True, 2, max_args),  # [...] | (min 2, max /)
+            AllDifferentExceptN: ('gcon', -1, 0, True, 2, max_args),  # [...], [...] | Second arg can also be a single non-list constant (min 2, max /)
+            AllEqual: ('gcon', -1, 0, True, 2, max_args),  # [...] | (min 2, max /)
+            AllEqualExceptN: ('gcon', -1, 0, True, 2, max_args),  # [...], [...] | Second arg can also be a single non-list constant (min 2, max /)
+            Circuit: ('gcon', -1, 0, True, 2, max_args),  # [...] | Can only have ints, NO BOOLS! (min 2, max /)
+            Inverse: ('gcon', -1, 0, True, 2, max_args),  # [...], [...] | Can only have ints, NO BOOLS! (min 2, max /)
+            Table: ('gcon', -1, 0, True, 2, max_args),  # [...], [[...],[...],...] | First argument only variables, Second argument should have a multiple amnt of args as the first one (min 2, max /)
+            NegativeTable: ('gcon', -1, 0, True, 2, max_args),  # [...], [[...],[...],...] | First argument only variables, Second argument should have a multiple amnt of args as the first one (min 2, max /)
+            IfThenElse: ('gcon', 0, 3, True, 3, 3),  # arg1, arg2, arg3 (min 3, max 3)
+            InDomain: ('gcon', -1, 0, True, 2, max_args),  # val, [...] | (min 2, max /)
+            Xor: ('gcon', 0, -1, True, 1, max_args),  # [...] | (min 1, max /)
             # Cumulative: (-1, 0, True),  # st, dur, end, demand, cap (Ingewikkelde constraint)
             # Precedence: (?, ?, True),  # (Ingewikkelde constraint)
-            NoOverlap: ('gcon', -1, 0, True, 3, max_args, 3),  # [...], [...], [...] | Three lists all have same length (min 3, max /, 3n)
+            NoOverlap: ('gcon', -1, 0, True, 3, max_args),  # [...], [...], [...] | Three lists all have same length (min 3, max /)
             GlobalCardinalityCount: ('gcon', -1, 0, True, 2, max_args),  # [...], [...], [...] | The first and last list have to be the same length and
-                                                                        # they all have to be ints, NO BOOLS (min 2, max /, /)
+                                                                        # they all have to be ints, NO BOOLS (min 2, max /)
             Increasing: ('gcon', -1, 0, True, 2, max_args),  # [...] (min 2, max /, /)
             Decreasing: ('gcon', -1, 0, True, 2, max_args),  # [...] (min 2, max /, /)
             IncreasingStrict: ('gcon', -1, 0, True, 2, max_args),  # [...] (min 2, max /, /)
             DecreasingStrict: ('gcon', -1, 0, True, 2, max_args),  # [...] (min 2, max /, /)
-            LexLess: ('gcon', -1, 0, True, 2, max_args, 2),  # [...], [...] | Lists have same length (min 2, max /, 2n), ONLY VARS
-            LexLessEq: ('gcon', -1, 0, True, 2, max_args, 2),  # [...], [...] | Lists have same length (min 2, max /, 2n), ONLY VARS
-            LexChainLess: ('gcon', -1, 0, True, 2, max_args),  # [...][...] | Rows have same length (min 2, max /, mn), ONLY VARS
-            LexChainLessEq: ('gcon', -1, 0, True, 2, max_args),  # [...][...] | Rows have same length (min 2, max /, mn), ONLY VARS
+            LexLess: ('gcon', -1, 0, True, 2, max_args),  # [...], [...] | Lists have same length (min 2, max /), ONLY VARS
+            LexLessEq: ('gcon', -1, 0, True, 2, max_args),  # [...], [...] | Lists have same length (min 2, max /), ONLY VARS
+            LexChainLess: ('gcon', -1, 0, True, 2, max_args),  # [...][...] | Rows have same length (min 2, max /), ONLY VARS
+            LexChainLessEq: ('gcon', -1, 0, True, 2, max_args),  # [...][...] | Rows have same length (min 2, max /), ONLY VARS
         }.items()
     }
     all_ops = ops | comps | global_fns | global_cons
@@ -1376,7 +1370,7 @@ def get_operator(args: list, ret_type: str | bool):
         func = random.choice(list(after.values()))
     else:
         return None
-    return get_new_operator(func, ints, bools, constants, variables)
+    return generate_new_operator(func, ints, bools, constants, variables)
 
 
 def find_all_occurrences(con: Expression, target_expr: Expression):
@@ -1537,7 +1531,7 @@ def type_aware_expression_replacement(constraints: list):
         all_con_exprs = get_all_exprs(rand_con)
         expr = random.choice(all_con_exprs)
         path, ret_type = get_return_type(expr, rand_con)  # Also gives us the taken path of the expression in the constraint
-
+                                                        # (Might be more than one occurrence so we should take the right one)
         # 2. Tel het aantal resterende params van elk type
         all_exprs = get_all_exprs_mult(final_cons)
 
@@ -1577,10 +1571,8 @@ def has_positive_parity(expr: Expression, con: Expression, curr_path: tuple) -> 
     """
     # Basecase 1: `expr` cannot be strengthened or weakened
     if hasattr(expr, 'name'):
-        # NOTE: these are the simplest operators to strengthen/weaken (by just changing the operator into another one).
-        #       Other operators could be changed in another way too (e.g. add/remove elements in the second argument
-        #       of the expression x in [1, 2, 3, 4]). This could be included later and then changed accordingly in
-        #       `strengthening_weakening_mutator()`.
+        # NOTE: these are not necessarily the only expressions that can be strengthened/weakened.
+        #  (some double work is being done in function `is_changeable` so to do?)
         changeable_ops = {'and', 'or', '->', 'xor', '==', '!=', '<=', '<', '>=', '>'}
         changeable_globals = {AllDifferent, AllDifferentExceptN, AllEqual, AllEqualExceptN,
                               Table, NegativeTable, IncreasingStrict, DecreasingStrict,
@@ -1623,6 +1615,7 @@ def strengthen_expr(expr: Expression, path: tuple, con: Expression) -> Expressio
     ~ Returns:
         - `con`: the constraint after the mutation.
     """
+    # TODO: 'and' & 'or' strengthenable by adding/removing args
     match expr.name:  # {'or', '->', '!=', '<=', '>='}
         case 'or':  # and, xor, !=, <, >
             args = expr.args
@@ -1692,6 +1685,7 @@ def weaken_expr(expr: Expression, path: tuple, con: Expression) -> Expression:
     ~ Returns:
         - `con`: the constraint after the mutation.
     """
+    # TODO: 'and' & 'or' weakenable by removing/adding args
     match expr.name:  # {'and', 'xor', '==', '<', '>'}
         case 'and':  # or, ->, ==, <=, >=
             args = expr.args
