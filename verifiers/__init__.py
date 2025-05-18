@@ -17,6 +17,7 @@ from .solver_voting_sat_verifier import Solver_Vote_Sat_Verifier
 from .solver_voting_count_verifier import Solver_Vote_Count_Verifier
 from .strengthening_weakening_verifier import Strengthening_Weakening_Verifier
 from .solver_voting_eq_verifier import Solver_Vote_Eq_Verifier
+from .solver_voting_sol_verifier import Solver_Vote_Sol_Verifier
 from .verifier_runner import run_verifiers, get_all_verifiers
 
 
@@ -47,6 +48,9 @@ def lookup_verifier(verfier_name: str) -> Verifier:
 
     elif verfier_name == "solver_vote_eq_verifier":
         return Solver_Vote_Eq_Verifier
+
+    elif verfier_name == "solver_vote_sol_verifier":
+        return Solver_Vote_Sol_Verifier
 
     else:
         raise ValueError(f"Error verifier with name {verfier_name} does not exist")
