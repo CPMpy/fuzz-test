@@ -34,6 +34,7 @@ if __name__ == '__main__':
     parser.add_argument("--max-minutes", help = "The maximum time (in minutes) the tests should run (by default the tests will run forever). The tests will quit sooner if max-bugs was set and reached or an keyboardinterrupt occured", required=False, default=math.inf ,type=check_positive)
     parser.add_argument("-mpm","--mutations-per-model", help = "The amount of mutations that will be executed on every model", required=False, default=5 ,type=check_positive)
     parser.add_argument("-p","--amount-of-processes", help = "The amount of processes that will be used to run the tests", required=False, default=cpu_count()-1 ,type=check_positive) # the -1 is for the main process
+    parser.add_argument("--mm-prob", help="The probability that a metamorphic mutation will be chosen in case of a verifier that allows other mutations", required=False, default=1, type=float)
     args = parser.parse_args()
     models = []
     max_failed_tests = args.max_failed_tests
@@ -65,7 +66,7 @@ if __name__ == '__main__':
     
     # creating processes to run all the tests
     processes = []
-    process_args = (current_amount_of_tests, current_amount_of_error, lock, args.solver, args.mutations_per_model ,models ,max_failed_tests,args.output_dir, max_time)
+    process_args = (current_amount_of_tests, current_amount_of_error, lock, args.solver, args.mutations_per_model ,models ,max_failed_tests,args.output_dir, max_time, args.mm_prob)
 
     for x in range(args.amount_of_processes):
         processes.append(Process(target=run_verifiers,args=process_args))

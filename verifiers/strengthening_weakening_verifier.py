@@ -4,10 +4,10 @@ from verifiers import *
 
 class Strengthening_Weakening_Verifier(Verifier):
     """
-        The Solver Count Verifier will verify if the satisfiability is the same for all solvers after running multiple mutations
+        The Strengthening Weakening Verifier will verify if the amount of solutions is the same for all solvers after running multiple mutations
     """
 
-    def __init__(self, solver: str, mutations_per_model: int, exclude_dict: dict, time_limit: float, seed: int):
+    def __init__(self, solver: str, mutations_per_model: int, exclude_dict: dict, time_limit: float, seed: int, mm_prob: float):
         self.name = "strengthening_weakening_verifier"
         self.type = 'sat'
 
@@ -46,6 +46,7 @@ class Strengthening_Weakening_Verifier(Verifier):
         self.bug_cause = 'STARTMODEL'
         self.nr_timed_out = 0
         self.last_mut = None
+        self.mm_prob = mm_prob
 
     def initialize_run(self) -> None:
         if self.original_model == None:
@@ -54,12 +55,11 @@ class Strengthening_Weakening_Verifier(Verifier):
         self.cons = self.original_model.constraints
         assert (len(self.cons) > 0), f"{self.model_file} has no constraints"
         self.cons = toplevel_list(self.cons)
-
-        assert len(self.solvers) == 2, f"2 solvers required, {len(self.solvers)} given."
-        if 'gurobi' in [s.lower() for s in self.solvers]:
+        assert len(self.solvers) > 1, f"More than 1 solver required, given solvers: {self.solvers}."
+        if 'gurobi' in [s.lower() for s in self.solvers]:  # Because gurobi can't run solveAll without solution_limit
             self.sol_lim = 10000  # TODO: is hardcode best idea?
 
-        # assert self.sol_count_1 == self.sol_count_2, f"{self.solvers} don't agree on amount of solutions (before mutations): {self.sol_count_1} and {self.sol_count_2}"
+        # Optional: Check before applying the mutations. This should never fail...
 
         self.mutators = [copy.deepcopy(
             self.cons)]  # keep track of list of cons alternated with mutators that transformed it into the next list of cons.
@@ -78,7 +78,7 @@ class Strengthening_Weakening_Verifier(Verifier):
             rand = random.random()
             if rand <= 1/3:
                 mutator_list = self.str_wkn_mutators
-            elif rand - 1/3 <= 2/3 * 0.8:  # ~~ remaining 80%
+            elif rand - 1/3 <= 2/3 * self.mm_prob:  # ~~ remaining mm_prob
                 mutator_list = self.mm_mutators
             else:
                 mutator_list = self.gen_mutators
@@ -113,7 +113,7 @@ class Strengthening_Weakening_Verifier(Verifier):
                         m = strengthening_weakening_mutator
                         self.cons = m(self.cons, strengthen=False)
                         self.bug_cause = 'WKN'
-                    elif random.random() <= 0.8:  # If only 1 solution remains, we just go on normally instead
+                    elif random.random() <= self.mm_prob:  # If only 1 solution remains, we just go on normally instead
                         m = random.choice(self.mm_mutators)
                         self.bug_cause = 'during MM'
                         self.cons += m(self.cons)
@@ -147,6 +147,7 @@ class Strengthening_Weakening_Verifier(Verifier):
                     # don't log semanticfusion crash
 
                 return dict(seed=self.seed,
+                            mm_prob=self.mm_prob,
                             type=Fuzz_Test_ErrorTypes.internalfunctioncrash,
                             originalmodel_file=self.model_file,
                             exception=e,
@@ -209,6 +210,7 @@ class Strengthening_Weakening_Verifier(Verifier):
                 if is_bug_check:
                     print('X', end='', flush=True)
                 return dict(seed=self.seed,
+                            mm_prob=self.mm_prob,
                             type=Fuzz_Test_ErrorTypes.failed_model,
                             originalmodel_file=self.model_file,
                             exception=f"Results of the solvers are not equal. Solver results: {solver_results_str}.",
@@ -231,6 +233,7 @@ class Strengthening_Weakening_Verifier(Verifier):
                 print('E', end='', flush=True)
 
             return dict(seed=self.seed,
+                        mm_prob=self.mm_prob,
                         type=Fuzz_Test_ErrorTypes.internalcrash,
                         originalmodel_file=self.model_file,
                         exception=e,
@@ -275,6 +278,7 @@ class Strengthening_Weakening_Verifier(Verifier):
             elif "has no constraints" in str(e):
                 error_type = Fuzz_Test_ErrorTypes.no_constraints_model
             return dict(seed=self.seed,
+                        mm_prob=self.mm_prob,
                         type=error_type,
                         originalmodel_file=self.model_file,
                         exception=e,
@@ -291,6 +295,7 @@ class Strengthening_Weakening_Verifier(Verifier):
         except Exception as e:
             print('C', end='', flush=True)
             return dict(seed=self.seed,
+                        mm_prob=self.mm_prob,
                         type=Fuzz_Test_ErrorTypes.crashed_model,
                         originalmodel_file=self.model_file,
                         exception=e,
@@ -327,6 +332,7 @@ class Strengthening_Weakening_Verifier(Verifier):
             elif "has no constraints" in str(e):
                 type = Fuzz_Test_ErrorTypes.no_constraints_model
             return dict(seed=self.seed,
+                        mm_prob=self.mm_prob,
                         type=type,
                         originalmodel_file=self.model_file,
                         exception=e,
@@ -343,6 +349,7 @@ class Strengthening_Weakening_Verifier(Verifier):
         except Exception as e:
             print('C', end='', flush=True)
             return dict(seed=self.seed,
+                        mm_prob=self.mm_prob,
                         type=Fuzz_Test_ErrorTypes.crashed_model,
                         originalmodel_file=self.model_file,
                         exception=e,
@@ -372,7 +379,7 @@ class Strengthening_Weakening_Verifier(Verifier):
             if rand <= 1/3:
                 mutator_list = self.str_wkn_mutators
                 new_mut_type = 'STRWK'
-            elif rand - 1/3 <= 2/3 * 0.8:  # ~~ remaining 80%
+            elif rand - 1/3 <= 2/3 * self.mm_prob:  # ~~ remaining mm_prob
                 mutator_list = self.mm_mutators
                 new_mut_type = 'MM'
             else:
@@ -436,7 +443,7 @@ class Strengthening_Weakening_Verifier(Verifier):
                     self.bug_cause = 'during WKN'
                     self.cons = m(self.cons, strengthen=False)
                     self.bug_cause = 'WKN'
-                elif random.random() <= 0.8:  # If only 1 solution remains, we just go on normally instead
+                elif random.random() <= self.mm_prob:  # If only 1 solution remains, we just go on normally instead
                     m = random.choice(self.mm_mutators)
                     self.bug_cause = 'during MM'
                     self.cons += m(self.cons)
@@ -470,6 +477,7 @@ class Strengthening_Weakening_Verifier(Verifier):
 
             print('I', end='', flush=True)
             return dict(seed=self.seed,
+                        mm_prob=self.mm_prob,
                         type=Fuzz_Test_ErrorTypes.internalfunctioncrash,
                         originalmodel_file=self.model_file,
                         exception=e,

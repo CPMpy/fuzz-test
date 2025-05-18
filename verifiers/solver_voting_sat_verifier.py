@@ -2,10 +2,10 @@ from verifiers import *
 
 class Solver_Vote_Sat_Verifier(Verifier):
     """
-        The Solver Count Verifier will verify if the satisfiability is the same for all solvers after running multiple mutations
+        The Solver Satisfiability Verifier will verify if the satisfiability is the same for all solvers after running multiple mutations
     """
 
-    def __init__(self, solver: str, mutations_per_model: int, exclude_dict: dict, time_limit: float, seed: int):
+    def __init__(self, solver: str, mutations_per_model: int, exclude_dict: dict, time_limit: float, seed: int, mm_prob: float):
         self.name = "solver_vote_sat_verifier"
         self.type = 'sat'
 
@@ -43,6 +43,7 @@ class Solver_Vote_Sat_Verifier(Verifier):
         self.bug_cause = 'STARTMODEL'
         self.nr_timed_out = 0
         self.last_mut = None
+        self.mm_prob = mm_prob
 
     def initialize_run(self) -> None:
         if self.original_model == None:
@@ -51,8 +52,10 @@ class Solver_Vote_Sat_Verifier(Verifier):
         self.cons = self.original_model.constraints
         assert (len(self.cons) > 0), f"{self.model_file} has no constraints"
         self.cons = toplevel_list(self.cons)
+        assert len(self.solvers) > 1, f"More than 1 solver required, given solvers: {self.solvers}."
 
         # No other preparation necessary
+        # Optional: Check before applying the mutations. This should never fail...
 
         self.mutators = [copy.deepcopy(
             self.cons)]  # keep track of list of cons alternated with mutators that transformed it into the next list of cons.
@@ -65,9 +68,9 @@ class Solver_Vote_Sat_Verifier(Verifier):
             # choose a mutation (not in exclude_dict)
             valid_mutators = list(set(self.mm_mutators).union(set(self.gen_mutators)) - set(
                 self.exclude_dict[self.model_file])) if self.model_file in self.exclude_dict else list(set(self.mm_mutators).union(set(self.gen_mutators)))
-            if random.random() <= 0.8:  # 80% chance to choose metamorphic mutation
+            if random.random() <= self.mm_prob:  # mm_prob probability to choose metamorphic mutation
                 mutator_list = self.mm_mutators
-            else:  # 20% chance to choose generation-based mutation
+            else:  # 1-mm_prob to choose generation-based mutation
                 mutator_list = self.gen_mutators
 
             valid = [m for m in mutator_list if m in valid_mutators]
@@ -105,6 +108,7 @@ class Solver_Vote_Sat_Verifier(Verifier):
                     # don't log semanticfusion crash
 
                 return dict(seed=self.seed,
+                            mm_prob=self.mm_prob,
                             type=Fuzz_Test_ErrorTypes.internalfunctioncrash,
                             originalmodel_file=self.model_file,
                             exception=e,
@@ -163,6 +167,7 @@ class Solver_Vote_Sat_Verifier(Verifier):
                 if is_bug_check:
                     print('X', end='', flush=True)
                 return dict(seed=self.seed,
+                            mm_prob=self.mm_prob,
                             type=Fuzz_Test_ErrorTypes.failed_model,
                             originalmodel_file=self.model_file,
                             exception=f"Results of the solvers are not equal. Solver results: {solver_results_str}.",
@@ -184,6 +189,7 @@ class Solver_Vote_Sat_Verifier(Verifier):
                 print('E', end='', flush=True)
 
             return dict(seed=self.seed,
+                        mm_prob=self.mm_prob,
                         type=Fuzz_Test_ErrorTypes.internalcrash,
                         originalmodel_file=self.model_file,
                         exception=e,
@@ -227,6 +233,7 @@ class Solver_Vote_Sat_Verifier(Verifier):
             elif "has no constraints" in str(e):
                 error_type = Fuzz_Test_ErrorTypes.no_constraints_model
             return dict(seed=self.seed,
+                        mm_prob=self.mm_prob,
                         type=error_type,
                         originalmodel_file=self.model_file,
                         exception=e,
@@ -243,6 +250,7 @@ class Solver_Vote_Sat_Verifier(Verifier):
         except Exception as e:
             print('C', end='', flush=True)
             return dict(seed=self.seed,
+                        mm_prob=self.mm_prob,
                         type=Fuzz_Test_ErrorTypes.crashed_model,
                         originalmodel_file=self.model_file,
                         exception=e,
@@ -278,6 +286,7 @@ class Solver_Vote_Sat_Verifier(Verifier):
             elif "has no constraints" in str(e):
                 type = Fuzz_Test_ErrorTypes.no_constraints_model
             return dict(seed=self.seed,
+                        mm_prob=self.mm_prob,
                         type=type,
                         originalmodel_file=self.model_file,
                         exception=e,
@@ -294,6 +303,7 @@ class Solver_Vote_Sat_Verifier(Verifier):
         except Exception as e:
             print('C', end='', flush=True)
             return dict(seed=self.seed,
+                        mm_prob=self.mm_prob,
                         type=Fuzz_Test_ErrorTypes.crashed_model,
                         originalmodel_file=self.model_file,
                         exception=e,
@@ -317,10 +327,10 @@ class Solver_Vote_Sat_Verifier(Verifier):
             valid_mutators = list(set(self.mm_mutators).union(set(self.gen_mutators)) - set(
                 self.exclude_dict[self.model_file])) if self.model_file in self.exclude_dict else list(
                 set(self.mm_mutators).union(set(self.gen_mutators)))
-            if random.random() <= 0.8:  # 80% chance to choose metamorphic mutation
+            if random.random() <= self.mm_prob:  # mm_prob probability to choose metamorphic mutation
                 mutator_list = self.mm_mutators
                 new_mut_type = 'MM'
-            else:  # 20% chance to choose generation-based mutation
+            else:  # 1-mm_prob to choose generation-based mutation
                 mutator_list = self.gen_mutators
                 new_mut_type = 'GEN'
 
@@ -382,6 +392,7 @@ class Solver_Vote_Sat_Verifier(Verifier):
 
             print('I', end='', flush=True)
             return dict(seed=self.seed,
+                        mm_prob=self.mm_prob,
                         type=Fuzz_Test_ErrorTypes.internalfunctioncrash,
                         originalmodel_file=self.model_file,
                         exception=e,
