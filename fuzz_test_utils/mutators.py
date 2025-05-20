@@ -971,6 +971,7 @@ def mutate_op_expression(expr: Expression, con: Expression):
         - con: the constraint containing the expression
     ~ No return. Mutates the constraint!
     """
+    # TODO: other types of functions should also be added (e.g. global constraints/functions)
     # Types that can be converted into each-other
     comparisons = {'==', '!=', '<', '<=', '>', '>='}
     int_ops = {'sum', 'sub', 'mul',
@@ -1011,6 +1012,7 @@ def get_all_mutable_op_exprs(con: Expression):
     ~ Return:
         - mutable_exprs: all expressions in the constraint that can be mutated
     """
+    # TODO: other types of functions should also be added (e.g. global constraints/functions)
     comparisons = {'==', '!=', '<', '<=', '>', '>='}
     int_ops = {'sum', 'sub', 'mul', 'div', 'mod', 'pow'}
     logic_ops = {'and', 'or', '->'}
@@ -1032,6 +1034,7 @@ def get_all_op_exprs(con: Expression):
     """
     Helper function to get all expressions WITH an operator in a given constraint
     """
+    # TODO: other types of functions should also be added (e.g. global constraints/functions)
     if type(con) in {Comparison, Operator}:
         return sum((get_all_op_exprs(arg) for arg in con.args), []) + [con]  # All subexpressions + current expression
     else:
@@ -1042,8 +1045,9 @@ def get_all_non_op_exprs(con: Expression):
     """
     Helper function to get all expressions WITHOUT an operator in a given constraint
     """
+    # TODO: other types of functions should also be added (e.g. global constraints/functions)
     if hasattr(con, 'args') and not isinstance(con, NDVarArray) and con.name != 'boolval':
-        return sum((get_all_non_op_exprs(arg) for arg in con.args), [con])
+        return sum((get_all_non_op_exprs(arg) for arg in con.args), [])
     elif isinstance(con, list) or isinstance(con, NDVarArray):
         return sum((get_all_non_op_exprs(e) for e in con), [])
     else:
@@ -1476,7 +1480,7 @@ def get_return_type(expr: Expression, con: Expression):
                                      GlobalCardinalityCount: (2, (None,)),
                                      Table: (3, (1, None)),
                                      NegativeTable: (3, (1, None)),
-                                     Count: (1, (1, None)),
+                                     # Count: (1, (1, None)),  # TODO: I don't think this is necessary, so check this.
                                      'pow': (1, (1, None)),
                                      'wsum': (2, (0, None))}
     variable_restricted_functions = {Table: (2, (0, None)),
@@ -1572,7 +1576,7 @@ def has_positive_parity(expr: Expression, con: Expression, curr_path: tuple) -> 
     # Basecase 1: `expr` cannot be strengthened or weakened
     if hasattr(expr, 'name'):
         # NOTE: these are not necessarily the only expressions that can be strengthened/weakened.
-        #  (some double work is being done in function `is_changeable` so to do?)
+        #  (some double work is being done in function `is_changeable` so todo?)
         changeable_ops = {'and', 'or', '->', 'xor', '==', '!=', '<=', '<', '>=', '>'}
         changeable_globals = {AllDifferent, AllDifferentExceptN, AllEqual, AllEqualExceptN,
                               Table, NegativeTable, IncreasingStrict, DecreasingStrict,
@@ -1588,6 +1592,7 @@ def has_positive_parity(expr: Expression, con: Expression, curr_path: tuple) -> 
         return True, curr_path
 
     # Recursively check in the arguments and change result upon encountering "not" operators
+    # TODO: extend with other operators. e.g. the left side of `->` also has negative parity
     if con.name == 'not':
         curr_path += 0,
         neg_res = has_positive_parity(expr, con.args[0], curr_path)
@@ -1776,6 +1781,10 @@ def strengthening_weakening_mutator(constraints: list, strengthen: bool = True) 
     ~ Return:
         - `final_cons`: a list of the same constraints where one constraint has a mutated operator
     """
+    # TODO: right now: checks for possible expressions to strengthen/weaken and THEN calculates whether it should be
+    #  strengthened or weakened.
+    #       should be: calculate parity while searching for possible expressions and dismiss them if they can't be
+    #  strengthened or weakened based on that.
     try:
         final_cons = copy.deepcopy(constraints)
 
@@ -1817,18 +1826,26 @@ def strengthening_weakening_mutator(constraints: list, strengthen: bool = True) 
         raise Exception(e)
 
 
-def change_domain_mutator(constraints: list):
+def change_domain_mutator(constraints: list, strengthen: bool):
+    # TODO? something else for boolean variables?
     try:
         # Take random variable
         variables = get_variables(constraints)
-        rand_var = random.choice(variables)
+        if variables:  # Improbable but it's possible there are no variables
+            rand_var = random.choice(variables)
 
-        # Get its value by solving the model
-        Model(constraints).solve()
-
-        # Replace its domain by its value
-        rand_var.lb = rand_var.value()
-        rand_var.ub = rand_var.value()
+            lb = rand_var.lb
+            ub = rand_var.ub
+            if strengthen:
+                rand_var.lb = random.randint(lb, ub - 1)
+                rand_var.ub = random.randint(rand_var.lb + 1, ub)
+            else:
+                expansion_param = 2  # How much bigger should the domain possibly be
+                avg = (ub + lb) / 2
+                max_ub = int(avg + (ub - avg) * expansion_param)
+                min_lb = int(avg + (lb - avg) * expansion_param)
+                rand_var.lb = random.randint(min_lb, lb)
+                rand_var.ub = random.randint(ub, max_ub)
 
         # Return the given constraints to be compatible with how the other non-metamorphic mutators are called
         return constraints
