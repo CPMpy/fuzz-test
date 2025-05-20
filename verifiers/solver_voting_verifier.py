@@ -120,7 +120,7 @@ class Solver_Voting_Verifier(Verifier):
         """
         raise NotImplementedError(f"method 'initialize_run' is not implemented for class {type(self)}")
 
-    def verify_model(self) -> dict:
+    def verify_model(self, is_bug_check=False) -> dict:
         """
         Abstract function that will solve the newly created model with the mutations.
         It will check if the test succeeded or not.
