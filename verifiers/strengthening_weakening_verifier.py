@@ -99,37 +99,24 @@ class Strengthening_Weakening_Verifier(Verifier):
                     self.cons = m(self.cons)  # apply a generative (non-metamorphic) mutation and REPLACE constraints
                     self.bug_cause = 'GEN'
                 elif m in self.str_wkn_mutators:
-                    model = cp.Model(self.cons)
                     s = random.choice(self.solvers)
                     self.nr_solve_checks += 1
-                    count = model.solveAll(solver=s, solution_limit=2, time_limit=5)  # should find at least 1 solution in 5s
-                    if count > 1:
-                        if m == strengthening_weakening_mutator:
+                    sat = cp.Model(self.cons).solve(solver=s)
+                    if sat:
+                        if m == strengthening_weakening_mutator:  # solve call happening otherwise
                             self.bug_cause = 'during STR'
-                        self.cons = m(self.cons)
+                        self.cons = m(self.cons, strengthen=True)
                         self.bug_cause = 'STR'
-                    elif count < 1:
+                    else:
                         self.bug_cause = 'during WKN'
-                        m = strengthening_weakening_mutator
                         self.cons = m(self.cons, strengthen=False)
                         self.bug_cause = 'WKN'
-                    elif random.random() <= self.mm_prob:  # If only 1 solution remains, we just go on normally instead
-                        m = random.choice(self.mm_mutators)
-                        self.bug_cause = 'during MM'
-                        self.cons += m(self.cons)
-                        self.bug_cause = 'MM'
-                    else:
-                        m = random.choice(self.gen_mutators)
-                        self.bug_cause = 'during GEN'
-                        self.cons = m(self.cons)
-                        self.bug_cause = 'GEN'
                 else:
                     self.bug_cause = 'during MM'
                     self.cons += m(self.cons)
                     self.bug_cause = 'MM'
                 if not m == self.mutators[-1]:
                     self.mutators[-1] = m
-                # print(f"Mutator in iteration {i} is {self.mutators[-1]}.")
                 self.mutators += [copy.deepcopy(self.cons)]
 
             except MetamorphicError as exc:
@@ -423,7 +410,7 @@ class Strengthening_Weakening_Verifier(Verifier):
                 self.bug_cause = 'during GEN'
                 self.cons = m(self.cons)  # apply a generative (non-metamorphic) mutation and REPLACE constraints
                 self.bug_cause = 'GEN'
-            elif m == strengthening_weakening_mutator:
+            elif m in self.str_wkn_mutators:
                 s = random.choice(self.solvers)
                 self.nr_solve_checks += 1
                 sat = cp.Model(self.cons).solve(solver=s)
