@@ -424,35 +424,18 @@ class Strengthening_Weakening_Verifier(Verifier):
                 self.cons = m(self.cons)  # apply a generative (non-metamorphic) mutation and REPLACE constraints
                 self.bug_cause = 'GEN'
             elif m == strengthening_weakening_mutator:
-                model = cp.Model(self.cons)
-                # s = random.choice(self.solvers) if 'ortools' not in self.solvers else 'ortools'
-                s = 'ortools'  # TODO: CHANGE
-                # print("I add to nrsolvechecks")
+                s = random.choice(self.solvers)
                 self.nr_solve_checks += 1
-                if hasattr(self, 'sol_lim'):
-                    count = model.solveAll(solver=s, solution_limit=self.sol_lim,
-                                           time_limit=5)  # should find at least 1 solution in 5s
-                else:
-                    count = model.solveAll(solver=s, time_limit=5)
-                if count > 1:
+                sat = cp.Model(self.cons).solve(solver=s)
+                if sat:
                     if m == strengthening_weakening_mutator:  # solve call happening otherwise
                         self.bug_cause = 'during STR'
                     self.cons = m(self.cons, strengthen=True)
                     self.bug_cause = 'STR'
-                elif count < 1:
+                else:
                     self.bug_cause = 'during WKN'
                     self.cons = m(self.cons, strengthen=False)
                     self.bug_cause = 'WKN'
-                elif random.random() <= self.mm_prob:  # If only 1 solution remains, we just go on normally instead
-                    m = random.choice(self.mm_mutators)
-                    self.bug_cause = 'during MM'
-                    self.cons += m(self.cons)
-                    self.bug_cause = 'MM'
-                else:
-                    m = random.choice(self.gen_mutators)
-                    self.bug_cause = 'during GEN'
-                    self.cons = m(self.cons)
-                    self.bug_cause = 'GEN'
             else:
                 self.bug_cause = 'during MM'
                 self.cons += m(self.cons)  # apply a metamorphic mutation and add to constraints
