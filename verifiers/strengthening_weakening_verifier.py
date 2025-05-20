@@ -103,8 +103,7 @@ class Strengthening_Weakening_Verifier(Verifier):
                     self.nr_solve_checks += 1
                     sat = cp.Model(self.cons).solve(solver=s)
                     if sat:
-                        if m == strengthening_weakening_mutator:  # solve call happening otherwise
-                            self.bug_cause = 'during STR'
+                        self.bug_cause = 'during STR'
                         self.cons = m(self.cons, strengthen=True)
                         self.bug_cause = 'STR'
                     else:
@@ -415,8 +414,7 @@ class Strengthening_Weakening_Verifier(Verifier):
                 self.nr_solve_checks += 1
                 sat = cp.Model(self.cons).solve(solver=s)
                 if sat:
-                    if m == strengthening_weakening_mutator:  # solve call happening otherwise
-                        self.bug_cause = 'during STR'
+                    self.bug_cause = 'during STR'
                     self.cons = m(self.cons, strengthen=True)
                     self.bug_cause = 'STR'
                 else:
