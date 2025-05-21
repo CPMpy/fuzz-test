@@ -84,7 +84,7 @@ class Solver_Vote_Eq_Verifier(Solver_Voting_Verifier):
             for i, s in enumerate(self.solvers):
                 self.nr_solve_checks += 1
                 if hasattr(self, 'sol_lim'):
-                    model.solveAll(solver=s, time_limit=time_limit, display=lambda: all_sols[i].add(
+                    res = model.solveAll(solver=s, time_limit=time_limit, display=lambda: all_sols[i].add(
                                 tuple([v.value() for v in self.original_vars])), solution_limit=self.sol_lim)
                     solvers_times.append(model.status().runtime)
                 else:
@@ -100,21 +100,28 @@ class Solver_Vote_Eq_Verifier(Solver_Voting_Verifier):
                 if not is_bug_check:
                     print('T', end='', flush=True)
                 return None
-            elif all(len(s1.symmetric_difference(s2)) == 0 for i, s1 in enumerate(all_sols) for j, s2 in enumerate(all_sols) if i < j):
+            elif all(len(s1.symmetric_difference(s2)) == 0 for i, s1 in enumerate(all_sols) for j, s2 in enumerate(all_sols) if i < j) or res == self.sol_lim:
                 # has to be same
                 if not is_bug_check:
                     print('.', end='', flush=True)
                 return None
             else:
-                solver_results_str = ", ".join(
-                    f"{solver}: {result}" for solver, result in zip(self.solvers, all_sols))
+                solver_results_str = ""
+                from itertools import combinations
+                for (i, s1), (j, s2) in combinations(enumerate(all_sols), 2):
+                    if len(solver_results_str) > 0:
+                        solver_results_str += "\n"
+                    solver_name_1 = self.solvers[i]
+                    solver_name_2 = self.solvers[j]
+                    diff = s1.symmetric_difference(s2)
+                    solver_results_str += f"{solver_name_1} vs {solver_name_2}: {len(diff)} differences"
                 if is_bug_check:
                     print('X', end='', flush=True)
                 return dict(seed=self.seed,
                             mm_prob=self.mm_prob,
                             type=Fuzz_Test_ErrorTypes.failed_model,
                             originalmodel_file=self.model_file,
-                            exception=f"Results of the solvers are not equal. Solver results: {solver_results_str}.",
+                            exception=f"Results of the solvers are not equal. Solver results: {solver_results_str}",
                             constraints=self.cons,
                             mutators=self.mutators,
                             model=model,
