@@ -196,6 +196,21 @@ def get_nr_timed_out_solve_calls(error_data):
     return error_data['error']['nr_timed_out']
 
 
+def extract_last_stacktrace_lines(error_data) -> str:
+    stacktrace = error_data['error']['stacktrace']
+    lines = stacktrace.strip().splitlines()
+    last_file_index = None
+
+    for i, line in enumerate(lines):
+        if line.strip().startswith("File"):
+            last_file_index = i
+
+    if last_file_index is not None:
+        return '\n'.join(lines[last_file_index:]).strip()
+    else:
+        return ''
+
+
 def write_csv(error_data: dict, output_path) -> None:
     columns_and_functions = [
         ("bug_class", get_bug_class),
@@ -205,6 +220,7 @@ def write_csv(error_data: dict, output_path) -> None:
         ("time_taken", get_time_taken),
         ("bug_type", get_bug_type),
         ("exception", get_exception),
+        ("last_stacktrace_line", extract_last_stacktrace_lines),
         ("original_constraints", get_original_cons),
         ("current_constraints", get_current_cons),
         ("total_nr_mutations", get_nr_mutations),
