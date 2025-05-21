@@ -1174,7 +1174,8 @@ def generate_new_operator(func: Function, ints: list, bools: list, constants: li
                     amnt_args = random.randint(func.min_args, min(len(constants), func.max_args))
                     first_arg = random.sample(constants, amnt_args)
                     # idx = random.randint(0, amnt_args - 1)
-                    idx = random.choice(ints)
+                    constants_filtered = [e for e in constants if (isinstance(e, int) and e <= amnt_args - 1)]  # Make sure you can't take an integer out of bounds
+                    idx = random.choice(constants_filtered + variables)
                     args = first_arg, idx
                 case 'NValue':
                     amnt_args = random.randint(func.min_args, min(len(comb), func.max_args))
