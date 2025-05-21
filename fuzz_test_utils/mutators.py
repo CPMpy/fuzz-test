@@ -1048,7 +1048,7 @@ def get_all_non_op_exprs(con: Expression):
     # TODO: other types of functions should also be added (e.g. global constraints/functions)
     if hasattr(con, 'args') and not isinstance(con, NDVarArray) and con.name != 'boolval':
         return sum((get_all_non_op_exprs(arg) for arg in con.args), [])
-    elif isinstance(con, list) or isinstance(con, NDVarArray):
+    elif isinstance(con, list) or isinstance(con, NDVarArray) or isinstance(con, tuple):
         return sum((get_all_non_op_exprs(e) for e in con), [])
     else:
         return [con]
@@ -1275,7 +1275,7 @@ def get_operator(args: list, ret_type: str | bool):
     if ret_type == 'constant':
         if constants:
             return random.choice(constants)  # Some expressions can't be replaced by functions
-        intvars = [e for e in variables if not (is_boolexpr(e) or isinstance(e, list) or isinstance(e, NDVarArray))]
+        intvars = [e for e in variables if not (is_boolexpr(e) or isinstance(e, list) or isinstance(e, NDVarArray) or isinstance(e, tuple))]
         if intvars:
             return random.choice(intvars)
     if ret_type == 'variable' and variables:
@@ -1395,7 +1395,7 @@ def find_all_occurrences(con: Expression, target_expr: Expression):
         for i, arg in enumerate(con.args):
             for path in find_all_occurrences(arg, target_expr):
                 occurrences.append((i,) + path)  # Add index to the path
-    elif isinstance(con, list) or isinstance(con, NDVarArray):
+    elif isinstance(con, list) or isinstance(con, NDVarArray) or isinstance(con, tuple):
         for i, arg in enumerate(con):
             for path in find_all_occurrences(arg, target_expr):
                 occurrences.append((i,) + path)
@@ -1422,7 +1422,7 @@ def replace_at_path(con: Expression, path: tuple, new_expr: Expression):
     for idx in path[:-1]:
         if hasattr(parent, 'args') and not isinstance(parent, NDVarArray) and parent.name != 'boolval':
             parent = parent.args[idx]
-        elif isinstance(parent, list) or isinstance(parent, NDVarArray):
+        elif isinstance(parent, list) or isinstance(parent, NDVarArray) or isinstance(parent, tuple):
             parent = parent[idx]
 
     # Change the arguments of the parent
@@ -1432,6 +1432,10 @@ def replace_at_path(con: Expression, path: tuple, new_expr: Expression):
         parent.update_args(args)
     elif isinstance(parent, list) or isinstance(parent, NDVarArray):
         parent[path[-1]] = new_expr
+    elif isinstance(parent, tuple):
+        parent = list(parent)
+        parent[path[-1]] = new_expr
+        parent = tuple(parent)
     return con
 
 
@@ -1447,7 +1451,7 @@ def expr_at_path(con: Expression, path: tuple, expr: Expression):
         if idx is not None:
             if hasattr(con, 'args') and not isinstance(con, NDVarArray) and con.name != 'boolval':
                 con = con.args[idx]
-            elif isinstance(con, list) or isinstance(con, NDVarArray):
+            elif isinstance(con, list) or isinstance(con, NDVarArray) or isinstance(con, tuple):
                 con = con[idx]
         else:
             return len(find_all_occurrences(con, expr)) > 0
@@ -1508,7 +1512,7 @@ def get_return_type(expr: Expression, con: Expression):
                 return path, 'variable'
         if hasattr(con, 'args') and not isinstance(con, NDVarArray) and con.name != 'boolval':
             con = con.args[idx]
-        elif isinstance(con, list) or isinstance(con, NDVarArray):
+        elif isinstance(con, list) or isinstance(con, NDVarArray) or isinstance(con, tuple):
             con = con[idx]
     # We should only get here if the argument isn't in one of the functions above
     return path, is_boolexpr(expr)
