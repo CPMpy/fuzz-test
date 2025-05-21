@@ -1837,8 +1837,8 @@ def change_domain_mutator(constraints: list, strengthen: bool):
             lb = rand_var.lb
             ub = rand_var.ub
             if strengthen:
-                rand_var.lb = random.randint(lb, ub - 1)
-                rand_var.ub = random.randint(rand_var.lb + 1, ub)
+                rand_var.lb = random.randint(lb, max(lb, ub - 1))
+                rand_var.ub = random.randint(min(ub, rand_var.lb + 1), ub)
             else:
                 expansion_param = 2  # How much bigger should the domain possibly be
                 avg = (ub + lb) / 2
