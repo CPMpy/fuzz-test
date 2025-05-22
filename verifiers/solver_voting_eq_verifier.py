@@ -100,7 +100,7 @@ class Solver_Vote_Eq_Verifier(Solver_Voting_Verifier):
                 if not is_bug_check:
                     print('T', end='', flush=True)
                 return None
-            elif all(len(s1.symmetric_difference(s2)) == 0 for i, s1 in enumerate(all_sols) for j, s2 in enumerate(all_sols) if i < j) or res == self.sol_lim:
+            elif all(len(s1.symmetric_difference(s2)) == 0 for i, s1 in enumerate(all_sols) for j, s2 in enumerate(all_sols) if i < j) or (hasattr(self, 'sol_lim') and res == self.sol_lim):
                 # has to be same
                 if not is_bug_check:
                     print('.', end='', flush=True)
