@@ -39,7 +39,7 @@ def match_conditions(exc_str):
         (lambda s: " has no constraints" in s, "06_no_constraints_TO_FIX/"),
         (lambda s: any(x in s for x in ["or-tools does not accept a 'modulo' operation where '0' is in the domain of the divisor", "An int_mod must have a strictly positive modulo argument", "The domain of the divisor cannot contain 0", "Modulo with a divisor domain containing 0 is not supported.", "Power operator: For integer values, exponent must be non-negative:"]), "07_div0_pow-neg/"),
         (lambda s: "object of type '_BoolVarImpl' has no len()" in s, "08_object_type_boolvarimpl_no_len/"),
-        (lambda s: "'int' object has no attribute 'lb'" in s, "09_int_obj_no_attr_lb/"),
+        (lambda s: any(x in s for x in ["'int' object has no attribute 'lb'", "object has no attribute 'lb'"]), "09_int_obj_no_attr_lb/"),
         (lambda s: all(x in s for x in ["Cannot convert", "to Choco variable"]), "10_cannot_convert_to_choco_var/"),
         (lambda s: any(x in s for x in ["Translation of gurobi status 11 to CPMpy status not implemented", "KeyboardInterrupt", "cannot access local variable 'proc' where it is not associated with a value"]), "11_keyboard_interrupt/"),
         (lambda s: "Cannot modify read-only attribute 'args', use 'update_args()'" in s, "12_cant_modify_args/"),
@@ -55,7 +55,18 @@ def match_conditions(exc_str):
         (lambda s: "'bool' object has no attribute 'has_subexpr'" in s, "21_bool_obj_no_has_subexpr/"),
         (lambda s: "'int' object has no attribute 'is_bool'" in s, "22_int_obj_no_is_bool/"),
         (lambda s: "not supported: model.get_or_make_boolean_index(" in s, "23_not_supported_get_or_make_boolean_index/"),
-        (lambda s: any(x in s for x in ["'BoolVal' object has no attribute 'get_integer_var_value_map'", "Not a known var "]), "24_not_known_var/")
+        (lambda s: any(x in s for x in ["'BoolVal' object has no attribute 'get_integer_var_value_map'", "Not a known var "]), "24_not_known_var/"),
+        (lambda s: "ut of memory" in s, "25_out_of_mem/"),
+        (lambda s: all(x in s for x in ["Unsupported boolexpr", "in reification"]), "26_unsupported_boolexpr/"),
+        (lambda s: "not a variable" in s, "27_not_a_variable/"),
+        (lambda s: "Invalid rhs argument for general constraint of indicator type" in s, "28_invalid_rhs_arg/"),
+        (lambda s: "MiniZinc stopped with a non-zero exit code, but did not output an error message." in s, "29_minizinc_nonzero_exitcode/"),
+        (lambda s: "The size of a performed interval must be >= 0 in constraint" in s, "30_interval_size_gt0/"),
+        (lambda s: "must be real number, not" in s, "31_must_be_real/"),
+        (lambda s: "n-ary operators require at least one argument" in s, "32_n-ary_ops_gt_1_arg/"),
+        (lambda s: "Bound requested for unknown expression" in s, "33_bound_request_unknown_expression/"),
+        (lambda s: "arrays cannot be elements of arrays" in s, "34_arrays_no_elem_of_array/"),
+        (lambda s: "not enough values to unpack" in s, "35_not_enough_values_unpack/"),
     ]
 
 def get_logging_dir(error_data, logging_dir):
