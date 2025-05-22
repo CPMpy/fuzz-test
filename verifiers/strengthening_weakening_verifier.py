@@ -358,9 +358,9 @@ class Strengthening_Weakening_Verifier(Verifier):
             # choose a mutator. 33% of the time, this will be a strengthening/weakening mutation.
             # choose a mutation (not in exclude_dict)
             valid_mutators = list(
-                set(self.mm_mutators).union(set(self.gen_mutators)).union({strengthening_weakening_mutator}) - set(
+                set(self.mm_mutators).union(set(self.gen_mutators)).union(self.str_wkn_mutators) - set(
                     self.exclude_dict[self.model_file])) if self.model_file in self.exclude_dict else list(
-                set(self.mm_mutators).union(set(self.gen_mutators)).union({strengthening_weakening_mutator}))
+                set(self.mm_mutators).union(set(self.gen_mutators)).union(self.str_wkn_mutators))
             rand = random.random()
             if rand <= 1/3:
                 mutator_list = self.str_wkn_mutators
