@@ -72,22 +72,23 @@ class Strengthening_Weakening_Verifier(Verifier):
 
             # choose a mutator. 33% of the time, this will be a strengthening/weakening mutation.
             # choose a mutation (not in exclude_dict)
-            valid_mutators = list(set(self.mm_mutators).union(set(self.gen_mutators)).union(set(self.str_wkn_mutators)) - set(
-                self.exclude_dict[self.model_file])) if self.model_file in self.exclude_dict else list(
-                set(self.mm_mutators).union(set(self.gen_mutators)).union(set(self.str_wkn_mutators)))
+            # valid_mutators = list(set(self.mm_mutators).union(set(self.gen_mutators)).union(set(self.str_wkn_mutators)) - set(
+            #     self.exclude_dict[self.model_file])) if self.model_file in self.exclude_dict else list(
+            #     set(self.mm_mutators).union(set(self.gen_mutators)).union(set(self.str_wkn_mutators)))
             rand = random.random()
-            if rand <= 1/3:
+            if rand <= 1/3 * (1 - self.mm_prob):
                 mutator_list = self.str_wkn_mutators
-            elif rand - 1/3 <= 2/3 * self.mm_prob:  # ~~ remaining mm_prob
+            elif rand - (1/3 * (1 - self.mm_prob)) <= 2/3 * self.mm_prob:  # ~~ remaining mm_prob
                 mutator_list = self.mm_mutators
             else:
                 mutator_list = self.gen_mutators
 
-            valid = [m for m in mutator_list if m in valid_mutators]
-            if valid:
-                m = random.choice(valid)
-            else:
-                continue  # No valid mutator? => go to next mutation
+            # valid = [m for m in mutator_list if m in valid_mutators]
+            # if valid:
+            #     m = random.choice(valid)
+            # else:
+            #     continue  # No valid mutator? => go to next mutation
+            m = random.choice(mutator_list)
 
             self.mutators += [self.seed]
             # an error can occur in the transformations, so even before the solve call.
@@ -355,28 +356,29 @@ class Strengthening_Weakening_Verifier(Verifier):
         for _ in range(self.mutations_per_model):
             last_bug_cause = self.bug_cause
 
-            # choose a mutator. 33% of the time, this will be a strengthening/weakening mutation.
-            # choose a mutation (not in exclude_dict)
-            valid_mutators = list(
-                set(self.mm_mutators).union(set(self.gen_mutators)).union(self.str_wkn_mutators) - set(
-                    self.exclude_dict[self.model_file])) if self.model_file in self.exclude_dict else list(
-                set(self.mm_mutators).union(set(self.gen_mutators)).union(self.str_wkn_mutators))
+            # # choose a mutator. 33% of the time, this will be a strengthening/weakening mutation.
+            # # choose a mutation (not in exclude_dict)
+            # valid_mutators = list(
+            #     set(self.mm_mutators).union(set(self.gen_mutators)).union({strengthening_weakening_mutator}) - set(
+            #         self.exclude_dict[self.model_file])) if self.model_file in self.exclude_dict else list(
+            #     set(self.mm_mutators).union(set(self.gen_mutators)).union(self.str_wkn_mutators))
             rand = random.random()
-            if rand <= 1/3:
+            if rand <= 1 / 3 * (1 - self.mm_prob):
                 mutator_list = self.str_wkn_mutators
                 new_mut_type = 'STRWK'
-            elif rand - 1/3 <= 2/3 * self.mm_prob:  # ~~ remaining mm_prob
+            elif rand - (1 / 3 * (1 - self.mm_prob)) <= 2 / 3 * self.mm_prob:  # ~~ remaining mm_prob
                 mutator_list = self.mm_mutators
                 new_mut_type = 'MM'
             else:
                 mutator_list = self.gen_mutators
                 new_mut_type = 'GEN'
 
-            valid = [m for m in mutator_list if m in valid_mutators]
-            if valid:
-                m = random.choice(valid)
-            else:
-                continue  # No valid mutator? => go to next mutation
+            # valid = [m for m in mutator_list if m in valid_mutators]
+            # if valid:
+            #     m = random.choice(valid)
+            # else:
+            #     continue  # No valid mutator? => go to next mutation
+            m = random.choice(mutator_list)
 
             # Check whether verify_model returns an error before the new mutation, because the cause is then at the old mutation
             if new_mut_type != last_bug_cause:

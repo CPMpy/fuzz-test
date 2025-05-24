@@ -50,20 +50,21 @@ class Solver_Voting_Verifier(Verifier):
         Will generate random mutations based on mutations_per_model for the model
         """
         for i in range(self.mutations_per_model):
-            # choose a mutation (not in exclude_dict)
-            valid_mutators = list(set(self.mm_mutators).union(set(self.gen_mutators)) - set(
-                self.exclude_dict[self.model_file])) if self.model_file in self.exclude_dict else list(
-                set(self.mm_mutators).union(set(self.gen_mutators)))
+            # # choose a mutation (not in exclude_dict)
+            # valid_mutators = list(set(self.mm_mutators).union(set(self.gen_mutators)) - set(
+            #     self.exclude_dict[self.model_file])) if self.model_file in self.exclude_dict else list(
+            #     set(self.mm_mutators).union(set(self.gen_mutators)))
             if random.random() <= self.mm_prob:  # mm_prob probability to choose metamorphic mutation
                 mutator_list = self.mm_mutators
             else:  # 1-mm_prob to choose generation-based mutation
                 mutator_list = self.gen_mutators
 
-            valid = [m for m in mutator_list if m in valid_mutators]
-            if valid:
-                m = random.choice(valid)
-            else:
-                continue
+            # valid = [m for m in mutator_list if m in valid_mutators]
+            # if valid:
+            #     m = random.choice(valid)
+            # else:
+            #     continue
+            m = random.choice(mutator_list)
 
             self.mutators += [self.seed]
             # an error can occur in the transformations, so even before the solve call.
@@ -246,10 +247,10 @@ class Solver_Voting_Verifier(Verifier):
         for _ in range(self.mutations_per_model):
             last_bug_cause = self.bug_cause
 
-            # Generate the type of mutation that will happen
-            valid_mutators = list(set(self.mm_mutators).union(set(self.gen_mutators)) - set(
-                self.exclude_dict[self.model_file])) if self.model_file in self.exclude_dict else list(
-                set(self.mm_mutators).union(set(self.gen_mutators)))
+            # # Generate the type of mutation that will happen
+            # valid_mutators = list(set(self.mm_mutators).union(set(self.gen_mutators)) - set(
+            #     self.exclude_dict[self.model_file])) if self.model_file in self.exclude_dict else list(
+            #     set(self.mm_mutators).union(set(self.gen_mutators)))
             if random.random() <= self.mm_prob:  # mm_prob probability to choose metamorphic mutation
                 mutator_list = self.mm_mutators
                 new_mut_type = 'MM'
@@ -257,11 +258,12 @@ class Solver_Voting_Verifier(Verifier):
                 mutator_list = self.gen_mutators
                 new_mut_type = 'GEN'
 
-            valid = [m for m in mutator_list if m in valid_mutators]
-            if valid:
-                m = random.choice(valid)
-            else:
-                continue
+            # valid = [m for m in mutator_list if m in valid_mutators]
+            # if valid:
+            #     m = random.choice(valid)
+            # else:
+            #     continue
+            m = random.choice(mutator_list)
 
             # Check whether verify_model returns an error before the new mutation, because the cause is then at the old mutation
             if new_mut_type != last_bug_cause:
