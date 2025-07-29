@@ -55,7 +55,7 @@ class Exit:
         stacktrace = "\n\t" + self.stacktrace.replace('\n', '\n\t') if self.stacktrace is not None else "N/A"
 
         # Prepare mutator transformations
-        transformed = [self.mutators[x].__name__ for x in range(len(self.mutators)) if x % 3 == 2]
+        transformed = [self.mutators[x].__name__ for x in range(len(self.mutators)) if (hasattr(self.mutators[x], "__name__"))]
         mutators_text = "transformations:\n\t" + str(transformed)
 
         # Prepare verifier kwargs

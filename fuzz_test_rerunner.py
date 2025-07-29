@@ -32,6 +32,7 @@ def rerun_file(failed_model_file, output_dir, lock, current_amount_of_tests, cur
    
     # Re-run verifier
     verifier_kwargs = error.verifier_kwargs
+    verifier_kwargs["time_limit"] = max_fuzz_seconds
     rerun_error = lookup_verifier(error.verifier.getName())(**verifier_kwargs).rerun(error)
     rerun_error.verifier_kwargs = verifier_kwargs
 
@@ -42,7 +43,8 @@ def rerun_file(failed_model_file, output_dir, lock, current_amount_of_tests, cur
         if rerun_error.type == error.type:
             print('.', end='', flush=True)
         elif rerun_error.type == FuzzTestErrorType.ok:
-            print(rerun_error.text())
+            # print(error.mutators)
+            # print(rerun_error.text())
             print('*', end='', flush=True)
         else: 
             print('F', end='', flush=True)
@@ -97,9 +99,8 @@ Error Details
         # Save error report to text file
         with open(os.path.join(output_dir, error.base_name+".txt"), "w") as ff:
             ff.write(total_error_text)
- 
-    else:
-        return True
+
+    return rerun_error
 
 
 def worker(job_queue, pipe, lock, result_queue, output_dir, current_amount_of_tests, current_amount_of_errors, current_amount_of_workers, elaborate=False, max_fuzz_seconds=20):
@@ -148,6 +149,7 @@ def worker(job_queue, pipe, lock, result_queue, output_dir, current_amount_of_te
                 lock.release()
 
             print(f"Error processing {file}: {e}")
+            # traceback.print_exc()
 
         job_queue.task_done()
             
@@ -233,7 +235,7 @@ def read_from_pipes(pipes, current_tests, current_errors, total_tests, current_a
 from cpu_cores import CPUCoresCounter
 
 # We build an instance for the current operating system
-instance = CPUCoresCounter.factory()
+# instance = CPUCoresCounter.factory()
 
 
 if __name__ == '__main__':
@@ -249,7 +251,7 @@ if __name__ == '__main__':
     
     parser.add_argument("-m", "--failed_model_file", help = "The path to a single pickle file or the path to a directory containing multiple pickle files", required=False, type=str, default='output')
     parser.add_argument("-o", "--output-dir", help = "The directory to store the output (will be created if it does not exist).", required=False, type=str, default="bug_output")
-    parser.add_argument("-p","--amount-of-processes", help = "The amount of processes that will be used to run the tests", required=False, default=instance.get_physical_cores_count()-1 ,type=check_positive) # the -1 is for the main process
+    parser.add_argument("-p","--amount-of-processes", help = "The amount of processes that will be used to run the tests", required=False, default=cpu_count()-1, type=check_positive) # the -1 is for the main process
     parser.add_argument("-e","--elaborate", help = "Elaborate print, also show filenames of errors that are re-run", required=False, default=False, type=bool) # the -1 is for the main process
     parser.add_argument("-r","--remove", help = "Remove fixed error files", action="store_true")
     parser.add_argument("-M","--move-dir", help = "Directory to move fixed error files to", type=str)
@@ -392,10 +394,10 @@ if __name__ == '__main__':
 
         lock = Lock()
         print("detected file")
-        result = rerun_file(failed_model_file,output_dir,lock,current_amount_of_tests,current_amount_of_errors)
+        result = rerun_file(failed_model_file,output_dir,lock,current_amount_of_tests,current_amount_of_errors, args.max_fuzz_seconds)
         print("\nsucessfully tested model")
         if result != True:
-            print(Fore.RED + f"Found Error: {result['error']['exception']}, see the output file for more details")
+            print(Fore.RED + f"Found Error: {result.exception}, see the output file for more details")
         else:
             print(Fore.GREEN +"\nNo errors were found")
             if args.remove or args.move_dir:

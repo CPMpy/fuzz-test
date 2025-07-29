@@ -27,6 +27,67 @@ def temporary_random_seed(seed):
         random.setstate(original_state)
         np.random.set_state(original_np_state)
 
+
+def apply_mutator(verifier, m):
+    self = verifier
+    try:
+        self.cons += m(self.cons)  # apply a metamorphic mutation
+        self.mutators += [copy.deepcopy(self.cons)]
+        return MutationExit(
+                    type=FuzzTestErrorType.ok,
+                    verifier=self,
+                    mutators=self.mutators,
+                    originalmodel=self.original_model,
+                    originalmodel_file=self.model_file
+                )
+    except MetamorphicError as exc:
+        #add to exclude_dict, to avoid running into the same error
+        if self.model_file in self.exclude_dict:
+            self.exclude_dict[self.model_file] += [m]
+        else:
+            self.exclude_dict[self.model_file] = [m]
+        function, argument, e = exc.args
+        if isinstance(e,CPMpyException):
+            #expected behavior if we throw a cpmpy exception, do not log
+            # expected error message
+            return MutationExit(
+                        type=FuzzTestErrorType.expected_error,
+                        verifier=self,
+                        exception=e,
+                        stacktrace=traceback.format_exc(),
+                        function=function,
+                        argument=argument,
+                        mutators=self.mutators,
+                        originalmodel=self.original_model,
+                        originalmodel_file=self.model_file
+                    )
+        elif function == semanticFusion:
+            # expected error message
+            return MutationExit(
+                        type=FuzzTestErrorType.expected_error,
+                        verifier=self,
+                        exception=e,
+                        stacktrace=traceback.format_exc(),
+                        function=function,
+                        argument=argument,
+                        mutators=self.mutators,
+                        originalmodel=self.original_model,
+                        originalmodel_file=self.model_file
+                    )
+            #don't log semanticfusion crash
+            
+        return MutationExit(
+                    type=FuzzTestErrorType.internalfunctioncrash,
+                    verifier=self,
+                    exception=e,
+                    stacktrace=traceback.format_exc(),
+                    function=function,
+                    argument=argument,
+                    mutators=self.mutators,
+                    originalmodel=self.original_model,
+                    originalmodel_file=self.model_file
+                )
+
 class Verifier():
     """
     The base class containing the base functions for each verifier.
@@ -96,56 +157,10 @@ class Verifier():
             # an error can occur in the transformations, so even before the solve call.
             # log function and arguments in that case
             self.mutators += [m]
-            try:
-                self.cons += m(self.cons)  # apply a metamorphic mutation
-                self.mutators += [copy.deepcopy(self.cons)]
-            except MetamorphicError as exc:
-                #add to exclude_dict, to avoid running into the same error
-                if self.model_file in self.exclude_dict:
-                    self.exclude_dict[self.model_file] += [m]
-                else:
-                    self.exclude_dict[self.model_file] = [m]
-                function, argument, e = exc.args
-                if isinstance(e,CPMpyException):
-                    #expected behavior if we throw a cpmpy exception, do not log
-                    # expected error message
-                    return MutationExit(
-                                type=FuzzTestErrorType.expected_error,
-                                verifier=self,
-                                exception=e,
-                                stacktrace=traceback.format_exc(),
-                                function=function,
-                                argument=argument,
-                                mutators=self.mutators,
-                                originalmodel=self.original_model,
-                                originalmodel_file=self.model_file
-                            )
-                elif function == semanticFusion:
-                    # expected error message
-                    return MutationExit(
-                                type=FuzzTestErrorType.expected_error,
-                                verifier=self,
-                                exception=e,
-                                stacktrace=traceback.format_exc(),
-                                function=function,
-                                argument=argument,
-                                mutators=self.mutators,
-                                originalmodel=self.original_model,
-                                originalmodel_file=self.model_file
-                            )
-                    #don't log semanticfusion crash
-                    
-                return MutationExit(
-                            type=FuzzTestErrorType.internalfunctioncrash,
-                            verifier=self,
-                            exception=e,
-                            stacktrace=traceback.format_exc(),
-                            function=function,
-                            argument=argument,
-                            mutators=self.mutators,
-                            originalmodel=self.original_model,
-                            originalmodel_file=self.model_file
-                        )
+
+            gen_mutations_error = apply_mutator(self, m)
+            if gen_mutations_error.type != FuzzTestErrorType.ok:
+                return gen_mutations_error
 
         return MutationExit(
                     type=FuzzTestErrorType.ok,
@@ -156,7 +171,11 @@ class Verifier():
                 )
     
     def load_mutations(self, mutators: List):
-        self.mutators = mutators
+        for m in mutators:
+            if hasattr(m, "__name__"):
+                gen_mutations_error = apply_mutator(self, m)
+                if gen_mutations_error.type != FuzzTestErrorType.ok:
+                    return gen_mutations_error
         return MutationExit(
                 type=FuzzTestErrorType.ok,
                 verifier=self,
@@ -217,7 +236,7 @@ class Verifier():
                     )   
         
 
-    def rerun(self,error: Exit) -> dict:
+    def rerun(self, error: Exit) -> dict:
         """
         This function will rerun a previous failed test
         """
@@ -243,7 +262,7 @@ class Verifier():
                 type = FuzzTestErrorType.unsat_model
             elif "has no constraints" in str(e):
                 type = FuzzTestErrorType.no_constraints_model
-            return dict(type=type,
+            return FuzzTestErrorType(type=type,
                         originalmodel_file=self.model_file,
                         exception=e,
                         stacktrace=traceback.format_exc(),
@@ -253,7 +272,7 @@ class Verifier():
     
         except Exception as e:
             print('C', end='', flush=True)
-            return dict(type=FuzzTestErrorType.crashed_model,
+            return FuzzTestErrorType(type=FuzzTestErrorType.crashed_model,
                         originalmodel_file=self.model_file,
                         exception=e,
                         stacktrace=traceback.format_exc(),

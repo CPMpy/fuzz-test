@@ -31,13 +31,13 @@ if __name__ == '__main__':
     folders = [os.path.join(dirname, 'pickle-test_constraints') ,os.path.join(dirname,'pickle_examples'),os.path.join(dirname,'pickle_test_expression'),os.path.join(dirname,'pickle_test_globals')]
     folders = [os.path.join(dirname, 'pickle-test_constraints'), os.path.join(dirname,'pickle_test_expression'),os.path.join(dirname,'pickle_test_globals')]
     fmodels = []
-    print(folders)
+    # print(folders)
     for folder in folders:
-        print(Path(folder).exists())
+        # print(Path(folder).exists())
         fmodels.extend(glob.glob(join(folder,'sat', "*")))
     for f in fmodels:
         with open(f, 'rb') as fpcl:
-            print(f)
+            # print(f)
             cons = pickle.loads(fpcl.read()).constraints
             # if compressed: cons = pickle.loads(brotli.decompress(fpcl.read())).constraints
             assert (len(cons) > 0), f"{f} has no constraints"
