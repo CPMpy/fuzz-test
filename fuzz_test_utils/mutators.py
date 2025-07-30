@@ -100,7 +100,7 @@ def simplify_boolean_morph(cons):
 
 
 def only_numexpr_equality_morph(cons,supported=frozenset()):
-    n = random.randint(1, len(cons))
+    n = random.randint(1, len(cons)+1)
     randcons = random.choices(cons, k=n)
     flatcons = flatten_morph(randcons, flatten_all=True) # only_numexpr_equality requires flat constraints
     try:
