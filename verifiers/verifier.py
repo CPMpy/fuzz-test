@@ -217,8 +217,6 @@ class Verifier():
                 else:
                     return gen_mutations_error
         except AssertionError as e:
-            # TODO does not yet use new dataclass-based error reporting
-            print("A", end='',flush=True)
             error_type = FuzzTestErrorType.crashed_model
             if "is not sat" in str(e):
                 error_type = FuzzTestErrorType.unsat_model
@@ -227,7 +225,7 @@ class Verifier():
 
             return InitializeExit(
                         type=error_type,
-                        verifier=self.__name__,
+                        verifier=self,
                         exception=e,
                         stacktrace=traceback.format_exc(),
                         originalmodel=self.original_model,

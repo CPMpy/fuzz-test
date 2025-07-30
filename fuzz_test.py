@@ -61,7 +61,7 @@ def read_from_pipes(pipes, current_tests, current_errors, current_timeouts):
             any_data = False
             try:
                 # Collect data from worker pipes
-                for p in pipes:
+                for i,p in enumerate(pipes):
                     while p.poll():
                         try:
                             msg = p.recv()
@@ -127,7 +127,11 @@ def read_from_pipes(pipes, current_tests, current_errors, current_timeouts):
             except ConnectionResetError as e:
                 break
             except BrokenPipeError as e:
-                break
+                # If pipe unexpectedly dies, remove it as to not hault the others
+                # TODO restart another pipe?
+                pipes[i].close()
+                del pipes[i]
+                continue
 
     curses.wrapper(curses_main)
     curses.endwin()

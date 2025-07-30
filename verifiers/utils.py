@@ -108,7 +108,7 @@ class VerifierExit(Exit):
     
 
 @dataclass(kw_only=True)
-class InitializeExit:
+class InitializeExit(Exit):
     pass
     # TODO what should the "constraints" be here?
 
