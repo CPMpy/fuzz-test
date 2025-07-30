@@ -290,4 +290,4 @@ class Verifier():
 
     @classmethod
     def model_timed_out(self, model) -> bool:
-        return (model.status().exitstatus == ExitStatus.FEASIBLE) or (model.status().exitstatus == ExitStatus.UNKNOWN)
+        return (model.status().exitstatus == ExitStatus.FEASIBLE and model.has_objective()) or (model.status().exitstatus == ExitStatus.UNKNOWN)
