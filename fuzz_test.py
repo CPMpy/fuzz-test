@@ -61,6 +61,8 @@ def read_from_pipes(pipes, current_tests, current_errors, current_timeouts):
             any_data = False
             try:
                 # Collect data from worker pipes
+                if len(pipes) == 0:
+                    break
                 for i,p in enumerate(pipes):
                     while p.poll():
                         try:
