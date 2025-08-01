@@ -1,4 +1,6 @@
+from multiprocessing.connection import Connection
 import os
+from typing import List
 os.environ["PYTHONHASHSEED"] = "0" # <- required for reproducability, otherwise hashes are consistent between runs
 
 import random
@@ -30,7 +32,7 @@ def run_with_pipe(pipe_conn, *args):
     pipe_conn.close()
 
 
-def read_from_pipes(pipes, current_tests, current_errors, current_timeouts):
+def read_from_pipes(pipes: List[Connection], current_tests, current_errors, current_timeouts):
     """
     Target for the monitoring thread.
     Shows progress of fuzz-tester within the console.
@@ -72,65 +74,67 @@ def read_from_pipes(pipes, current_tests, current_errors, current_timeouts):
                         except EOFError:
                             pass
 
-                # Trim to visible screen
-                max_chars = (height - 1) * width
-                visible_output = output_buffer[-max_chars:]
+                if any_data:
+                    # Trim to visible screen
+                    max_chars = (height - 1) * width
+                    visible_output = output_buffer[-max_chars:]
 
-                # Clear screen and draw characters with color
-                stdscr.erase()
-                for i in range(height - 1):
-                    line_start = i * width
-                    line = visible_output[line_start:line_start + width]
-                    for j, ch in enumerate(line):
-                        if ch == 'X':
-                            stdscr.addch(i, j, ch, curses.color_pair(1))
-                        elif ch == 'E' or ch == 'I':
-                            stdscr.addch(i, j, ch, curses.color_pair(2))
-                        elif ch == 'T':
-                            stdscr.addch(i, j, ch, curses.color_pair(3))
-                        else:
-                            stdscr.addch(i, j, ch, curses.color_pair(4))
+                    # Clear screen and draw characters with color
+                    stdscr.erase()
+                    for i in range(height - 1):
+                        line_start = i * width
+                        line = visible_output[line_start:line_start + width]
+                        for j, ch in enumerate(line):
+                            if ch == 'X':
+                                stdscr.addch(i, j, ch, curses.color_pair(1))
+                            elif ch == 'E' or ch == 'I':
+                                stdscr.addch(i, j, ch, curses.color_pair(2))
+                            elif ch == 'T':
+                                stdscr.addch(i, j, ch, curses.color_pair(3))
+                            else:
+                                stdscr.addch(i, j, ch, curses.color_pair(4))
 
-                # Draw status banner
-                banner = f"[Fuzz Test] Tests: {current_tests.value} | Errors: {current_errors.value} | Timeouts: {current_timeouts.value}"
-                stdscr.addnstr(height - 1, 0, banner.ljust(width), width - 1, curses.A_REVERSE)
+                    # Draw status banner
+                    banner = f"[Fuzz Test] Tests: {current_tests.value} | Errors: {current_errors.value} | Timeouts: {current_timeouts.value}"
+                    stdscr.addnstr(height - 1, 0, banner.ljust(width), width - 1, curses.A_REVERSE)
 
-                # Legend items (colored, no reverse)
-                legend_items = [
-                    ('X', 'Failed', 5),
-                    ('E/I', 'Internal Crash', 6),
-                    ('T', 'Timeout', 7),
-                ]
+                    # Legend items (colored, no reverse)
+                    legend_items = [
+                        ('X', 'Failed', 5),
+                        ('E/I', 'Internal Crash', 6),
+                        ('T', 'Timeout', 7),
+                    ]
 
-                # Create legend text and calculate total length
-                legend_strings = [f"({sym}) {label}]" for sym, label, _ in legend_items]
-                legend_text = ' '.join(legend_strings)
-                legend_length = len(legend_text) + (len(legend_items) - 1)
+                    # Create legend text and calculate total length
+                    legend_strings = [f"({sym}) {label}]" for sym, label, _ in legend_items]
+                    legend_text = ' '.join(legend_strings)
+                    legend_length = len(legend_text) + (len(legend_items) - 1)
 
-                # Calculate start x-position for right alignment
-                start_x = max(0, width - legend_length - 1)
+                    # Calculate start x-position for right alignment
+                    start_x = max(0, width - legend_length - 1)
 
-                # Draw colored legend on top of banner (overwriting part of it)
-                x = start_x
-                for sym, label, color in legend_items:
-                    segment = f"({sym}) {label}]"
-                    stdscr.addstr(height - 1, x, segment, curses.color_pair(color) | curses.A_BOLD)
-                    x += len(segment) + 1
+                    # Draw colored legend on top of banner (overwriting part of it)
+                    x = start_x
+                    for sym, label, color in legend_items:
+                        segment = f"({sym}) {label}]"
+                        stdscr.addstr(height - 1, x, segment, curses.color_pair(color) | curses.A_BOLD)
+                        x += len(segment) + 1
 
-                stdscr.refresh()
+                    stdscr.refresh()
 
-                if not any_data:
+                else:
                     time.sleep(0.2)
 
             except KeyboardInterrupt as e:
                 for pipe in pipes:
                     pipe.close()
                 break
-            except ConnectionResetError as e:
-                break
+            # except ConnectionResetError as e:
+            #     break
             except BrokenPipeError as e:
                 # If pipe unexpectedly dies, remove it as to not hault the others
                 # TODO restart another pipe?
+                print("closing pipe")
                 pipes[i].close()
                 del pipes[i]
                 continue
@@ -203,7 +207,7 @@ if __name__ == '__main__':
 
     pipes = []
     seeds = []
-    processes = []
+    processes:List[Process] = []
 
     master_seed = args.seed
     if master_seed is not None:
@@ -233,6 +237,11 @@ if __name__ == '__main__':
         start = time.time()
         # Wait for workers to finish
         while any(process.is_alive() for process in processes):
+            # if (time.time() - start) > max_time:
+            #     print("Killing processes due to timeout")
+            #     for proces in processes:
+            #         proces.kill()
+            #     break
             time.sleep(0.2)
 
 

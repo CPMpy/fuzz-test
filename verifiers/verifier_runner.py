@@ -5,9 +5,11 @@ import warnings
 from os.path import join
 from importlib import reload
 import cpmpy as cp
+from timeout import timeout
 
 from fuzz_test_utils.fuzz_test_errors import FuzzTestErrorType
 from verifiers import *
+from verifiers.utils import FuzzExit
 from fuzz_test_utils import FuzzTestErrorType
 def get_all_verifiers() -> list:
     return [Solution_Verifier,Optimization_Verifier,Model_Count_Verifier,Metamorphic_Verifier,Equivalance_Verifier]
@@ -60,11 +62,14 @@ def run_verifiers(
 
     execution_time = 0
     start = time.time()
-    try:
-        # Continue while no limits reached
-        # 1) stay within time limit (if set)
-        # 2) halt if threshold on number of errors has been reached (if set)
-        while time.time() - start < total_time_limit and current_amount_of_error.value < max_error_treshold:
+    
+    # Continue while no limits reached
+    # 1) stay within time limit (if set)
+    # 2) halt if threshold on number of errors has been reached (if set)
+    while time.time() - start < total_time_limit and current_amount_of_error.value < max_error_treshold:
+
+        try:
+
 
             reload(cp) # resets all global counters
             
@@ -83,7 +88,19 @@ def run_verifiers(
 
             # Run fuzz
             start_time = time.time()
-            error = random_verifier.run(fmodel)
+            try:
+                with timeout(fuzz_time_limit, TimeoutError):
+                    error = random_verifier.run(fmodel)
+            except TimeoutError as e:
+                error = FuzzExit(
+                            type=FuzzTestErrorType.timeout,
+                            verifier=random_verifier,
+                            originalmodel_file=random_verifier.model_file,
+                            exception="timeout",
+                            stacktrace=traceback.format_exc(),
+                            originalmodel=random_verifier.original_model,
+                            model = None,
+                        )
             error.verifier_kwargs = verifier_kwargs | {"seed": random_seed}
 
             # Expected error -> skip
@@ -115,7 +132,7 @@ def run_verifiers(
                 lock.acquire()
                 try:
                     error_data = {
-                        'verifier':random_verifier.getName(),
+                        'verifier': random_verifier.getName(),
                         'solver' : solver, 
                         'mutations_per_model' : mutations_per_model, 
                         "seed": random_seed, 
@@ -166,26 +183,37 @@ Error Details
             finally:
                 lock.release()
 
-    except Exception as e:
-        # TODO does not yet use new dataclass-based error reporting
-        print(traceback.format_exc(),flush=True)
-        error = {
-            "type": FuzzTestErrorType.fuzz_test_crash,
-            "exception":e,
-            "stacktrace":traceback.format_exc()
-        }
-        lock.acquire()
-        try:
-            error_data = {
-                'solver' : solver, 
-                'mutations_per_model' : mutations_per_model, 
-                "seed": random_seed, 
-                "execution_time": execution_time, 
-                "error" :error, 
-                "verifier": "None"
-            }
-            write_error(error_data,output_dir)
 
-            current_amount_of_tests.value += 1
-        finally:
-            lock.release()
+        except Exception as e:
+            # TODO does not yet use new dataclass-based error reporting
+            # print(traceback.format_exc(),flush=True)
+            error = {
+                "type": FuzzTestErrorType.fuzz_test_crash,
+                "exception":e,
+                "stacktrace":traceback.format_exc()
+            }
+            # error = FuzzExit(
+            #     type=FuzzTestErrorType.timeout,
+            #     verifier=random_verifier,
+            #     originalmodel_file=random_verifier.model_file,
+            #     exception="timeout",
+            #     stacktrace=traceback.format_exc(),
+            #     originalmodel=random_verifier.original_model,
+            #     model = None,
+            # )
+            lock.acquire()
+            try:
+                error_data = {
+                    'solver' : solver, 
+                    'mutations_per_model' : mutations_per_model, 
+                    "seed": random_seed, 
+                    "execution_time": execution_time, 
+                    "error": error, 
+                    "verifier": random_verifier.getName()
+                }
+                write_error(error_data,output_dir)
+
+                current_amount_of_tests.value += 1
+            finally:
+                lock.release()
+    
