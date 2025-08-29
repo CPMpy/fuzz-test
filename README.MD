@@ -95,14 +95,26 @@ These extracted models serve as the starting point for mutation-based fuzz testi
 
 Part of the development received funding through Prof. Tias Guns his European Research Council (ERC) Consolidator grant, under the European Union’s Horizon 2020 research and innovation programme (grant agreement No 101002802, [CHAT-Opt](https://people.cs.kuleuven.be/~tias.guns/chat-opt.html)).
 
-You can cite the HURRICANE as follows: "Vanroose, W., Bleukx, I., Devriendt, J., Tsouros, D., Verhaeghe, H., Guns, T. (2024). Mutational Fuzz Testing for Constraint Modeling Systems. Thirtieth International Conference on Principles and Practice of Constraint Programming, CP 2024."
+You can cite HURRICANE as follows: 
+> W. Vanroose, I. Bleukx, J. Devriendt, D. Tsouros, H. Verhaeghe, and T. Guns.
+> Mutational fuzz testing for constraint modeling systems. 
+> In CP, volume 307 of LIPIcs, 29:1–29:25. Schloss Dagstuhl, 2024
 
-```
-@inproceedings{vanroose2024,
-    title={Mutational Fuzz Testing for Constraint Modeling Systems.},
-    author={Wout Vanroose, Ignace Bleukx, Jo Devriendt, Dimos Tsouros, Hélène Verhaeghe, and Tias Guns},
-    booktitle={Thirtieth International Conference on Principles and Practice of Constraint Programming (CP 2024)},
-    year={2024}
+```bibtex
+@inproceedings{vanroose2024mutational,
+  author       = {Wout Vanroose and
+                  Ignace Bleukx and
+                  Jo Devriendt and
+                  Dimos Tsouros and
+                  H{\'{e}}l{\`{e}}ne Verhaeghe and
+                  Tias Guns},
+  title        = {Mutational Fuzz Testing for Constraint Modeling Systems},
+  booktitle    = {{CP}},
+  series       = {LIPIcs},
+  volume       = {307},
+  pages        = {29:1--29:25},
+  publisher    = {Schloss Dagstuhl},
+  year         = {2024}
 }
 ```
 
