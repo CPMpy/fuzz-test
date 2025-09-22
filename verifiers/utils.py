@@ -4,7 +4,7 @@ import pickle
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from typing import TypeVar, Type
 
 import cpmpy as cp
@@ -22,7 +22,7 @@ class Exit:
     stacktrace: Optional[str] = None
     originalmodel: cp.Model
     originalmodel_file: os.PathLike
-    mutators: List[callable] = field(default_factory=lambda: [])
+    mutators: List[Tuple[callable, int]] = field(default_factory=lambda: [])
     verifier_kwargs: Dict = field(default_factory=lambda: {})
     alternative_label: Optional[str] = None
 
@@ -55,7 +55,7 @@ class Exit:
         stacktrace = "\n\t" + self.stacktrace.replace('\n', '\n\t') if self.stacktrace is not None else "N/A"
 
         # Prepare mutator transformations
-        transformed = [self.mutators[x].__name__ for x in range(len(self.mutators)) if (hasattr(self.mutators[x], "__name__"))]
+        transformed = [(self.mutators[x][0].__name__, self.mutators[x][1]) for x in range(len(self.mutators)) if (hasattr(self.mutators[x][0], "__name__"))]
         mutators_text = "transformations:\n\t" + str(transformed)
 
         # Prepare verifier kwargs

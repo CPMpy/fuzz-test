@@ -43,7 +43,7 @@ class Solution_Verifier(Verifier):
             time_limit=max(1,self.time_limit)) # set the max time limit to the given time limit or to 1 if the self.time_limit-time.time() would be smaller then 1
         
         self.solution = [var == var.value() for var in vars if var.value() is not None]
-        self.mutators = [copy.deepcopy(self.cons)] #keep track of list of cons alternated with random seed and mutators that transformed it into the next list of cons.
+        self.mutators = [(copy.deepcopy(self.cons), self.seed)] #keep track of list of cons alternated with random seed and mutators that transformed it into the next list of cons.
             
     def verify_model(self) -> dict:
         try:
@@ -84,7 +84,18 @@ class Solution_Verifier(Verifier):
                         )
             
         except Exception as e:
-            if isinstance(e,(CPMpyException, NotImplementedError)):
+            if isinstance(e, TimeoutError) or "Operation timed out" in str(e):
+                # Handle TimeoutError as timeout, not internalcrash
+                return FuzzExit(
+                            type=FuzzTestErrorType.timeout,
+                            verifier=self,
+                            exception=e,
+                            mutators=self.mutators,
+                            model=model,
+                            originalmodel=self.original_model,
+                            originalmodel_file=self.model_file
+                        )
+            elif isinstance(e,(CPMpyException, NotImplementedError)):
                 # expected error message
                 return FuzzExit(
                             type=FuzzTestErrorType.expected_error,

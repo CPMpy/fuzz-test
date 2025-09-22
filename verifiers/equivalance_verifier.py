@@ -40,7 +40,7 @@ class Equivalance_Verifier(Verifier):
         self.original_vars = get_variables(self.cons)
         self.original_sols = set()
         cp.Model(self.cons).solveAll(solver=self.solver,time_limit=max(1,min(250,self.time_limit)), display=lambda: self.original_sols.add(tuple([v.value() for v in self.original_vars])))
-        self.mutators = [copy.deepcopy(self.cons)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
+        self.mutators = [(copy.deepcopy(self.cons), self.seed)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
             
     def verify_model(self) -> dict:
         try:
@@ -88,7 +88,18 @@ class Equivalance_Verifier(Verifier):
                         )
         
         except Exception as e:
-            if isinstance(e,(CPMpyException, NotImplementedError)):
+            if isinstance(e, TimeoutError) or "Operation timed out" in str(e):
+                # Handle TimeoutError or timeout-related exceptions as timeout, not internalcrash
+                return FuzzExit(
+                            type=FuzzTestErrorType.timeout,
+                            verifier=self,
+                            exception=e,
+                            mutators=self.mutators,
+                            model=model,
+                            originalmodel=self.original_model,
+                            originalmodel_file=self.model_file
+                        )
+            elif isinstance(e,(CPMpyException, NotImplementedError)):
                 # expected error message
                 return FuzzExit(
                             type=FuzzTestErrorType.expected_error,

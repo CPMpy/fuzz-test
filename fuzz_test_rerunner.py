@@ -9,84 +9,141 @@ import argparse
 import curses
 import queue
 import shutil
+import pickle
 import warnings
+import logging
 from colorama import Fore, Back, Style
 import multiprocessing
 from multiprocessing import Lock, Manager, Pipe, Pool, Process, cpu_count,set_start_method
+from importlib import reload
 
+import cpmpy as cp
 from verifiers import *
 from verifiers.utils import Exit
 from utils import StdoutPipeRedirector
+from fuzz_test_utils.fuzz_test_errors import FuzzTestErrorType
+
+# Set up logging for debug output
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('fuzz_rerunner_debug.log'),
+    ]
+)
+logger = logging.getLogger(__name__)
 
 
-def rerun_file(failed_model_file, output_dir, lock, current_amount_of_tests, current_amount_of_errors, max_fuzz_seconds):
+def rerun_file(
+        failed_model_file,                                          # fuzz test output file to rerun
+        output_dir,                                                 # where to save output of rerun
+        lock, current_amount_of_tests, current_amount_of_errors,    # for TUI 
+        max_fuzz_seconds                                            # time limit on rerun
+    ):
     """
     Function for re-running a fuzz-test error.
     """
 
-    # Load error from file
+    # Load error from file 
     error = Exit.load(failed_model_file)
 
     # Set random seed
     random.seed(error.verifier_kwargs["seed"])
-   
-    # Re-run verifier
+
+    # Construct verifier options
     verifier_kwargs = error.verifier_kwargs
-    verifier_kwargs["time_limit"] = max_fuzz_seconds
-    rerun_error = lookup_verifier(error.verifier.getName())(**verifier_kwargs).rerun(error)
-    rerun_error.verifier_kwargs = verifier_kwargs
+    verifier_kwargs["time_limit"] = max_fuzz_seconds # add / update time limit in kwargs
+
+    # Track execution time
+    start_time = time.time()
+    # Re-run verifier (CPMpy reload will happen inside verifier.rerun())
+    rerun_error = lookup_verifier(error.verifier.getName())(**verifier_kwargs).rerun(error) # Rerun the verifier
+    execution_time = time.time() - start_time
+    rerun_error.verifier_kwargs = verifier_kwargs # store used options
+
+    # Log if rerun produces a different outcome (success vs failure)
+    original_is_error = error.type != FuzzTestErrorType.ok
+    rerun_is_error = rerun_error.type != FuzzTestErrorType.ok
+
+    if original_is_error and not rerun_is_error:
+        logger.debug(f"Rerun resolved error: {failed_model_file} -> {error.type} became {rerun_error.type}")
+    elif not original_is_error and rerun_is_error:
+        logger.debug(f"Rerun introduced error: {failed_model_file} -> {error.type} became {rerun_error.type}")
+    elif original_is_error and rerun_is_error and error.type != rerun_error.type:
+        logger.debug(f"Rerun changed error type: {failed_model_file} -> {error.type} became {rerun_error.type}")
 
     # Print status to monitor
-    if rerun_error.alternative_label is not None:
+    if rerun_error.alternative_label is not None: # if error defines a custom label to be printed
         print(rerun_error.alternative_label, end='', flush=True)
     else:
-        if rerun_error.type == error.type:
+        if rerun_error.type.value == error.type.value:  # same error, nothing special - compare values not objects
             print('.', end='', flush=True)
-        elif rerun_error.type == FuzzTestErrorType.ok:
-            # print(error.mutators)
-            # print(rerun_error.text())
+        elif rerun_error.type == FuzzTestErrorType.ok:  # bug has been fixed!
             print('*', end='', flush=True)
-        else: 
+        else:                                           # error changed?
+            print("[", rerun_error.type, error.type, "]")
+            logger.debug(f"Error type mismatch detected:")
+            logger.debug(f"  rerun_error.type = {rerun_error.type}")
+            logger.debug(f"  error.type = {error.type}")
+            logger.debug(f"  rerun_error.type.value = '{rerun_error.type.value}'")
+            logger.debug(f"  error.type.value = '{error.type.value}'")
+            logger.debug(f"  rerun_error.type == error.type = {rerun_error.type == error.type}")
+            logger.debug(f"  rerun_error.type is error.type = {rerun_error.type is error.type}")
+            logger.debug(f"  Original file: {failed_model_file}")
             print('F', end='', flush=True)
 
-    # Update statistics for monitor
+    # Update statistics for TUI monitor
     lock.acquire()
     try:
         current_amount_of_tests.value += 1
     finally:
         lock.release()
 
-    if rerun_error.type != FuzzTestErrorType.ok:
-        lock.acquire()
-        try:
-            current_amount_of_errors.value += 1
-        finally:
-            lock.release()
+    # Always write output files for consistent comparison (including resolved errors)
+    # TODO should share code with 'run_verifiers'
+    error_data = {
+                    'verifier':rerun_error.verifier.getName(),
+                    'solver' : rerun_error.verifier_kwargs["solver"],
+                    'mutations_per_model' : rerun_error.verifier_kwargs["mutations_per_model"],
+                    "seed": rerun_error.verifier_kwargs["seed"],
+                    # "execution_time": execution_time,
+                    "error" :rerun_error  # Use rerun_error instead of original error
+                }
 
-        # TODO should share code with 'run_verifiers'
-                 
-        error_data = {
-                        'verifier':rerun_error.verifier.getName(),
-                        'solver' : rerun_error.verifier_kwargs["solver"], 
-                        'mutations_per_model' : rerun_error.verifier_kwargs["mutations_per_model"], 
-                        "seed": rerun_error.verifier_kwargs["seed"], 
-                        # "execution_time": execution_time, 
-                        "error" :error
-                    }
+    # Formatting of error report
+    verifier_text = ""
+    if rerun_error.type != FuzzTestErrorType.fuzz_test_crash:
+        verifier_text = "Chosen Verifier: "+error_data["verifier"]
 
-        # Formatting of error report
-        # execution_time_text = f"{str(math.floor(error_data['execution_time']/60))} minutes {str(math.floor(error_data['execution_time']%60))} seconds"
-        verifier_text = ""
-        if error_data["error"].type != FuzzTestErrorType.fuzz_test_crash:
-            verifier_text = "Chosen Verifier: "+error_data["verifier"]
-        error_text = error.text()
+    # Format execution time similar to original fuzzer
+    execution_time_text = f"{str(int(execution_time//60))} minutes {str(int(execution_time%60))} seconds"
 
+    if rerun_error.type == FuzzTestErrorType.ok:
+        # Special case for resolved errors
+        total_error_text = f"""Rerun result: RESOLVED
+
+    Original error was resolved in rerun
+    Used solver: {error_data['solver']}
+    {verifier_text}
+    With {error_data['mutations_per_model']} mutations per model
+    With seed: {error_data['seed']}
+    Rerun execution time: {execution_time_text}
+
+Result: Test passed successfully on rerun
+===============================================================================
+Original error: {error.type}
+Rerun result: {rerun_error.type}
+"""
+    else:
+        # Standard error case
+        error_text = rerun_error.text()
         total_error_text = f"""An error occured while running a test
 
     Used solver: {error_data['solver']}
     {verifier_text}
     With {error_data['mutations_per_model']} mutations per model
     With seed: {error_data['seed']}
+    Rerun execution time: {execution_time_text}
 
 Error Details
 ===============================================================================
@@ -94,16 +151,29 @@ Error Details
 {error_text}
 
 """
-        # Save error to pickle file
-        rerun_error.write(output_dir, base_name=error.base_name)
-        # Save error report to text file
-        with open(os.path.join(output_dir, error.base_name+".txt"), "w") as ff:
-            ff.write(total_error_text)
+
+    # Save error to pickle file (always)
+    rerun_error.write(output_dir, base_name=error.base_name)
+    # Save error report to text file (always)
+    output_file_path = os.path.join(output_dir, error.base_name+".txt")
+    with open(output_file_path, "w") as ff:
+        ff.write(total_error_text)
+
+    # Log the output files for debugging
+    logger.debug(f"  Rerun output files: {os.path.join(output_dir, error.base_name + '.pickle')} and {output_file_path}")
+
+    # Update error count only if there's still an error
+    if rerun_error.type != FuzzTestErrorType.ok:
+        lock.acquire()
+        try:
+            current_amount_of_errors.value += 1
+        finally:
+            lock.release()
 
     return rerun_error
 
 
-def worker(job_queue, pipe, lock, result_queue, output_dir, current_amount_of_tests, current_amount_of_errors, current_amount_of_workers, elaborate=False, max_fuzz_seconds=20):
+def worker(job_queue, pipe, lock, result_queue, output_dir, current_amount_of_tests, current_amount_of_errors, current_amount_of_workers, elaborate=False, max_fuzz_seconds=10):
     """
     Target for worker processes.
     """
@@ -255,7 +325,7 @@ if __name__ == '__main__':
     parser.add_argument("-e","--elaborate", help = "Elaborate print, also show filenames of errors that are re-run", required=False, default=False, type=bool) # the -1 is for the main process
     parser.add_argument("-r","--remove", help = "Remove fixed error files", action="store_true")
     parser.add_argument("-M","--move-dir", help = "Directory to move fixed error files to", type=str)
-    parser.add_argument("--max-fuzz-seconds", help = "", required=False, default=20, type=check_positive)
+    parser.add_argument("--max-fuzz-seconds", help = "", required=False, default=10, type=check_positive)
 
     set_start_method("spawn")
     args = parser.parse_args()
@@ -274,13 +344,48 @@ if __name__ == '__main__':
         """
         Rerun all models within provided directory using a multiprocessing job queue.
         """
-        files = glob.glob(failed_model_file + "/*.pickle")
+        all_files = glob.glob(failed_model_file + "/*.pickle")
+
+        # Filter out fuzz_test_crash files
+        files = []
+        skipped_crash_files = []
+
+        for file in all_files:
+            try:
+                # Load error to check its type
+                # Try to load as Exit object first
+                try:
+                    error = Exit.load(file)
+                    if error.type == FuzzTestErrorType.fuzz_test_crash:
+                        skipped_crash_files.append(file)
+                    else:
+                        files.append(file)
+                except (TypeError, AttributeError):
+                    # If Exit.load fails, try loading as raw pickle (dictionary format)
+                    import pickle
+                    with open(file, 'rb') as f:
+                        error_data = pickle.load(f)
+
+                    # Check if it's dictionary format with nested error
+                    if isinstance(error_data, dict) and 'error' in error_data:
+                        error_type = error_data['error'].get('type')
+                        if error_type == FuzzTestErrorType.fuzz_test_crash:
+                            skipped_crash_files.append(file)
+                        else:
+                            files.append(file)
+                    else:
+                        # Unknown format, include in regular processing
+                        files.append(file)
+            except Exception:
+                # If we can't load the file at all, include it in the regular processing
+                files.append(file)
 
         # Statistics reporting between monitor and worker threads
         manager = Manager()
         current_amount_of_errors = manager.Value("i",0)
         current_amount_of_tests = manager.Value("i",0)
         current_amount_of_workers = manager.Value("i",0)
+        skipped_count = len(skipped_crash_files)
 
         lock = Lock() # prevent concurrent updates to above datastructures
         
@@ -293,6 +398,8 @@ if __name__ == '__main__':
             job_queue.put(file)
         
         print(f"rerunning failed models in directory {failed_model_file}", flush=True)
+        if skipped_count > 0:
+            print(f"Skipping {skipped_count} fuzz_test_crash instances (not suitable for retesting)", flush=True)
 
         # Create worker processes
         for _ in range(args.amount_of_processes):
@@ -349,12 +456,13 @@ if __name__ == '__main__':
                     lock.release()
                                         
             # Collect statistics after complete rerun
-            still_fails = {k: v for k, v in results.items() if v is not True}
-            fixed = {k: v for k, v in results.items() if v is True}
+            still_fails = {k: v for k, v in results.items() if v is not None and hasattr(v, 'type') and v.type != FuzzTestErrorType.ok}
+            fixed = {k: v for k, v in results.items() if v is not None and hasattr(v, 'type') and v.type == FuzzTestErrorType.ok}
 
             print(Style.RESET_ALL + "\nsuccessfully tested all the models", flush=True)
             print(Fore.RED + f"{len(still_fails)} models still fail " +
-                    Fore.GREEN + f"{len(fixed)} models no longer fail" + Style.RESET_ALL, flush=True)
+                    Fore.GREEN + f"{len(fixed)} models no longer fail " +
+                    Fore.YELLOW + f"{skipped_count} models skipped (fuzz_test_crash)" + Style.RESET_ALL, flush=True)
 
             if args.elaborate:
                 print(f"\n{Fore.RED}Still failing models:{Style.RESET_ALL}")
@@ -366,7 +474,7 @@ if __name__ == '__main__':
 
             if args.remove or args.move_dir:
                 for f, result in results.items():
-                    if result is True:
+                    if result is not None and hasattr(result, 'type') and result.type == FuzzTestErrorType.ok:
                         txt_file = f.replace('.pickle', '.txt')
                         if args.move_dir:
                             if os.path.exists(txt_file):
@@ -387,6 +495,30 @@ if __name__ == '__main__':
         """
         Rerun a single model
         """
+        # Check if this is a fuzz_test_crash file
+        try:
+            # Try to load as Exit object first
+            try:
+                error = Exit.load(failed_model_file)
+                if error.type == FuzzTestErrorType.fuzz_test_crash:
+                    print(f"Skipping {failed_model_file} - fuzz_test_crash instances are not suitable for retesting")
+                    sys.exit(0)
+            except (TypeError, AttributeError):
+                # If Exit.load fails, try loading as raw pickle (dictionary format)
+                import pickle
+                with open(failed_model_file, 'rb') as f:
+                    error_data = pickle.load(f)
+
+                # Check if it's dictionary format with nested error
+                if isinstance(error_data, dict) and 'error' in error_data:
+                    error_type = error_data['error'].get('type')
+                    if error_type == FuzzTestErrorType.fuzz_test_crash:
+                        print(f"Skipping {failed_model_file} - fuzz_test_crash instances are not suitable for retesting")
+                        sys.exit(0)
+        except Exception:
+            # If we can't load the file, proceed with normal processing
+            pass
+
         manager = Manager()
         current_amount_of_errors = manager.Value("i",0)
         current_amount_of_tests = manager.Value("i",0)
@@ -396,7 +528,7 @@ if __name__ == '__main__':
         print("detected file")
         result = rerun_file(failed_model_file,output_dir,lock,current_amount_of_tests,current_amount_of_errors, args.max_fuzz_seconds)
         print("\nsucessfully tested model")
-        if result != True:
+        if result is not None and hasattr(result, 'type') and result.type != FuzzTestErrorType.ok:
             print(Fore.RED + f"Found Error: {result.exception}, see the output file for more details")
         else:
             print(Fore.GREEN +"\nNo errors were found")

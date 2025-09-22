@@ -39,7 +39,7 @@ class Optimization_Verifier(Verifier):
         self.objective = self.original_model.objective_
         self.minimize = self.original_model.objective_is_min
         model = cp.Model(self.cons)
-        self.mutators = [copy.deepcopy(self.cons)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
+        self.mutators = [(copy.deepcopy(self.cons), self.seed)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
         if self.minimize:
             model.minimize(self.objective)
         else:
@@ -103,8 +103,19 @@ class Optimization_Verifier(Verifier):
                         )
 
         except Exception as e:
+            if isinstance(e, TimeoutError) or "Operation timed out" in str(e):
+                # Handle TimeoutError as timeout, not internalcrash
+                return FuzzExit(
+                            type=FuzzTestErrorType.timeout,
+                            verifier=self,
+                            exception=e,
+                            mutators=self.mutators,
+                            model=model,
+                            originalmodel=self.original_model,
+                            originalmodel_file=self.model_file
+                        )
             # TODO: was missing here?
-            # if isinstance(e,(CPMpyException, NotImplementedError)):
+            # elif isinstance(e,(CPMpyException, NotImplementedError)):
             #     # expected error message
             #     return FuzzExit(
             #                 type=FuzzTestErrorType.expected_error,

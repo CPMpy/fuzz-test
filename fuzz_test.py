@@ -221,7 +221,7 @@ if __name__ == '__main__':
         pipes.append(parent_conn)
 
         # Pass child_conn into the process
-        fuzz_time_limit = args.max_fuzz_seconds if args.max_fuzz_seconds is not None else 20
+        fuzz_time_limit = args.max_fuzz_seconds if args.max_fuzz_seconds is not None else 10
         process_args = (child_conn, current_amount_of_tests, current_amount_of_error, current_amount_of_timeouts, lock, args.solver, args.mutations_per_model, models, max_failed_tests, args.output_dir, max_time, fuzz_time_limit, child_seed)
         processes.append(Process(target=run_with_pipe,args=process_args))
 

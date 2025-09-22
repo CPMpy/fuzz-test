@@ -35,7 +35,7 @@ class Model_Count_Verifier(Verifier):
         assert (len(self.cons)>0), f"{self.model_file} has no constraints"
         self.cons = toplevel_list(self.cons)
         self.sol_count = cp.Model(self.cons).solveAll(solver=self.solver,time_limit=max(1,min(250,self.time_limit)))
-        self.mutators = [copy.deepcopy(self.cons)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
+        self.mutators = [(copy.deepcopy(self.cons), self.seed)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
         
     def verify_model(self) -> dict:
         try:
@@ -78,7 +78,18 @@ class Model_Count_Verifier(Verifier):
 
 
         except Exception as e:
-            if isinstance(e,(CPMpyException, NotImplementedError)):
+            if isinstance(e, TimeoutError) or "Operation timed out" in str(e):
+                # Handle TimeoutError as timeout, not internalcrash
+                return FuzzExit(
+                            type=FuzzTestErrorType.timeout,
+                            verifier=self,
+                            exception=e,
+                            mutators=self.mutators,
+                            model=model,
+                            originalmodel=self.original_model,
+                            originalmodel_file=self.model_file
+                        )
+            elif isinstance(e,(CPMpyException, NotImplementedError)):
                 # expected error message
                 return FuzzExit(
                             type=FuzzTestErrorType.expected_error,
