@@ -127,7 +127,7 @@ def run_verifiers(
             execution_time = math.floor(time.time() - start_time)
 
             # Check if we got an error
-            if error.type != FuzzTestErrorType.ok:
+            if (error.type != FuzzTestErrorType.ok) and (error.type != FuzzTestErrorType.timeout):
                 # Report back to parent thread (TODO should be separated from this logic, so that verifiers can be run outside of CLI tool)
                 lock.acquire()
                 try:
