@@ -339,6 +339,8 @@ class Verifier():
                 self.model_file = model_file
                 self.initialize_run()
 
+                assert (len(self.cons) > 0), f"{model_file} has no constraints"
+
                 # make a random selection of mutators
                 mutators = self.generate_mutations()
                 self.mutators += mutators
