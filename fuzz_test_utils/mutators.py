@@ -1,11 +1,12 @@
 import copy
 import random
+from typing import List
 
 from cpmpy.transformations.negation import push_down_negation
 from cpmpy.transformations.to_cnf import flat2cnf
 
 from cpmpy import intvar, Model
-from cpmpy.expressions.core import Operator, Comparison
+from cpmpy.expressions.core import Operator, Comparison, Expression
 from cpmpy.transformations.decompose_global import decompose_in_tree
 from cpmpy.transformations.safening import no_partial_functions
 from cpmpy.transformations.get_variables import get_variables
@@ -19,15 +20,25 @@ from cpmpy.transformations.comparison import only_numexpr_equality
 from cpmpy.expressions.globalconstraints import Xor
 
 
-'''TRUTH TABLE BASED MORPHS'''
-def not_morph(cons):
+# ---------------------------------------------------------------------------- #
+#                           TRUTH TABLE BASED MORPHS                           #
+# ---------------------------------------------------------------------------- #
+
+def not_morph(cons:List[Expression]):
+    """
+    Negate a random subset of constraints.
+    """
     con = random.choice(cons)
     ncon = ~con
     return [~ncon]
+
 def xor_morph(cons):
-    '''morph two constraints with XOR'''
+    """
+    Morph two constraints with XOR
+    """
+    if len(cons) < 2: return [] # need at least two constraints
     con1, con2 = random.choices(cons,k=2)
-    #add a random option as per xor truth table
+    # add a random option as per 'xor' truth table
     return [random.choice((
         Xor([con1, ~con2]),
         Xor([~con1, con2]),
@@ -35,8 +46,12 @@ def xor_morph(cons):
         ~Xor([con1, con2])))]
 
 def and_morph(cons):
-    '''morph two constraints with AND'''
+    """
+    Morph two constraints with AND
+    """
+    if len(cons) < 2: return [] # need at least two constraints
     con1, con2 = random.choices(cons,k=2)
+    # add all options as per 'and' truth table
     return [random.choice((
         ~((con1) & (~con2)),
         ~((~con1) & (~con2)),
@@ -44,9 +59,12 @@ def and_morph(cons):
         ((con1) & (con2))))]
 
 def or_morph(cons):
-    '''morph two constraints with OR'''
+    """
+    Morph two constraints with OR'
+    """
+    if len(cons) < 2: return [] # need at least two constraints
     con1, con2 = random.choices(cons,k=2)
-    #add all options as per xor truth table
+    # add all options as per 'or' truth table
     return [random.choice((
         ((con1) | (~con2)),
         ~((~con1) | (~con2)),
@@ -54,10 +72,13 @@ def or_morph(cons):
         ((con1) | (con2))))]
 
 def implies_morph(cons):
-    '''morph two constraints with ->'''
+    """
+    Morph two constraints with ->
+    """
+    if len(cons) < 2: return [] # need at least two constraints
     con1, con2 = random.choices(cons,k=2)
     try:
-        #add all options as per xor truth table
+        # add all options as per 'implies' truth table
         return [random.choice((
             ~((con1).implies(~con2)),
             ((~con1).implies(~con2)),
@@ -70,11 +91,14 @@ def implies_morph(cons):
     except Exception as e:
         raise MetamorphicError(implies_morph,cons,e)
 
-'''CPMPY-TRANSFORMATION MORPHS'''
+
+# ---------------------------------------------------------------------------- #
+#                          CPMPY-TRANSFORMATION MORPHS                         #
+# ---------------------------------------------------------------------------- #
 
 def canonical_comparison_morph(cons):
     n = random.randint(1, len(cons))
-    randcons = random.choices(cons, k=n)
+    randcons = random.choices(cons, k=n) # <- TODO: why inconsistent use of random subset?
     try:
         return canonical_comparison(cons)
     except Exception as e:
@@ -91,13 +115,11 @@ def flatten_morph(cons, flatten_all=False):
     except Exception as e:
         raise MetamorphicError(flatten_constraint,randcons, e)
 
-
 def simplify_boolean_morph(cons):
     try:
         return simplify_boolean(cons)
     except Exception as e:
         raise MetamorphicError(simplify_boolean, cons, e)
-
 
 def only_numexpr_equality_morph(cons,supported=frozenset()):
     if len(cons) == 1:
@@ -111,7 +133,6 @@ def only_numexpr_equality_morph(cons,supported=frozenset()):
         return newcons
     except Exception as e:
         raise MetamorphicError(only_numexpr_equality, flatcons, e)
-
 
 def normalized_boolexpr_morph(cons):
     '''normalized_boolexpr only gets called within other transformations, so can probably safely be omitted from our test.
@@ -175,7 +196,6 @@ def normalized_numexpr_morph(const):
     except Exception as e:
         raise MetamorphicError(normalized_numexpr_morph, cons, e)
 
-
 def linearize_constraint_morph(cons,linearize_all=False, supported={}, safen_toplevel={}):
     if linearize_all:
         randcons = cons
@@ -202,13 +222,11 @@ def reify_rewrite_morph(cons):
     except Exception as e:
         raise MetamorphicError(reify_rewrite, flatcons, e)
 
-
 def push_down_negation_morph(cons):
     try:
         return push_down_negation(cons)
     except Exception as e:
         raise MetamorphicError(push_down_negation, cons, e)
-
 
 def flatten_objective_morph(objective):
     '''Only for optimization problems, pass the objective function, not constraints'''
@@ -248,8 +266,6 @@ def only_positive_bv_morph(cons):
     except Exception as e:
         raise MetamorphicError(only_positive_bv, lincons, e)
 
-
-
 def flat2cnf_morph(cons):
     #flatcons = flatten_morph(cons,flatten_all=True)
     onlycons = only_bv_reifies_morph(cons,morph_all=True)
@@ -257,12 +273,18 @@ def flat2cnf_morph(cons):
         return flat2cnf(onlycons)
     except Exception as e:
         raise MetamorphicError(flat2cnf, onlycons, e)
+    
 def toplevel_list_morph(cons):
     try:
         return toplevel_list(cons)
     except Exception as e:
         raise MetamorphicError(toplevel_list, cons, e)
 
+
+
+# ---------------------------------------------------------------------------- #
+#                                 OTHER MORPHS                                 #
+# ---------------------------------------------------------------------------- #
 
 def add_solution(cons):
     vars = get_variables(cons)
@@ -532,6 +554,7 @@ def semanticFusionwsum(const):
 
     except Exception as e:
         raise MetamorphicError(semanticFusionwsum, cons, e)
+    
 def semanticFusionCountingwsum(const):
     try:
         firstcon = None
@@ -853,6 +876,11 @@ def aritmetic_comparison_morph(const):
             return [newfirst]
     except Exception as e:
         raise MetamorphicError(aritmetic_comparison_morph, cons, e)
+    
+
+# ---------------------------------------------------------------------------- #
+#                                     UTILS                                    #
+# ---------------------------------------------------------------------------- #
 
 class MetamorphicError(Exception):
     pass
