@@ -1,3 +1,4 @@
+import ctypes
 import glob
 import math
 from typing import Optional
@@ -101,6 +102,18 @@ def run_verifiers(
                             originalmodel=random_verifier.original_model,
                             model = None,
                         )
+            except ctypes.ArgumentError as e: # <- z3 can raise its own timeout exception (maybe should be translated to TimeoutError somewhere closer to where error occurs)
+                # optional: inspect the message to be sure it's the Z3 timeout signature
+                if "Operation timed out" in str(e):
+                    error = FuzzExit(
+                        type=FuzzTestErrorType.timeout,
+                        verifier=random_verifier,
+                        originalmodel_file=random_verifier.model_file,
+                        exception=f"ctypes.ArgumentError (timeout): {e}",
+                        stacktrace=traceback.format_exc(),
+                        originalmodel=random_verifier.original_model,
+                        model=None,
+                    )
             error.verifier_kwargs = verifier_kwargs | {"seed": random_seed}
 
             # Expected error -> skip
