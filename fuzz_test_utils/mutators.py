@@ -2,8 +2,10 @@ import copy
 import random
 from typing import List
 
+from cpmpy.transformations.reification import only_implies
 from cpmpy.transformations.negation import push_down_negation
 from cpmpy.transformations.to_cnf import flat2cnf
+from cpmpy.transformations.safening import no_partial_functions
 
 from cpmpy import intvar, Model
 from cpmpy.expressions.core import Operator, Comparison, Expression
@@ -99,10 +101,12 @@ def implies_morph(cons):
 def canonical_comparison_morph(cons):
     n = random.randint(1, len(cons))
     randcons = random.choices(cons, k=n) # <- TODO: why inconsistent use of random subset?
+
+    flatcons = flatten_morph(cons, flatten_all=True)
     try:
-        return canonical_comparison(cons)
+        return canonical_comparison(flatcons)
     except Exception as e:
-        raise MetamorphicError(canonical_comparison, cons, e)
+        raise MetamorphicError(canonical_comparison, flatcons, e)
 
 def flatten_morph(cons, flatten_all=False):
     if flatten_all is False:
@@ -128,15 +132,17 @@ def only_numexpr_equality_morph(cons,supported=frozenset()):
         n = random.randint(1, len(cons))
         randcons = random.choices(cons, k=n)
     flatcons = flatten_morph(randcons, flatten_all=True) # only_numexpr_equality requires flat constraints
+    safecons = no_partial_functions(flatcons)
     try:
-        newcons = only_numexpr_equality(flatcons, supported=supported)
+        newcons = only_numexpr_equality(safecons, supported=supported)
         return newcons
     except Exception as e:
-        raise MetamorphicError(only_numexpr_equality, flatcons, e)
+        raise MetamorphicError(only_numexpr_equality, safecons, e)
 
 def normalized_boolexpr_morph(cons):
     '''normalized_boolexpr only gets called within other transformations, so can probably safely be omitted from our test.
     Keeping it in gives unwanted results, for example crashing on flatvar input'''
+
     randcon = random.choice(cons)
     if not __is_flat_var(randcon):
         try:
@@ -202,25 +208,30 @@ def linearize_constraint_morph(cons,linearize_all=False, supported={}, safen_top
     else:
         n = random.randint(1, len(cons))
         randcons = random.choices(cons, k=n)
+      
+    safecons = no_partial_functions_morph(randcons, safen_toplevel=safen_toplevel)
+    decompcons = decompose_in_tree_morph(safecons, decompose_all=True, supported=supported)
+    #flatcons = flatten_morph(decompcons, flatten_all=True) # <- included in only_bv_reifies_morph
+    reifiedcons = only_bv_reifies_morph(decompcons, morph_all=True)
+    impliedcons = only_implies(reifiedcons)
 
-    safencons = no_partial_functions_morph(randcons, safen_toplevel=safen_toplevel)
-    # safencons = randcons
-    decomcons = decompose_in_tree_morph(safencons, decompose_all=True, supported=supported)
-    flatcons = only_bv_reifies_morph(decomcons, morph_all=True)
     try:
-        return linearize_constraint(flatcons, supported={'mul'})
+        return linearize_constraint(impliedcons, supported={'mul'}) # TODO: 'mul' will fail with pindakaas
     except Exception as e:
-        raise MetamorphicError(linearize_constraint, flatcons, e)
+        raise MetamorphicError(linearize_constraint, impliedcons, e)
 
 def reify_rewrite_morph(cons):
     n = random.randint(1, len(cons))
     randcons = random.choices(cons, k=n)
+
     decomps = decompose_in_tree_morph(randcons, decompose_all=True)
     flatcons = flatten_morph(decomps, flatten_all=True)
+    safecons = no_partial_functions(flatcons)
+
     try:
-        return reify_rewrite(flatcons)
+        return reify_rewrite(safecons)
     except Exception as e:
-        raise MetamorphicError(reify_rewrite, flatcons, e)
+        raise MetamorphicError(reify_rewrite, safecons, e)
 
 def push_down_negation_morph(cons):
     try:
@@ -267,12 +278,11 @@ def only_positive_bv_morph(cons):
         raise MetamorphicError(only_positive_bv, lincons, e)
 
 def flat2cnf_morph(cons):
-    #flatcons = flatten_morph(cons,flatten_all=True)
-    onlycons = only_bv_reifies_morph(cons,morph_all=True)
+    flatcons = flatten_morph(cons,flatten_all=True)
     try:
-        return flat2cnf(onlycons)
+        return flat2cnf(flatcons)
     except Exception as e:
-        raise MetamorphicError(flat2cnf, onlycons, e)
+        raise MetamorphicError(flat2cnf, flatcons, e)
     
 def toplevel_list_morph(cons):
     try:
