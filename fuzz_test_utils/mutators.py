@@ -212,7 +212,7 @@ def linearize_constraint_morph(cons,linearize_all=False, supported={}, safen_top
     safecons = no_partial_functions_morph(randcons, safen_toplevel=safen_toplevel)
     decompcons = decompose_in_tree_morph(safecons, decompose_all=True, supported=supported)
     #flatcons = flatten_morph(decompcons, flatten_all=True) # <- included in only_bv_reifies_morph
-    reifiedcons = only_bv_reifies_morph(decompcons, morph_all=True)
+    reifiedcons = only_bv_reifies_morph(decompcons, morph_all=True, safen=False)
     impliedcons = only_implies(reifiedcons)
 
     try:
@@ -258,17 +258,29 @@ def no_partial_functions_morph(cons,safen_toplevel={}):
     except Exception as e:
         raise MetamorphicError(no_partial_functions, cons, e)
 
-def only_bv_reifies_morph(cons,morph_all=True):
+def only_bv_reifies_morph(cons,morph_all=True,safen=True):
     if morph_all:
         randcons = cons
     else:
         n = random.randint(1, len(cons))
         randcons = random.choices(cons, k=n)
     flatcons = flatten_morph(randcons, flatten_all=True)
+    if safen:
+        """
+        (x / y > 1) -> p
+        ~p -> ~(x / y > 1)
+
+        # Need safening for y == 0
+        ~(x / y > 1) <-> (x / y <= 1) v (y == 0)
+        """
+        safecons = no_partial_functions_morph(flatcons, safen_toplevel={})
+    else:
+        safecons = flatcons
+
     try:
-        return only_bv_reifies(flatcons)
+        return only_bv_reifies(safecons)
     except Exception as e:
-        raise MetamorphicError(only_bv_reifies, flatcons, e)
+        raise MetamorphicError(only_bv_reifies, safecons, e)
 
 def only_positive_bv_morph(cons):
     lincons = linearize_constraint_morph(cons, linearize_all=True, supported={}, safen_toplevel={})
