@@ -192,9 +192,10 @@ def normalized_numexpr_morph(const):
                     if isinstance(arg.args, tuple):
                         listargs = list(arg.args)
                         listargs[i] = con
-                        arg._args = tuple(listargs)
+                        arg.update_args(tuple(listargs))
                     else:
                         arg._args[i] = con
+                        arg.update_args(arg._args)
                 else:
                     arg = arg.args[i]
 
@@ -374,8 +375,9 @@ def semanticFusion(const):
                 c+=1
                 if c == len(firstcon):
                     if isinstance(arg.args, tuple):
-                        arg._args = list(arg.args)
+                        arg.update_args(list(arg.args))
                     arg.args[i] = firstexpr
+                    arg.update_args(arg._args)
                 else:
                     arg = arg.args[i]
 
@@ -388,8 +390,9 @@ def semanticFusion(const):
                 c += 1
                 if c == len(secondcon):
                     if isinstance(arg.args, tuple):
-                        arg._args = list(arg.args)
+                        arg.update_args(list(arg.args))
                     arg._args[i] = secondexpr
+                    arg.update_args(arg._args)
                 else:
                     arg = arg.args[i]
 
@@ -460,8 +463,9 @@ def semanticFusionMinus(const):
                 c+=1
                 if c == len(firstcon):
                     if isinstance(arg.args, tuple):
-                        arg._args = list(arg.args)
+                        arg.update_args(list(arg.args))
                     arg.args[i] = firstexpr
+                    arg.update_args(arg._args)
                 else:
                     arg = arg.args[i]
 
@@ -474,8 +478,9 @@ def semanticFusionMinus(const):
                 c += 1
                 if c == len(secondcon):
                     if isinstance(arg.args, tuple):
-                        arg._args = list(arg.args)
+                        arg.update_args(list(arg.args))
                     arg._args[i] = secondexpr
+                    arg.update_args(arg._args)
                 else:
                     arg = arg.args[i]
 
@@ -551,6 +556,7 @@ def semanticFusionwsum(const):
                     if isinstance(arg.args, tuple):
                         arg._args = list(arg.args)
                     arg.args[i] = firstexpr
+                    arg.update_args(arg._args)
                 else:
                     arg = arg.args[i]
 
@@ -565,6 +571,7 @@ def semanticFusionwsum(const):
                     if isinstance(arg.args, tuple):
                         arg._args = list(arg.args)
                     arg._args[i] = secondexpr
+                    arg.update_args(arg._args)
                 else:
                     arg = arg.args[i]
 
@@ -641,6 +648,7 @@ def semanticFusionCountingwsum(const):
                     if isinstance(arg.args, tuple):
                         arg._args = list(arg.args)
                     arg.args[i] = firstexpr
+                    arg.update_args(arg._args)
                 else:
                     arg = arg.args[i]
 
@@ -655,6 +663,7 @@ def semanticFusionCountingwsum(const):
                     if isinstance(arg.args, tuple):
                         arg._args = list(arg.args)
                     arg._args[i] = secondexpr
+                    arg.update_args(arg._args)
                 else:
                     arg = arg.args[i]
 
@@ -729,6 +738,7 @@ def semanticFusionCounting(const):
                     if isinstance(arg.args, tuple):
                         arg._args = list(arg.args)
                     arg.args[i] = firstexpr
+                    arg.update_args(arg._args)
                 else:
                     arg = arg.args[i]
 
@@ -743,6 +753,7 @@ def semanticFusionCounting(const):
                     if isinstance(arg.args, tuple):
                         arg._args = list(arg.args)
                     arg._args[i] = secondexpr
+                    arg.update_args(arg._args)
                 else:
                     arg = arg.args[i]
 
@@ -815,6 +826,7 @@ def semanticFusionCountingMinus(const):
                     if isinstance(arg.args, tuple):
                         arg._args = list(arg.args)
                     arg._args[i] = firstexpr
+                    arg.update_args(arg._args)
                 else:
                     arg = arg.args[i]
 
@@ -829,6 +841,7 @@ def semanticFusionCountingMinus(const):
                     if isinstance(arg.args, tuple):
                         arg._args = list(arg.args)
                     arg.args[i] = secondexpr
+                    arg.update_args(arg._args)
                 else:
                     arg = arg.args[i]
 
@@ -892,6 +905,7 @@ def aritmetic_comparison_morph(const):
                         arg._args = tuple(listargs)
                     else:
                         arg._args[i] = newcon
+                    arg.update_args(arg._args)
                 else:
                     arg = arg.args[i]
 
