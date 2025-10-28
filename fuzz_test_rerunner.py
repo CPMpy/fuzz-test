@@ -33,7 +33,10 @@ def rerun_file(failed_model_file,output_dir ):
         error_data = pickle.loads(fpcl.read())
         random.seed(error_data["seed"])
         if error_data["error"]["type"].name != "fuzz_test_crash": # if it is a fuzz_test crash error we skip it
-            verifier_kwargs = {'solver': error_data["solver"], "mutations_per_model": error_data["mutations_per_model"], "exclude_dict": {}, "time_limit": time.time()*3600, "seed": error_data["seed"]}
+            solver = error_data["solver"]
+            verifier_kwargs = {'solver': solver, "mutations_per_model": error_data["mutations_per_model"], "exclude_dict": {}, "time_limit": time.time()*3600, "seed": error_data["seed"]}
+            if 'mm_prob' in error_data["error"]:
+                verifier_kwargs['mm_prob'] = error_data["error"]["mm_prob"]
             error = lookup_verifier(error_data["verifier"])(**verifier_kwargs).rerun(error_data["error"])
             error_data["error"] = error
 
