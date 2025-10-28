@@ -6,6 +6,8 @@ import traceback
 import time
 from pathlib import Path
 from multiprocessing import Process,Lock, Manager, set_start_method,Pool, cpu_count
+import csv
+from datetime import datetime
 
 import cpmpy as cp
 
@@ -66,9 +68,20 @@ if __name__ == '__main__':
     
     # creating processes to run all the tests
     processes = []
-    process_args = (current_amount_of_tests, current_amount_of_error, lock, args.solver, args.mutations_per_model ,models ,max_failed_tests,args.output_dir, max_time, args.mm_prob)
+
+    # FOR EXPERIMENTS:
+    solvers = ['ortools', 'minizinc', 'choco', 'gurobi']
+    verifiers = ["solver_vote_count_verifier", "solver_vote_eq_verifier", "solver_vote_sat_verifier", "solver_vote_sol_verifier", "strengthening_weakening_verifier"]
+    solver_counts = {s: manager.Value(f"{s}", 0) for s in solvers}
+    verifier_counts = {v: manager.Value(f"{v}", 0) for v in verifiers}
+    verifier_run_times = {v: manager.Value(f"{v}", 0) for v in verifiers}
+    from itertools import combinations
+    solver_combos = [list(c) for c in combinations(solvers, 2)]
 
     for x in range(args.amount_of_processes):
+        process_args = (current_amount_of_tests, current_amount_of_error, lock, solver_combos[x],
+                        args.mutations_per_model, models, max_failed_tests, args.output_dir, max_time, args.mm_prob,
+                        solver_counts, verifier_counts, verifier_run_times)  # PAS TERUG AAN NA EXPERIMENTEN
         processes.append(Process(target=run_verifiers,args=process_args))
 
     try:
@@ -77,8 +90,14 @@ if __name__ == '__main__':
             process.start()
 
         for process in processes:
-            process.join()
-            process.close()
+            process.join(timeout=args.max_minutes*60)  # wait max double minutes
+
+        # If any process is still alive after timeout, terminate it
+        for process in processes:
+            if process.is_alive():
+                print(f"Forcefully terminating process {process.pid}", flush=True)
+                process.terminate()
+                process.join()  # Clean up
             
     except KeyboardInterrupt as e:
         print("interrupting...",flush=True,end="\n")
@@ -97,4 +116,45 @@ if __name__ == '__main__':
         else:
             print("Succesfully executed " +str(current_amount_of_tests.value) + " tests, "+str(current_amount_of_error.value)+" tests failed",flush=True,end="\n")
 
+        run_name = args.output_dir
+        minutes_ran = args.max_minutes
+        mpm = args.mutations_per_model
+        mm_prob = args.mm_prob
+        amnt_tests = current_amount_of_tests.value
+        amnt_errors = current_amount_of_error.value
+        solver_count_vals = {s: c.value for s, c in solver_counts.items()}
+        verifier_count_vals = {v: c.value for v, c in verifier_counts.items()}
+        verifier_runtime_vals = {v: t.value for v, t in verifier_run_times.items()}
+        print(f"Run \"{run_name}\" ran for {minutes_ran} minutes and executed {amnt_tests} tests of which {amnt_errors} failed.")
+        print("Amount of times each solver ran for:", solver_count_vals)
+        print("Amount of times each verifier ran:", verifier_count_vals)
+        print("Time each verifier ran:", verifier_runtime_vals)
 
+        # Prepare timestamp and filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        stats_filename = f"{run_name}_{timestamp}.csv"
+
+        # Create the rows for the CSV
+        headers = ["run_name", "mutations_per_model", "mm_probability", "minutes_ran", "amnt_tests", "amnt_errors"]
+        row = [run_name, mpm, mm_prob, minutes_ran, amnt_tests, amnt_errors]
+
+        # Optionally, flatten solver and verifier data into columns
+        for s, count in solver_count_vals.items():
+            headers.append(f"solver_count_{s}")
+            row.append(count)
+
+        for v, count in verifier_count_vals.items():
+            headers.append(f"verifier_count_{v}")
+            row.append(count)
+
+        for v, t in verifier_runtime_vals.items():
+            headers.append(f"verifier_runtime_{v}")
+            row.append(t)
+
+        # Save to CSV
+        with open(stats_filename, mode="w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(headers)
+            writer.writerow(row)
+
+        print(f"Saved run statistics to {stats_filename}")

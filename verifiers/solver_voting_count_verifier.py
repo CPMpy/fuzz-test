@@ -56,7 +56,7 @@ class Solver_Vote_Count_Verifier(Solver_Voting_Verifier):
         self.cons = toplevel_list(self.cons)
         assert len(self.solvers) > 1, f"More than 1 solver required, given solvers: {self.solvers}."
         if 'gurobi' in [s.lower() for s in self.solvers]:  # Because gurobi can't run solveAll without solution_limit
-            self.sol_lim = 10000  # TODO: is hardcode best idea?
+            self.sol_lim = 10000  # Should this be hardcoded?
 
         # Optional: Check before applying the mutations. This should never fail...
 

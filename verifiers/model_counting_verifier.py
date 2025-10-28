@@ -35,7 +35,7 @@ class Model_Count_Verifier(Verifier):
         assert (len(self.cons)>0), f"{self.model_file} has no constraints"
         self.cons = toplevel_list(self.cons)
         if self.solver == 'gurobi':
-            self.sol_lim = 10000  # TODO: is hardcode best idea?
+            self.sol_lim = 10000  # Should this be hardcoded?
             self.sol_count = cp.Model(self.cons).solveAll(solver=self.solver,time_limit=max(1,min(250,self.time_limit-time.time())), solution_limit=self.sol_lim)
         else:
             self.sol_count = cp.Model(self.cons).solveAll(solver=self.solver,time_limit=max(1,min(250,self.time_limit-time.time())))

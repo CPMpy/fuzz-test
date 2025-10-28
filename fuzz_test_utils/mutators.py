@@ -1485,7 +1485,7 @@ def get_return_type(expr: Expression, con: Expression):
                                      GlobalCardinalityCount: (2, (None,)),
                                      Table: (3, (1, None)),
                                      NegativeTable: (3, (1, None)),
-                                     # Count: (1, (1, None)),  # TODO: I don't think this is necessary, so check this.
+                                     # Count: (1, (1, None)),  # TODO: Is this still necessary?
                                      'pow': (1, (1, None)),
                                      'wsum': (2, (0, None))}
     variable_restricted_functions = {Table: (2, (0, None)),
@@ -1625,7 +1625,7 @@ def strengthen_expr(expr: Expression, path: tuple, con: Expression) -> Expressio
     ~ Returns:
         - `con`: the constraint after the mutation.
     """
-    # TODO: 'and' & 'or' strengthenable by adding/removing args
+    # TODO: 'and' & 'or' strengthenable by adding/removing args + other functions too
     match expr.name:  # {'or', '->', '!=', '<=', '>='}
         case 'or':  # and, xor, !=, <, >
             args = expr.args
@@ -1695,7 +1695,7 @@ def weaken_expr(expr: Expression, path: tuple, con: Expression) -> Expression:
     ~ Returns:
         - `con`: the constraint after the mutation.
     """
-    # TODO: 'and' & 'or' weakenable by removing/adding args
+    # TODO: 'and' & 'or' weakenable by removing/adding args + other functions too
     match expr.name:  # {'and', 'xor', '==', '<', '>'}
         case 'and':  # or, ->, ==, <=, >=
             args = expr.args
@@ -1834,9 +1834,9 @@ def strengthening_weakening_mutator(constraints: list, strengthen: bool = True) 
 def change_domain_mutator(constraints: list, strengthen: bool):
     # TODO? something else for boolean variables?
     try:
-        # Take random variable
-        variables = get_variables(constraints)
-        if variables:  # Improbable but it's possible there are no variables
+        # Take random integer variable
+        variables = [v for v in get_variables(constraints) if not is_boolexpr(v)]
+        if variables:  # Don't change if no integer variables
             rand_var = random.choice(variables)
 
             lb = rand_var.lb
