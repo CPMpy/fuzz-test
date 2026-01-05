@@ -205,25 +205,20 @@ Error Details
                 "exception":e,
                 "stacktrace":traceback.format_exc()
             }
-            # error = FuzzExit(
-            #     type=FuzzTestErrorType.timeout,
-            #     verifier=random_verifier,
-            #     originalmodel_file=random_verifier.model_file,
-            #     exception="timeout",
-            #     stacktrace=traceback.format_exc(),
-            #     originalmodel=random_verifier.original_model,
-            #     model = None,
-            # )
+
             lock.acquire()
             try:
+
                 error_data = {
                     'solver' : solver, 
                     'mutations_per_model' : mutations_per_model, 
                     "seed": random_seed, 
                     "execution_time": execution_time, 
                     "error": error, 
-                    "verifier": random_verifier.getName()
+                    "verifier": random_verifier.getName(),
+                    "model": random_verifier.original_model
                 }
+
                 write_error(error_data,output_dir)
 
                 current_amount_of_tests.value += 1
