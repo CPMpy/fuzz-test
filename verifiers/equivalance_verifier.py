@@ -55,7 +55,7 @@ class Equivalance_Verifier(Verifier):
             
             change = new_sols.symmetric_difference(self.original_sols)
             
-            if self.model_timed_out(model):
+            if self.solve_timed_out(model):
                 # timeout
                 return FuzzExit(
                             type=FuzzTestErrorType.timeout,

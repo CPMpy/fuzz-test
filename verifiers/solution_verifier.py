@@ -51,7 +51,9 @@ class Solution_Verifier(Verifier):
             time_limit = max(min(200,self.time_limit),1)
             sat = model.solve(solver=self.solver, time_limit=time_limit)
 
-            if self.model_timed_out(model):
+
+
+            if self.solve_timed_out(model):
                 # timeout, skip
                 return FuzzExit(
                             type=FuzzTestErrorType.timeout,

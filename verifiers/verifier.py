@@ -447,5 +447,10 @@ class Verifier():
         return self.name
 
     @classmethod
-    def model_timed_out(self, model) -> bool:
+    def solve_timed_out(self, model) -> bool:
         return (model.status().exitstatus == ExitStatus.FEASIBLE and model.has_objective()) or (model.status().exitstatus == ExitStatus.UNKNOWN)
+    
+
+    @classmethod
+    def solveAll_timed_out(self, model) -> bool:
+        return (model.status().exitstatus == ExitStatus.FEASIBLE) or (model.status().exitstatus == ExitStatus.UNKNOWN)

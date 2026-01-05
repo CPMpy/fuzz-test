@@ -58,7 +58,7 @@ class Optimization_Verifier(Verifier):
             time_limit=max(min(200,self.time_limit),1) # set the max time limit to the given time limit or to 1 if the self.time_limit-time.time() would be smaller then 1
             
             sat = model.solve(solver=self.solver, time_limit=time_limit)
-            if self.model_timed_out(model):
+            if self.solve_timed_out(model):
                 # timeout
                 return FuzzExit(
                             type=FuzzTestErrorType.timeout,

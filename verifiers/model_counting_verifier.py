@@ -44,7 +44,7 @@ class Model_Count_Verifier(Verifier):
 
             new_count = model.solveAll(solver=self.solver, time_limit=time_limit)
 
-            if self.model_timed_out(model):
+            if self.solveAll_timed_out(model):
                 # timeout
                 return FuzzExit(
                             type=FuzzTestErrorType.timeout,
