@@ -313,7 +313,13 @@ def read_from_pipes(pipes, current_tests, current_errors, total_tests, current_a
             except BrokenPipeError as e:
                 break
 
-        curses.endwin()
+        # curses.wrapper() will handle endwin() automatically
+        # Only call endwin() here if we're not using wrapper, but wrap in try-except for safety
+        try:
+            curses.endwin()
+        except curses.error:
+            # Terminal state is already invalid, ignore the error
+            pass
 
     curses.wrapper(curses_main)
 

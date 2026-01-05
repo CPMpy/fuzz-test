@@ -140,7 +140,13 @@ def read_from_pipes(pipes: List[Connection], current_tests, current_errors, curr
                 continue
 
     curses.wrapper(curses_main)
-    curses.endwin()
+    # curses.wrapper() already handles endwin(), but call it again to be safe
+    # Wrap in try-except to handle cases where terminal state is invalid (e.g., in multiprocessing)
+    try:
+        curses.endwin()
+    except curses.error:
+        # Terminal state is already invalid, ignore the error
+        pass
 
     print("Exiting monitor")
 
@@ -225,6 +231,7 @@ if __name__ == '__main__':
         process_args = (child_conn, current_amount_of_tests, current_amount_of_error, current_amount_of_timeouts, lock, args.solver, args.mutations_per_model, models, max_failed_tests, args.output_dir, max_time, fuzz_time_limit, child_seed)
         processes.append(Process(target=run_with_pipe,args=process_args))
 
+    interrupted = False
     try:
         # Start minitoring process
         monitor_process = Process(target=read_from_pipes, args=(pipes, current_amount_of_tests, current_amount_of_error, current_amount_of_timeouts))
@@ -244,9 +251,11 @@ if __name__ == '__main__':
             #     break
             time.sleep(0.2)
 
-
     except KeyboardInterrupt as e:
-        print("interrupting...",flush=True,end="\n")
+        interrupted = True
+        print("\n⚠️  Interrupt received, gracefully shutting down...",flush=True,end="\n")
+        # Give processes a moment to finish current work
+        print("Waiting for processes to complete current tests...",flush=True,end="\n")
     except Exception as e: 
         print(f"An unexcpected error occured error:\n{e} \nstacktrace:\n{traceback.format_exc()}",flush=True,end="\n")
     finally:
@@ -262,12 +271,28 @@ if __name__ == '__main__':
         for process in processes:
             if process._popen != None: 
                 process.terminate()
-        print("Quiting fuzz tests \n",flush=True,end="\n")
-
-        if current_amount_of_error.value == max_failed_tests:
-            print("Reached error treshold stopped running futher test, executed "+str(current_amount_of_tests.value) +" tests, "+str(current_amount_of_error.value)+" tests failed",flush=True,end="\n")
+        
+        if interrupted:
+            print("⚠️  Fuzz test was interrupted",flush=True,end="\n")
         else:
-            print("Succesfully executed " +str(current_amount_of_tests.value) + " tests, "+str(current_amount_of_error.value)+" tests failed",flush=True,end="\n")
+            print("Quiting fuzz tests",flush=True,end="\n")
 
-        sys.exit()
+        # Always report stats, even if interrupted
+        print("\n" + "="*60,flush=True)
+        print("📊 FINAL STATISTICS",flush=True)
+        print("="*60,flush=True)
+        print(f"Total tests executed: {current_amount_of_tests.value}",flush=True)
+        print(f"Errors found: {current_amount_of_error.value}",flush=True)
+        print(f"Timeouts: {current_amount_of_timeouts.value}",flush=True)
+        
+        if current_amount_of_error.value == max_failed_tests:
+            print("Reached error threshold - stopped running further tests",flush=True,end="\n")
+        elif interrupted:
+            print("Test run was interrupted - partial results shown above",flush=True,end="\n")
+        else:
+            print("Test run completed successfully",flush=True,end="\n")
+        
+        print("="*60 + "\n",flush=True)
+
+        sys.exit(0 if not interrupted else 130)  # Exit code 130 is standard for SIGINT
 
