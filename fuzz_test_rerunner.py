@@ -37,8 +37,9 @@ logger = logging.getLogger(__name__)
 def rerun_file(
         failed_model_file,                                          # fuzz test output file to rerun
         output_dir,                                                 # where to save output of rerun
-        lock, current_amount_of_tests, current_amount_of_errors,    # for TUI 
-        max_fuzz_seconds                                            # time limit on rerun
+        lock, current_amount_of_tests, current_amount_of_errors,    # for TUI
+        max_fuzz_seconds,                                           # time limit on rerun
+        mutator_indices=None                                        # indices of mutators to re-apply
     ):
     """
     Function for re-running a fuzz-test error.
@@ -54,10 +55,26 @@ def rerun_file(
     verifier_kwargs = error.verifier_kwargs
     verifier_kwargs["time_limit"] = max_fuzz_seconds # add / update time limit in kwargs
 
+    # Parse mutator indices if provided
+    selected_indices = None
+    if mutator_indices is not None:
+        if mutator_indices.lower().strip() == "none":
+            selected_indices = []  # Empty list means no mutators
+        else:
+            try:
+                selected_indices = [int(x.strip()) for x in mutator_indices.split(',')]
+            except ValueError:
+                print(f"Warning: Invalid mutator indices format '{mutator_indices}', using all mutators")
+                selected_indices = None
+
     # Track execution time
     start_time = time.time()
-    # Re-run verifier (CPMpy reload will happen inside verifier.rerun())
-    rerun_error = lookup_verifier(error.verifier.getName())(**verifier_kwargs).rerun(error) # Rerun the verifier
+    # Re-run verifier with selective mutators
+    verifier_instance = lookup_verifier(error.verifier.getName())(**verifier_kwargs)
+    if selected_indices is not None:
+        rerun_error = verifier_instance.rerun_selective(error, selected_indices)
+    else:
+        rerun_error = verifier_instance.rerun(error)
     execution_time = time.time() - start_time
     rerun_error.verifier_kwargs = verifier_kwargs # store used options
 
@@ -173,7 +190,7 @@ Error Details
     return rerun_error
 
 
-def worker(job_queue, pipe, lock, result_queue, output_dir, current_amount_of_tests, current_amount_of_errors, current_amount_of_workers, elaborate=False, max_fuzz_seconds=10):
+def worker(job_queue, pipe, lock, result_queue, output_dir, current_amount_of_tests, current_amount_of_errors, current_amount_of_workers, elaborate=False, max_fuzz_seconds=10, mutator_indices=None):
     """
     Target for worker processes.
     """
@@ -197,7 +214,7 @@ def worker(job_queue, pipe, lock, result_queue, output_dir, current_amount_of_te
         try:
             with StdoutPipeRedirector(pipe):
                 warnings.filterwarnings("ignore")
-                result = rerun_file(file, output_dir, lock, current_amount_of_tests, current_amount_of_errors, max_fuzz_seconds)
+                result = rerun_file(file, output_dir, lock, current_amount_of_tests, current_amount_of_errors, max_fuzz_seconds, mutator_indices)
                 lock.acquire()
                 try:
                     result_queue.put((file, result))
@@ -326,6 +343,7 @@ if __name__ == '__main__':
     parser.add_argument("-r","--remove", help = "Remove fixed error files", action="store_true")
     parser.add_argument("-M","--move-dir", help = "Directory to move fixed error files to", type=str)
     parser.add_argument("--max-fuzz-seconds", help = "", required=False, default=10, type=check_positive)
+    parser.add_argument("--mutator-indices", help = "Comma-separated list of mutator indices to re-apply (e.g., '0,2,4'), or 'none' to apply no mutators. If not provided, all mutators are re-applied.", type=str)
 
     set_start_method("spawn")
     args = parser.parse_args()
@@ -407,7 +425,7 @@ if __name__ == '__main__':
             pipes.append(parent_conn)
             p = multiprocessing.Process(
                 target=worker,
-                args=(job_queue, child_conn, lock, result_queue, output_dir,current_amount_of_tests, current_amount_of_errors, current_amount_of_workers, args.elaborate, args.max_fuzz_seconds)
+                args=(job_queue, child_conn, lock, result_queue, output_dir,current_amount_of_tests, current_amount_of_errors, current_amount_of_workers, args.elaborate, args.max_fuzz_seconds, args.mutator_indices)
             )
             processes.append(p)
 
@@ -526,7 +544,7 @@ if __name__ == '__main__':
 
         lock = Lock()
         print("detected file")
-        result = rerun_file(failed_model_file,output_dir,lock,current_amount_of_tests,current_amount_of_errors, args.max_fuzz_seconds)
+        result = rerun_file(failed_model_file,output_dir,lock,current_amount_of_tests,current_amount_of_errors, args.max_fuzz_seconds, args.mutator_indices)
         print("\nsucessfully tested model")
         if result is not None and hasattr(result, 'type') and result.type != FuzzTestErrorType.ok:
             print(Fore.RED + f"Found Error: {result.exception}, see the output file for more details")
