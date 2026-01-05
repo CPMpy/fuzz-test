@@ -398,22 +398,19 @@ class Verifier():
                 gen_mutations_error = self.apply_mutations(error.mutators[1:])
                 # gen_mutations_error = self.load_mutations(error.mutators, is_internal_crash)
 
-
                 # check if no error occured while generation the mutations
                 if gen_mutations_error.type == FuzzTestErrorType.ok:
                     return self.verify_model()
                 else:
                     return gen_mutations_error
-        
+
         except AssertionError as e:
-            # TODO does not yet use new dataclass-based error reporting
-            print("A", end='',flush=True)
             type = FuzzTestErrorType.crashed_model
             if "is not sat" in str(e):
                 type = FuzzTestErrorType.unsat_model
             elif "has no constraints" in str(e):
                 type = FuzzTestErrorType.no_constraints_model
-                
+
             return InitializeExit(
                         type=type,
                         verifier=self,
@@ -422,8 +419,78 @@ class Verifier():
                         stacktrace=traceback.format_exc(),
                         #constraints=self.cons,
                         originalmodel=self.original_model
-                        )
-    
+                    )
+
+    def rerun_selective(self, error: Exit, selected_indices: List[int]) -> dict:
+        """
+        This function will rerun a previous failed test with only a subset of mutators
+        TODO: very experimental
+        """
+        try:
+            with temporary_random_seed(self.seed):
+                self.model_file = error.originalmodel_file
+                self.original_model = error.originalmodel
+
+                # Restore the exclude_dict from the original run to ensure same mutator choices
+                self.exclude_dict = error.verifier_kwargs.get('exclude_dict', {})
+
+                # Reset CPMPy global counters BEFORE initialize_run() to match original sequence
+                import cpmpy as cp
+                from importlib import reload
+                reload(cp)
+
+                self.initialize_run()
+
+                # Handle the "none" case (empty list) - apply no mutators
+                if len(selected_indices) == 0:
+                    print("Running with no mutations (--mutator-indices=none)")
+                    return self.verify_model()
+
+                # Filter mutators to only selected indices
+                original_mutators = error.mutators[1:]  # Skip the first element (initial state)
+                if not original_mutators:
+                    # No mutators to apply
+                    return self.verify_model()
+
+                selected_mutators = []
+                for i in selected_indices:
+                    if 0 <= i < len(original_mutators):
+                        selected_mutators.append(original_mutators[i])
+                    else:
+                        print(f"Warning: Mutator index {i} is out of range (0-{len(original_mutators)-1}), skipping")
+
+                if not selected_mutators:
+                    print("Warning: No valid mutator indices provided, running with no mutations")
+                    return self.verify_model()
+
+                # Apply only selected mutators
+                gen_mutations_error = self.apply_mutations(selected_mutators)
+
+                # check if no error occured while generation the mutations
+                if gen_mutations_error.type == FuzzTestErrorType.ok:
+                    return self.verify_model()
+                else:
+                    return gen_mutations_error
+
+        except AssertionError as e:
+            # TODO does not yet use new dataclass-based error reporting
+            print("A", end='',flush=True)
+            type = FuzzTestErrorType.crashed_model
+            if "is not sat" in str(e):
+                type = FuzzTestErrorType.unsat_model
+            elif "has no constraints" in str(e):
+                type = FuzzTestErrorType.no_constraints_model
+
+            return InitializeExit(
+                        type=type,
+                        verifier=self,
+                        originalmodel_file=self.model_file,
+                        exception=e,
+                        stacktrace=traceback.format_exc(),
+                        #constraints=self.cons,
+                        originalmodel=self.original_model
+                    )
+
         except Exception as e:
             print('C', end='', flush=True)
             return InitializeExit(
