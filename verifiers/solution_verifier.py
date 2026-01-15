@@ -51,7 +51,13 @@ class Solution_Verifier(Verifier):
             time_limit = max(min(200,self.time_limit),1)
             sat = model.solve(solver=self.solver, time_limit=time_limit)
 
-
+            # Extract initial processed constraints from mutators (stored right after initialize_run())
+            initial_processed_cons = None
+            if len(self.mutators) > 0:
+                if isinstance(self.mutators[0], tuple) and len(self.mutators[0]) == 2:
+                    initial_processed_cons = self.mutators[0][0]
+                elif isinstance(self.mutators[0], list):
+                    initial_processed_cons = self.mutators[0]
 
             if self.solve_timed_out(model):
                 # timeout, skip
@@ -62,7 +68,8 @@ class Solution_Verifier(Verifier):
                             mutators=self.mutators,
                             model=model,
                             originalmodel=self.original_model,
-                            originalmodel_file=self.model_file
+                            originalmodel_file=self.model_file,
+                            processed_constraints=initial_processed_cons
                         )
             elif sat:
                 # has to be sat
@@ -72,7 +79,8 @@ class Solution_Verifier(Verifier):
                             mutators=self.mutators,
                             model=model,
                             originalmodel=self.original_model,
-                            originalmodel_file=self.model_file
+                            originalmodel_file=self.model_file,
+                            processed_constraints=initial_processed_cons
                         )
             else:
                 return FuzzExit(
@@ -82,7 +90,8 @@ class Solution_Verifier(Verifier):
                             mutators=self.mutators,
                             model=model,
                             originalmodel=self.original_model,
-                            originalmodel_file=self.model_file
+                            originalmodel_file=self.model_file,
+                            processed_constraints=initial_processed_cons
                         )
             
         except Exception as e:
@@ -95,7 +104,8 @@ class Solution_Verifier(Verifier):
                             mutators=self.mutators,
                             model=model,
                             originalmodel=self.original_model,
-                            originalmodel_file=self.model_file
+                            originalmodel_file=self.model_file,
+                            processed_constraints=initial_processed_cons
                         )
             elif isinstance(e,(CPMpyException, NotImplementedError)):
                 # expected error message
@@ -106,7 +116,8 @@ class Solution_Verifier(Verifier):
                             mutators=self.mutators,
                             model=model,
                             originalmodel=self.original_model,
-                            originalmodel_file=self.model_file
+                            originalmodel_file=self.model_file,
+                            processed_constraints=initial_processed_cons
                         )
             return FuzzExit(
                         type=FuzzTestErrorType.internalcrash,
@@ -116,7 +127,8 @@ class Solution_Verifier(Verifier):
                         mutators=self.mutators,
                         model=model,
                         originalmodel=self.original_model,
-                        originalmodel_file=self.model_file
+                        originalmodel_file=self.model_file,
+                        processed_constraints=initial_processed_cons
                     )
         # if you got here, the model failed...
         return FuzzExit(
@@ -125,7 +137,8 @@ class Solution_Verifier(Verifier):
                     mutators=self.mutators,
                     model=model,
                     originalmodel=self.original_model,
-                    originalmodel_file=self.model_file
+                    originalmodel_file=self.model_file,
+                    processed_constraints=initial_processed_cons
                 )
         
  

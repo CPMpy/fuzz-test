@@ -337,6 +337,16 @@ class Verifier():
         try:
             with temporary_random_seed(self.seed):
                 self.model_file = model_file
+
+                # Reset CPMPy global counters BEFORE initialize_run() to match original sequence
+                import cpmpy as cp
+                from importlib import reload
+                from cpmpy.expressions.variables import _IntVarImpl, _BoolVarImpl
+                reload(cp)
+                # Explicitly reset counters after reload to ensure they start from 0
+                _IntVarImpl.counter = 0
+                _BoolVarImpl.counter = 0
+                
                 self.initialize_run()
 
                 assert (len(self.cons) > 0), f"{model_file} has no constraints"
@@ -368,6 +378,8 @@ class Verifier():
                         stacktrace=traceback.format_exc(),
                         originalmodel=self.original_model,
                         originalmodel_file=self.model_file,
+                        mutators=self.mutators,
+                        processed_constraints=self.cons if hasattr(self, 'cons') else None,
                         alternative_label="A"
                     )   
         
@@ -379,7 +391,8 @@ class Verifier():
         try:
             with temporary_random_seed(self.seed):
                 self.model_file = error.originalmodel_file
-                self.original_model = error.originalmodel
+                # Set to None so initialize_run() reloads from file to show what was actually loaded in rerun
+                self.original_model = None
 
                 # Restore the exclude_dict from the original run to ensure same mutator choices
                 self.exclude_dict = error.verifier_kwargs.get('exclude_dict', {})
@@ -387,19 +400,36 @@ class Verifier():
                 # Reset CPMPy global counters BEFORE initialize_run() to match original sequence
                 import cpmpy as cp
                 from importlib import reload
+                from cpmpy.expressions.variables import _IntVarImpl, _BoolVarImpl
                 reload(cp)
+                # Explicitly reset counters after reload to ensure they start from 0
+                # Model.from_file() will then set them based on variables in the loaded model
+                _IntVarImpl.counter = 0
+                _BoolVarImpl.counter = 0
 
                 self.initialize_run()
 
-                # Pass flag to indicate if this is an internalfunctioncrash
-                is_internal_crash = (error.type == FuzzTestErrorType.internalfunctioncrash)
+                assert (len(self.cons) > 0), f"{self.model_file} has no constraints"
 
                 # Apply mutators (same selection with same seeds as original run)
-                gen_mutations_error = self.apply_mutations(error.mutators[1:])
-                # gen_mutations_error = self.load_mutations(error.mutators, is_internal_crash)
+                # Convert error.mutators format to the format expected by apply_mutations
+                # error.mutators format: [(initial_constraints, seed), (function1, seed1), (function2, seed2), ...]
+                # apply_mutations expects: List[Tuple[callable, int]]
+                mutators_to_apply = []
+                for item in error.mutators:
+                    if isinstance(item, tuple) and len(item) == 2:
+                        first, second = item
+                        # Check if first element is a callable (function) - skip initial state tuple
+                        # Initial state tuple has (list, int), mutation tuples have (callable, int)
+                        if callable(first):
+                            mutators_to_apply.append((first, second))
+                
+                gen_mutations_error = self.apply_mutations(mutators_to_apply)
 
                 # check if no error occured while generation the mutations
                 if gen_mutations_error.type == FuzzTestErrorType.ok:
+                    # Convert mutators to tuple format for consistent output format
+                    self.mutators = mutators_to_apply
                     return self.verify_model()
                 else:
                     return gen_mutations_error
@@ -415,10 +445,11 @@ class Verifier():
                         type=type,
                         verifier=self,
                         originalmodel_file=self.model_file,
-                        exception=e,
+                        exception=str(e),
                         stacktrace=traceback.format_exc(),
-                        #constraints=self.cons,
-                        originalmodel=self.original_model
+                        originalmodel=self.original_model,
+                        mutators=self.mutators if hasattr(self, 'mutators') else [],
+                        processed_constraints=self.cons if hasattr(self, 'cons') else None
                     )
 
     def rerun_selective(self, error: Exit, selected_indices: List[int]) -> dict:
@@ -429,7 +460,8 @@ class Verifier():
         try:
             with temporary_random_seed(self.seed):
                 self.model_file = error.originalmodel_file
-                self.original_model = error.originalmodel
+                # Set to None so initialize_run() reloads from file to show what was actually loaded in rerun
+                self.original_model = None
 
                 # Restore the exclude_dict from the original run to ensure same mutator choices
                 self.exclude_dict = error.verifier_kwargs.get('exclude_dict', {})
@@ -437,30 +469,60 @@ class Verifier():
                 # Reset CPMPy global counters BEFORE initialize_run() to match original sequence
                 import cpmpy as cp
                 from importlib import reload
+                from cpmpy.expressions.variables import _IntVarImpl, _BoolVarImpl
                 reload(cp)
+                # Explicitly reset counters after reload to ensure they start from 0
+                # Model.from_file() will then set them based on variables in the loaded model
+                _IntVarImpl.counter = 0
+                _BoolVarImpl.counter = 0
 
                 self.initialize_run()
+
+                assert (len(self.cons) > 0), f"{self.model_file} has no constraints"
 
                 # Handle the "none" case (empty list) - apply no mutators
                 if len(selected_indices) == 0:
                     print("Running with no mutations (--mutator-indices=none)")
+                    self.mutators = []
                     return self.verify_model()
 
-                # Filter mutators to only selected indices
-                original_mutators = error.mutators[1:]  # Skip the first element (initial state)
-                if not original_mutators:
+                # Extract mutators in tuple format
+                # error.mutators could be in tuple format [(initial_state, seed), (callable1, seed1), ...]
+                # or flat list format [initial_state, seed1, function1, ...]
+                mutators_tuples = []
+                if len(error.mutators) > 0:
+                    # Check if first element is a tuple (tuple format)
+                    if isinstance(error.mutators[0], tuple) and len(error.mutators[0]) == 2:
+                        # Tuple format: skip first tuple (initial state), keep rest
+                        mutators_tuples = [item for item in error.mutators[1:] if isinstance(item, tuple) and len(item) == 2 and callable(item[0])]
+                    else:
+                        # Flat list format: extract seed -> function pairs
+                        i = 0
+                        while i < len(error.mutators):
+                            if isinstance(error.mutators[i], int) and i + 1 < len(error.mutators):
+                                seed = error.mutators[i]
+                                function = error.mutators[i + 1]
+                                if hasattr(function, "__name__") and callable(function):
+                                    mutators_tuples.append((function, seed))
+                                i += 2
+                            else:
+                                i += 1
+
+                if not mutators_tuples:
                     # No mutators to apply
+                    self.mutators = []
                     return self.verify_model()
 
                 selected_mutators = []
                 for i in selected_indices:
-                    if 0 <= i < len(original_mutators):
-                        selected_mutators.append(original_mutators[i])
+                    if 0 <= i < len(mutators_tuples):
+                        selected_mutators.append(mutators_tuples[i])
                     else:
-                        print(f"Warning: Mutator index {i} is out of range (0-{len(original_mutators)-1}), skipping")
+                        print(f"Warning: Mutator index {i} is out of range (0-{len(mutators_tuples)-1}), skipping")
 
                 if not selected_mutators:
                     print("Warning: No valid mutator indices provided, running with no mutations")
+                    self.mutators = []
                     return self.verify_model()
 
                 # Apply only selected mutators
@@ -468,6 +530,8 @@ class Verifier():
 
                 # check if no error occured while generation the mutations
                 if gen_mutations_error.type == FuzzTestErrorType.ok:
+                    # Convert mutators to tuple format for consistent output format
+                    self.mutators = selected_mutators
                     return self.verify_model()
                 else:
                     return gen_mutations_error
@@ -485,10 +549,11 @@ class Verifier():
                         type=type,
                         verifier=self,
                         originalmodel_file=self.model_file,
-                        exception=e,
+                        exception=str(e),
                         stacktrace=traceback.format_exc(),
-                        #constraints=self.cons,
-                        originalmodel=self.original_model
+                        originalmodel=self.original_model,
+                        mutators=self.mutators if hasattr(self, 'mutators') else [],
+                        processed_constraints=self.cons if hasattr(self, 'cons') else None
                     )
 
         except Exception as e:
@@ -497,10 +562,11 @@ class Verifier():
                         type=FuzzTestErrorType.crashed_model,
                         verifier=self,
                         originalmodel_file=self.model_file,
-                        exception=e,
+                        exception=str(e),
                         stacktrace=traceback.format_exc(),
-                        #constraints=self.cons,
-                        originalmodel=self.original_model
+                        originalmodel=self.original_model,
+                        mutators=self.mutators if hasattr(self, 'mutators') else [],
+                        processed_constraints=self.cons if hasattr(self, 'cons') else None
                         )
 
 

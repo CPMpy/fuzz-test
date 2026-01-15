@@ -55,7 +55,34 @@ class Exit:
         stacktrace = "\n\t" + self.stacktrace.replace('\n', '\n\t') if self.stacktrace is not None else "N/A"
 
         # Prepare mutator transformations
-        transformed = [(self.mutators[x][0].__name__, self.mutators[x][1]) for x in range(len(self.mutators)) if (hasattr(self.mutators[x][0], "__name__"))]
+        # Handle two formats:
+        # 1. List of tuples with callables: [(callable, int), ...] - from original errors
+        # 2. Flat list: [initial_state, seed1, function1, seed2, function2, ...] - from reruns
+        transformed = []
+        if len(self.mutators) > 0:
+            # Check if we have tuples with callables (format 1)
+            has_callable_tuples = any(
+                isinstance(item, tuple) and len(item) == 2 and hasattr(item[0], "__name__") and callable(item[0])
+                for item in self.mutators
+            )
+            
+            if has_callable_tuples:
+                # Format 1: List of tuples with callables
+                transformed = [(self.mutators[x][0].__name__, self.mutators[x][1]) for x in range(len(self.mutators)) if isinstance(self.mutators[x], tuple) and len(self.mutators[x]) == 2 and hasattr(self.mutators[x][0], "__name__")]
+            else:
+                # Format 2: Flat list - look for seed -> function pairs
+                i = 0
+                while i < len(self.mutators):
+                    # Skip initial state (list/tuple) or other non-int items
+                    if isinstance(self.mutators[i], int) and i + 1 < len(self.mutators):
+                        seed = self.mutators[i]
+                        function = self.mutators[i + 1]
+                        if hasattr(function, "__name__") and callable(function):
+                            transformed.append((function.__name__, seed))
+                            i += 2
+                            continue
+                    i += 1
+        
         mutators_text = "transformations:\n\t" + str(transformed)
 
         # Prepare verifier kwargs
@@ -80,14 +107,23 @@ original_model:
 @dataclass(kw_only=True)
 class FuzzExit(Exit):
     model: cp.Model
+    processed_constraints: Optional[List[cp.expressions.core.Expression]] = None
     
     @property
     def constraints(self) -> List[cp.expressions.core.Expression]:
         return toplevel_list(self.model.constraints)
     
     def text(self) -> str:
+        base_text = super().text()
         model_text = "\t" + str(self.model).rstrip().replace('\n', '\n\t') if self.model is not None else ""
-        return super().text() + f"\nmodel:\n{model_text}"
+        result = base_text + f"\nmodel:\n{model_text}"
+        
+        # Also show processed constraints after toplevel_list() if available
+        if self.processed_constraints is not None:
+            processed_model_text = "\t" + str(cp.Model(self.processed_constraints)).rstrip().replace('\n', '\n\t') if len(self.processed_constraints) > 0 else "\tConstraints:\n\tObjective: None"
+            result += f"\nprocessed_model:\n{processed_model_text}"
+        
+        return result
 
 
 @dataclass(kw_only=True)
@@ -109,6 +145,12 @@ class VerifierExit(Exit):
 
 @dataclass(kw_only=True)
 class InitializeExit(Exit):
-    pass
-    # TODO what should the "constraints" be here?
+    processed_constraints: Optional[List[cp.expressions.core.Expression]] = None
+    
+    def text(self) -> str:
+        base_text = super().text()
+        if self.processed_constraints is not None:
+            processed_model_text = "\t" + str(cp.Model(self.processed_constraints)).rstrip().replace('\n', '\n\t') if len(self.processed_constraints) > 0 else "\tConstraints:\n\tObjective: None"
+            return base_text + f"\nprocessed_model:\n{processed_model_text}"
+        return base_text
 
