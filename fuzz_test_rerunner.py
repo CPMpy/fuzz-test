@@ -1,3 +1,4 @@
+from multiprocessing.managers import RemoteError
 import os
 os.environ["PYTHONHASHSEED"] = "0" # <- required for reproducability, otherwise hashes are consistent between runs
 
@@ -135,8 +136,11 @@ def rerun_file(
     # Format execution time similar to original fuzzer
     execution_time_text = f"{str(int(execution_time//60))} minutes {str(int(execution_time%60))} seconds"
 
+    # Get the rerun error's detailed text (includes constraints, mutators, transformations, etc. from the rerun)
+    rerun_error_text = rerun_error.text()
+    
     if rerun_error.type == FuzzTestErrorType.ok:
-        # Special case for resolved errors
+        # Special case for resolved errors - include rerun error details (new data)
         total_error_text = f"""Rerun result: RESOLVED
 
     Original error was resolved in rerun
@@ -150,10 +154,15 @@ Result: Test passed successfully on rerun
 ===============================================================================
 Original error: {error.type}
 Rerun result: {rerun_error.type}
+
+Rerun Error Details
+===============================================================================
+
+{rerun_error_text}
+
 """
     else:
-        # Standard error case
-        error_text = rerun_error.text()
+        # Standard error case - use rerun error details (which should include all info)
         total_error_text = f"""An error occured while running a test
 
     Used solver: {error_data['solver']}
@@ -165,7 +174,7 @@ Rerun result: {rerun_error.type}
 Error Details
 ===============================================================================
 
-{error_text}
+{rerun_error_text}
 
 """
 
@@ -198,7 +207,11 @@ def worker(job_queue, pipe, lock, result_queue, output_dir, current_amount_of_te
     # Register worker in monitor UI
     lock.acquire()
     try:
-        current_amount_of_workers.value += 1
+        try:
+            current_amount_of_workers.value += 1
+        except (AttributeError, TypeError, KeyError, FileNotFoundError):
+            # Manager connection broken, ignore
+            pass
     finally:
         lock.release()
 
@@ -243,9 +256,11 @@ def worker(job_queue, pipe, lock, result_queue, output_dir, current_amount_of_te
     # De-register worker
     lock.acquire()
     try:
-        current_amount_of_workers.value -= 1
-    except:
-        pass
+        try:
+            current_amount_of_workers.value -= 1
+        except (AttributeError, TypeError, KeyError, FileNotFoundError, BrokenPipeError, RemoteError, EOFError, ConnectionResetError):
+            # Manager connection broken, ignore
+            pass
     finally:
         lock.release()
 
@@ -270,7 +285,15 @@ def read_from_pipes(pipes, current_tests, current_errors, total_tests, current_a
 
         while True:
             try:
-                if current_amount_of_workers.value == 0 and current_tests.value > 0:
+                try:
+                    workers = current_amount_of_workers.value
+                    tests = current_tests.value
+                except (AttributeError, TypeError, KeyError, FileNotFoundError):
+                    # Manager connection broken, use defaults
+                    workers = 0
+                    tests = 0
+                
+                if workers == 0 and tests > 0:
                     break
                 for p in pipes:
                     if p.poll():
@@ -298,7 +321,18 @@ def read_from_pipes(pipes, current_tests, current_errors, total_tests, current_a
                             stdscr.addch(i, j, ch, curses.color_pair(3))
 
                 # Draw status banner
-                banner = f"[Fuzz Rerunner] Workers: {current_amount_of_workers.value} | Tests: {current_tests.value} / {total_tests} ({(100 * current_tests.value / total_tests):.2f}%)| Errors: {current_errors.value} | Fixed: {current_tests.value - current_errors.value}"
+                try:
+                    workers_val = current_amount_of_workers.value
+                    tests_val = current_tests.value
+                    errors_val = current_errors.value
+                except (AttributeError, TypeError, KeyError, FileNotFoundError):
+                    # Manager connection broken, use defaults
+                    workers_val = 0
+                    tests_val = 0
+                    errors_val = 0
+                
+                percentage = (100 * tests_val / total_tests) if total_tests > 0 else 0
+                banner = f"[Fuzz Rerunner] Workers: {workers_val} | Tests: {tests_val} / {total_tests} ({percentage:.2f}%)| Errors: {errors_val} | Fixed: {tests_val - errors_val}"
                 stdscr.addnstr(height - 1, 0, banner.ljust(width), width - 1, curses.A_REVERSE)
 
                 stdscr.refresh()
