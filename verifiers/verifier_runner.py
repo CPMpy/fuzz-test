@@ -1,6 +1,9 @@
 import ctypes
 import glob
 import math
+import random
+import time
+import traceback
 from typing import Optional
 import warnings
 from os.path import join
@@ -30,17 +33,17 @@ def run_verifiers(
         This function will be used to run different verifiers
 
         Arguments:
-            current_amount_of_tests (Value(int)): the value that stores the current amount of test executed
-            current_amount_of_error (Value(int)): the value that stores the current amount of errors found
-            current_amount_of_timeouts (Value(int)): the value that stores the current amount of timeouts occured
-            lock (Lock): the lock that gets used for the mutiprocessing
-            solver (string): the name of the solver that is getting used for the tests
-            mutations_per_model (int): the amount of mutations 
-            folders ([string]): the directories of the models that we are testing
-            max_error_treshold (int): the maximimum errors that can be found before quitting the tests
-            output_dir (string): the directory were the error reports needs to be written to
-            total_time_limit (int): the maximum duration the total fuzz test can take
-            fuzz_time_limit (int): the maximum duration the a single verifier can take
+            current_amount_of_tests (Value(int)):       the value that stores the current amount of test executed
+            current_amount_of_error (Value(int)):       the value that stores the current amount of errors found
+            current_amount_of_timeouts (Value(int)):    the value that stores the current amount of timeouts occured
+            lock (Lock):                                the lock that gets used for the multiprocessing
+            solver (string):                            the name of the solver that is getting used for the tests
+            mutations_per_model (int):                  the amount of mutations 
+            folders ([string]):                         the directories of the models that we are testing
+            max_error_treshold (int):                   the maximimum errors that can be found before quitting the tests
+            output_dir (string):                        the directory were the error reports needs to be written to
+            total_time_limit (int):                     the maximum duration the total fuzz test can take
+            fuzz_time_limit (int):                      the maximum duration the a single verifier can take
     """
     warnings.filterwarnings("ignore")
 
