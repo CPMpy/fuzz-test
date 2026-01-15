@@ -4,7 +4,7 @@ from typing import List
 
 from cpmpy.transformations.reification import only_implies
 from cpmpy.transformations.negation import push_down_negation
-from cpmpy.transformations.to_cnf import flat2cnf
+from cpmpy.transformations.to_cnf import to_cnf
 from cpmpy.transformations.safening import no_partial_functions
 
 from cpmpy import intvar, Model
@@ -290,12 +290,12 @@ def only_positive_bv_morph(cons):
     except Exception as e:
         raise MetamorphicError(only_positive_bv, lincons, e)
 
-def flat2cnf_morph(cons):
-    flatcons = flatten_morph(cons,flatten_all=True)
+def to_cnf_morph(cons):
+    #flatcons = flatten_morph(cons,flatten_all=True)
     try:
-        return flat2cnf(flatcons)
+        return to_cnf(cons)
     except Exception as e:
-        raise MetamorphicError(flat2cnf, flatcons, e)
+        raise MetamorphicError(to_cnf, cons, e)
     
 def toplevel_list_morph(cons):
     try:

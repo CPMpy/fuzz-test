@@ -17,7 +17,7 @@ class Metamorphic_Verifier(Verifier):
                         reify_rewrite_morph,
                         only_bv_reifies_morph,
                         only_positive_bv_morph,
-                        flat2cnf_morph,
+                        to_cnf_morph,
                         toplevel_list_morph,
                         decompose_in_tree_morph,
                         push_down_negation_morph,
@@ -31,8 +31,8 @@ class Metamorphic_Verifier(Verifier):
 
     def initialize_run(self) -> None:
         if self.original_model == None:
-            with open(self.model_file, 'rb') as fpcl:
-                self.original_model = pickle.loads(fpcl.read())
+            # Use Model.from_file() to properly synchronize counters with variables in the loaded model
+            self.original_model = Model.from_file(self.model_file)
         self.cons = self.original_model.constraints
         assert (len(self.cons)>0), f"{self.model_file} has no constraints"
         self.cons = toplevel_list(self.cons)

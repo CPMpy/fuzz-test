@@ -17,7 +17,7 @@ class Optimization_Verifier(Verifier):
                         reify_rewrite_morph,
                         only_bv_reifies_morph,
                         only_positive_bv_morph,
-                        flat2cnf_morph,
+                        to_cnf_morph,
                         toplevel_list_morph,
                         decompose_in_tree_morph,
                         push_down_negation_morph,
