@@ -1,4 +1,18 @@
 
+## Quick start (`overhaul` branch)
+
+```bash
+git clone https://github.com/CPMpy/fuzz-test.git
+cd fuzz-test
+git checkout overhaul
+pip install -r requirements.txt
+python fuzz_test.py -p 1 --max-failed-tests 1
+```
+
+Found bugs are written to `output/` (pickle + text report per failure).
+
+Bundled `models/` is enough for SAT-based verifiers. For optimization models, run `python model_generator.py -c /path/to/cpmpy -o models` first.
+
 ## Usages guide
 ### Installation
 ```bash
