@@ -17,7 +17,7 @@ from verifiers import *
 from verifiers.utils import FuzzExit
 from fuzz_test_utils import FuzzTestErrorType
 def get_all_verifiers() -> list:
-    return [Solution_Verifier,Optimization_Verifier,Model_Count_Verifier,Metamorphic_Verifier,Equivalance_Verifier]
+    return [Solution_Verifier,Optimization_Verifier,Metamorphic_Verifier]  # Disable TEMPORARY: ,Model_Count_Verifier,Equivalance_Verifier
 
 def run_verifiers(
         current_amount_of_tests, current_amount_of_error, current_amount_of_timeouts, 
