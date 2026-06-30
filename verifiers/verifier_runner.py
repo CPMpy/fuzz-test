@@ -120,8 +120,13 @@ def run_verifiers(
                     )
             error.verifier_kwargs = verifier_kwargs | {"seed": random_seed}
 
-            # Expected error -> skip
-            if error.type == FuzzTestErrorType.expected_error:
+            # Expected / vacuous / unsat-at-init -> skip
+            if error.type in (
+                FuzzTestErrorType.expected_error,
+                FuzzTestErrorType.no_constraints_model,
+                FuzzTestErrorType.unsat_model,
+            ):
+                warnings.warn(f"Skipping {fmodel}: {error.exception}")
                 continue
 
             # Print status of verifier run
