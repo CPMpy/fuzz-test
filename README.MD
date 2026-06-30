@@ -1,3 +1,4 @@
+> **Note:** Active development is on the [`overhaul`](https://github.com/CPMpy/fuzz-test/tree/overhaul) branch. Use that branch for the current fuzz tester.
 
 ## Usages guide
 ### Installation
