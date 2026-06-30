@@ -189,13 +189,9 @@ def normalized_numexpr_morph(const):
             for i in firstcon[1:]:
                 c += 1
                 if c == len(firstcon):
-                    if isinstance(arg.args, tuple):
-                        listargs = list(arg.args)
-                        listargs[i] = con
-                        arg.update_args(tuple(listargs))
-                    else:
-                        arg._args[i] = con
-                        arg.update_args(arg._args)
+                    listargs = list(arg.args)
+                    listargs[i] = con
+                    arg.update_args(listargs)
                 else:
                     arg = arg.args[i]
 
@@ -374,10 +370,9 @@ def semanticFusion(const):
                     return [] #cyclical
                 c+=1
                 if c == len(firstcon):
-                    if isinstance(arg.args, tuple):
-                        arg.update_args(list(arg.args))
-                    arg.args[i] = firstexpr
-                    arg.update_args(arg._args)
+                    listargs = list(arg.args)
+                    listargs[i] = firstexpr
+                    arg.update_args(listargs)
                 else:
                     arg = arg.args[i]
 
@@ -389,10 +384,9 @@ def semanticFusion(const):
                     return [] #cyclical
                 c += 1
                 if c == len(secondcon):
-                    if isinstance(arg.args, tuple):
-                        arg.update_args(list(arg.args))
-                    arg._args[i] = secondexpr
-                    arg.update_args(arg._args)
+                    listargs = list(arg.args)
+                    listargs[i] = secondexpr
+                    arg.update_args(listargs)
                 else:
                     arg = arg.args[i]
 
@@ -462,10 +456,9 @@ def semanticFusionMinus(const):
                     return [] #cyclical
                 c+=1
                 if c == len(firstcon):
-                    if isinstance(arg.args, tuple):
-                        arg.update_args(list(arg.args))
-                    arg.args[i] = firstexpr
-                    arg.update_args(arg._args)
+                    listargs = list(arg.args)
+                    listargs[i] = firstexpr
+                    arg.update_args(listargs)
                 else:
                     arg = arg.args[i]
 
@@ -477,10 +470,9 @@ def semanticFusionMinus(const):
                     return [] #cyclical
                 c += 1
                 if c == len(secondcon):
-                    if isinstance(arg.args, tuple):
-                        arg.update_args(list(arg.args))
-                    arg._args[i] = secondexpr
-                    arg.update_args(arg._args)
+                    listargs = list(arg.args)
+                    listargs[i] = secondexpr
+                    arg.update_args(listargs)
                 else:
                     arg = arg.args[i]
 
@@ -553,10 +545,9 @@ def semanticFusionwsum(const):
                     return [] #cyclical
                 c+=1
                 if c == len(firstcon):
-                    if isinstance(arg.args, tuple):
-                        arg._args = list(arg.args)
-                    arg.args[i] = firstexpr
-                    arg.update_args(arg._args)
+                    listargs = list(arg.args)
+                    listargs[i] = firstexpr
+                    arg.update_args(listargs)
                 else:
                     arg = arg.args[i]
 
@@ -568,10 +559,9 @@ def semanticFusionwsum(const):
                     return [] #cyclical
                 c += 1
                 if c == len(secondcon):
-                    if isinstance(arg.args, tuple):
-                        arg._args = list(arg.args)
-                    arg._args[i] = secondexpr
-                    arg.update_args(arg._args)
+                    listargs = list(arg.args)
+                    listargs[i] = secondexpr
+                    arg.update_args(listargs)
                 else:
                     arg = arg.args[i]
 
@@ -645,10 +635,9 @@ def semanticFusionCountingwsum(const):
                     return [] #cyclical
                 c+=1
                 if c == len(firstcon):
-                    if isinstance(arg.args, tuple):
-                        arg._args = list(arg.args)
-                    arg.args[i] = firstexpr
-                    arg.update_args(arg._args)
+                    listargs = list(arg.args)
+                    listargs[i] = firstexpr
+                    arg.update_args(listargs)
                 else:
                     arg = arg.args[i]
 
@@ -660,10 +649,9 @@ def semanticFusionCountingwsum(const):
                     return [] #cyclical
                 c += 1
                 if c == len(secondcon):
-                    if isinstance(arg.args, tuple):
-                        arg._args = list(arg.args)
-                    arg._args[i] = secondexpr
-                    arg.update_args(arg._args)
+                    listargs = list(arg.args)
+                    listargs[i] = secondexpr
+                    arg.update_args(listargs)
                 else:
                     arg = arg.args[i]
 
@@ -735,10 +723,9 @@ def semanticFusionCounting(const):
                     return [] #cyclical
                 c+=1
                 if c == len(firstcon):
-                    if isinstance(arg.args, tuple):
-                        arg._args = list(arg.args)
-                    arg.args[i] = firstexpr
-                    arg.update_args(arg._args)
+                    listargs = list(arg.args)
+                    listargs[i] = firstexpr
+                    arg.update_args(listargs)
                 else:
                     arg = arg.args[i]
 
@@ -750,10 +737,9 @@ def semanticFusionCounting(const):
                     return [] #cyclical
                 c += 1
                 if c == len(secondcon):
-                    if isinstance(arg.args, tuple):
-                        arg._args = list(arg.args)
-                    arg._args[i] = secondexpr
-                    arg.update_args(arg._args)
+                    listargs = list(arg.args)
+                    listargs[i] = secondexpr
+                    arg.update_args(listargs)
                 else:
                     arg = arg.args[i]
 
@@ -823,10 +809,9 @@ def semanticFusionCountingMinus(const):
                     return [] #cyclical
                 c+=1
                 if c == len(firstcon):
-                    if isinstance(arg.args, tuple):
-                        arg._args = list(arg.args)
-                    arg._args[i] = firstexpr
-                    arg.update_args(arg._args)
+                    listargs = list(arg.args)
+                    listargs[i] = firstexpr
+                    arg.update_args(listargs)
                 else:
                     arg = arg.args[i]
 
@@ -838,10 +823,9 @@ def semanticFusionCountingMinus(const):
                     return [] #cyclical
                 c += 1
                 if c == len(secondcon):
-                    if isinstance(arg.args, tuple):
-                        arg._args = list(arg.args)
-                    arg.args[i] = secondexpr
-                    arg.update_args(arg._args)
+                    listargs = list(arg.args)
+                    listargs[i] = secondexpr
+                    arg.update_args(listargs)
                 else:
                     arg = arg.args[i]
 
@@ -899,13 +883,9 @@ def aritmetic_comparison_morph(const):
             for i in firstcon[1:]:
                 c += 1
                 if c == len(firstcon):
-                    if isinstance(arg.args, tuple):
-                        listargs = list(arg.args)
-                        listargs[i] = newcon
-                        arg._args = tuple(listargs)
-                    else:
-                        arg._args[i] = newcon
-                    arg.update_args(arg._args)
+                    listargs = list(arg.args)
+                    listargs[i] = newcon
+                    arg.update_args(listargs)
                 else:
                     arg = arg.args[i]
 
