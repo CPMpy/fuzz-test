@@ -6,7 +6,11 @@ import warnings
 from os.path import join
 from importlib import reload
 import cpmpy as cp
-from timeout import timeout
+# from timeout import timeout  # REASON: PyPI `timeout` is Python 2-only and fails on Python 3
+from contextlib import contextmanager
+@contextmanager
+def timeout(seconds, exception=TimeoutError):
+    yield  # no per-verifier wall-clock limit without a working timeout package
 
 from fuzz_test_utils.fuzz_test_errors import FuzzTestErrorType
 from verifiers import *
