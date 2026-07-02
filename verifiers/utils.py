@@ -130,9 +130,21 @@ class FuzzExit(Exit):
 class MutationExit(Exit):
     function: Optional[callable] = None
     argument: Optional[object] = None
+    pre_failure_constraints: Optional[List[cp.expressions.core.Expression]] = None
 
     def text(self) -> str:
-        return super().text() + f"\nfunction: {self.function}\nargument: {self.argument}"
+        base_text = super().text() + f"\nfunction: {self.function}\nargument: {self.argument}"
+        
+        # Add pre-failure model state if available
+        if self.pre_failure_constraints is not None:
+            try:
+                pre_failure_model = cp.Model(self.pre_failure_constraints)
+                pre_failure_text = "\t" + str(pre_failure_model).rstrip().replace('\n', '\n\t')
+            except Exception:
+                pre_failure_text = "\t" + str(self.pre_failure_constraints)
+            base_text += f"\npre_failure_model:\n{pre_failure_text}"
+        
+        return base_text
     
 @dataclass(kw_only=True)
 class VerifierExit(Exit):

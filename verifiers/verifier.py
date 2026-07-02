@@ -41,6 +41,8 @@ def temporary_random_seed(seed):
 
 def apply_mutator(verifier, m):
     self = verifier
+    # Store the pre-mutation state in case mutation fails
+    pre_mutation_cons = copy.deepcopy(self.cons)
     try:
         self.cons += m(self.cons)  # apply a metamorphic mutation
         #self.mutators += [copy.deepcopy(self.cons)]
@@ -70,7 +72,8 @@ def apply_mutator(verifier, m):
                         argument=argument,
                         mutators=self.mutators,
                         originalmodel=self.original_model,
-                        originalmodel_file=self.model_file
+                        originalmodel_file=self.model_file,
+                        pre_failure_constraints=pre_mutation_cons
                     )
         elif function == semanticFusion:
             # expected error message
@@ -83,7 +86,8 @@ def apply_mutator(verifier, m):
                         argument=argument,
                         mutators=self.mutators,
                         originalmodel=self.original_model,
-                        originalmodel_file=self.model_file
+                        originalmodel_file=self.model_file,
+                        pre_failure_constraints=pre_mutation_cons
                     )
             #don't log semanticfusion crash
             
@@ -96,7 +100,8 @@ def apply_mutator(verifier, m):
                     argument=argument,
                     mutators=self.mutators,
                     originalmodel=self.original_model,
-                    originalmodel_file=self.model_file
+                    originalmodel_file=self.model_file,
+                    pre_failure_constraints=pre_mutation_cons
                 )
 
 class Verifier():
@@ -144,12 +149,31 @@ class Verifier():
 
         # Apply each mutation one by one
         for mutator, seed in mutators:
-            with temporary_random_seed(seed):
-                gen_mutations_error = apply_mutator(self, mutator)
+            # Store the model state before this mutation in case of exception
+            pre_mutation_cons = copy.deepcopy(self.cons)
+            
+            try:
+                with temporary_random_seed(seed):
+                    gen_mutations_error = apply_mutator(self, mutator)
 
-            # If mutation fails, early exit
-            if gen_mutations_error.type != FuzzTestErrorType.ok:
-                return gen_mutations_error
+                # If mutation fails, early exit
+                if gen_mutations_error.type != FuzzTestErrorType.ok:
+                    return gen_mutations_error
+            except Exception as e:
+                # Mutator threw an unexpected exception - restore last good state
+                self.cons = pre_mutation_cons
+                return MutationExit(
+                    type=FuzzTestErrorType.internalfunctioncrash,
+                    verifier=self,
+                    exception=e,
+                    stacktrace=traceback.format_exc(),
+                    function=mutator,
+                    argument=None,
+                    mutators=self.mutators,
+                    originalmodel=self.original_model,
+                    originalmodel_file=self.model_file,
+                    pre_failure_constraints=pre_mutation_cons
+                )
             
         # All mutations applied successfully
         return MutationExit(
