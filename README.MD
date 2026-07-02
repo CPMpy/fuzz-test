@@ -55,6 +55,12 @@ fuzz_test.py takes multiple optional parameters:
  - --max-minutes: a positive int number to determine if the application needs to quit testing if it takes longer then X minutes (by default the tests run indefinitely). If the max-failed-tests was reached before max minutes the application will quit.
  - -mpm --mutations-per-model: the amount of mutations to execute on each model
  - -p --amount-of-processes: the amount of processes that will be used to run the tests
+ - --agent: shortcut for `--non-interactive --quiet --output json --progress none`, intended for LLM agents and automation
+ - --non-interactive: avoid terminal UI behavior and fail fast with actionable errors
+ - --quiet: suppress startup banners, final text summaries, and progress output
+ - --output {text,json}: choose the final stdout format; `json` prints one compact summary object
+ - --progress {auto,curses,dots,none}: choose progress display; `auto` only uses curses in an interactive terminal
+ - --dry-run: validate the run configuration and print the planned run without starting workers
 
 #### example
 ```bash
@@ -65,7 +71,13 @@ py fuzz_test.py --max-minutes 10 # the tests will run for 10 minutes and then th
 py fuzz_test.py --max-failed-tests 5 # The test will run until 5 tests failed, then the application quits
 
 py fuzz_test.py --max-minutes 15 --max-failed-tests 100 # the tests will run until 100 tests failed or until 15 minutes have passed
+
+py fuzz_test.py --agent --max-minutes 1 -s ortools # compact JSON summary, no curses UI or progress stream
+
+py fuzz_test.py --dry-run --agent --models models --output-dir output # validate an agent run without starting workers
 ```
+
+Agent-friendly runs always write `run_stats.json` to the output directory. Existing failure artifacts (`.pickle` and `.txt`) are still written as before.
 
 ## Rerun bugs
 The fuzz_test_rerunner.py script allows you to reproduce and debug errors that were found during fuzz testing. When the fuzz_test.py finds errors, it saves them as pickle files in the output directory. The rerunner helps you investigate these errors by:

@@ -31,7 +31,8 @@ def run_verifiers(
         max_error_treshold: int, 
         output_dir: str, 
         total_time_limit: int, fuzz_time_limit: int, 
-        seed:Optional[int]
+        seed:Optional[int],
+        show_progress: bool = True,
     ) -> None:
     """
         This function will be used to run different verifiers
@@ -133,23 +134,31 @@ def run_verifiers(
                 continue
 
             # Print status of verifier run
-            if error.alternative_label is not None:
-                print(error.alternative_label, end='', flush=True)
-            else:
-                if error.type == FuzzTestErrorType.ok:
-                    print('.', end='', flush=True)
-                elif error.type == FuzzTestErrorType.timeout:
-                    print('T', end='', flush=True)
-                elif error.type == FuzzTestErrorType.failed_model:
-                    print('X', end='', flush=True)
-                elif error.type == FuzzTestErrorType.internalcrash:
-                    print('E', end='', flush=True)
-                elif error.type == FuzzTestErrorType.internalfunctioncrash:
-                    print('I', end='', flush=True)
+            if show_progress:
+                if error.alternative_label is not None:
+                    print(error.alternative_label, end='', flush=True)
                 else:
-                    print('?', end='', flush=True)
+                    if error.type == FuzzTestErrorType.ok:
+                        print('.', end='', flush=True)
+                    elif error.type == FuzzTestErrorType.timeout:
+                        print('T', end='', flush=True)
+                    elif error.type == FuzzTestErrorType.failed_model:
+                        print('X', end='', flush=True)
+                    elif error.type == FuzzTestErrorType.internalcrash:
+                        print('E', end='', flush=True)
+                    elif error.type == FuzzTestErrorType.internalfunctioncrash:
+                        print('I', end='', flush=True)
+                    else:
+                        print('?', end='', flush=True)
 
             execution_time = math.floor(time.time() - start_time)
+
+            if error.type == FuzzTestErrorType.timeout:
+                lock.acquire()
+                try:
+                    current_amount_of_timeouts.value += 1
+                finally:
+                    lock.release()
 
             # Check if we got an error
             if (error.type != FuzzTestErrorType.ok) and (error.type != FuzzTestErrorType.timeout):
@@ -193,10 +202,7 @@ Error Details
                         ff.write(total_error_text)
 
                     # Update monitor UI
-                    if error.type == FuzzTestErrorType.timeout:
-                        current_amount_of_timeouts.value += 1
-                    else:
-                        current_amount_of_error.value +=1
+                    current_amount_of_error.value +=1
 
                 finally:
                     lock.release() 
