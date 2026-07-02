@@ -359,7 +359,7 @@ def read_from_pipes(pipes, current_tests, current_errors, total_tests, current_a
 
 
 # Import
-from cpu_cores import CPUCoresCounter
+# from cpu_cores import CPUCoresCounter  # REASON: optional dev helper; module not in repo and unused below
 
 # We build an instance for the current operating system
 # instance = CPUCoresCounter.factory()

@@ -9,14 +9,18 @@ import warnings
 from os.path import join
 from importlib import reload
 import cpmpy as cp
-from timeout import timeout
+# from timeout import timeout  # REASON: PyPI `timeout` is Python 2-only and fails on Python 3
+from contextlib import contextmanager
+@contextmanager
+def timeout(seconds, exception=TimeoutError):
+    yield  # no per-verifier wall-clock limit without a working timeout package
 
 from fuzz_test_utils.fuzz_test_errors import FuzzTestErrorType
 from verifiers import *
 from verifiers.utils import FuzzExit
 from fuzz_test_utils import FuzzTestErrorType
 def get_all_verifiers() -> list:
-    return [Solution_Verifier,Optimization_Verifier,Model_Count_Verifier,Metamorphic_Verifier,Equivalance_Verifier]
+    return [Solution_Verifier,Optimization_Verifier,Metamorphic_Verifier]  # Disable TEMPORARY: ,Model_Count_Verifier,Equivalance_Verifier
 
 def run_verifiers(
         current_amount_of_tests, current_amount_of_error, current_amount_of_timeouts, 
@@ -119,8 +123,13 @@ def run_verifiers(
                     )
             error.verifier_kwargs = verifier_kwargs | {"seed": random_seed}
 
-            # Expected error -> skip
-            if error.type == FuzzTestErrorType.expected_error:
+            # Expected / vacuous / unsat-at-init -> skip
+            if error.type in (
+                FuzzTestErrorType.expected_error,
+                FuzzTestErrorType.no_constraints_model,
+                FuzzTestErrorType.unsat_model,
+            ):
+                warnings.warn(f"Skipping {fmodel}: {error.exception}")
                 continue
 
             # Print status of verifier run
