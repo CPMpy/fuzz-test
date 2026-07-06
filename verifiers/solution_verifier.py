@@ -46,12 +46,11 @@ class Solution_Verifier(Verifier):
         self.mutators = [(copy.deepcopy(self.cons), self.seed)] #keep track of list of cons alternated with random seed and mutators that transformed it into the next list of cons.
             
     def verify_model(self) -> dict:
-        initial_processed_cons = None
-        if len(self.mutators) > 0:
-            if isinstance(self.mutators[0], tuple) and len(self.mutators[0]) == 2:
-                initial_processed_cons = self.mutators[0][0]
-            elif isinstance(self.mutators[0], list):
-                initial_processed_cons = self.mutators[0]
+        # Constraints after all mutators/transformations have been applied.
+        # self.cons already holds the transformed constraints at this point, so use
+        # it directly rather than reconstructing from self.mutators[0] (whose shape
+        # differs between a normal run and a rerun, where [0] is a (callable, seed) tuple).
+        initial_processed_cons = toplevel_list(self.cons)
 
         model = None
         try:
