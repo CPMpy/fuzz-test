@@ -115,7 +115,7 @@ def flatten_morph(cons, flatten_all=False):
     else:
         randcons = cons
     try:
-        return flatten_constraint(randcons)
+        return flatten_constraint(push_down_negation(randcons))
     except Exception as e:
         raise MetamorphicError(flatten_constraint,randcons, e)
 
