@@ -1,12 +1,27 @@
 
 ## Quick start (`overhaul` branch)
 
+
+1) Have the CPMpy source code somewhere available
+```bash
+git clone https://github.com/CPMpy/cpmpy.git
+```
+
+2) Install the fuzz tester
 ```bash
 git clone https://github.com/CPMpy/fuzz-test.git
 cd fuzz-test
 git checkout overhaul
 pip install -r requirements.txt
+```
+
+3) (Re)-generate the models (must be redone upon every API change)
+```bash
 python model_generator.py -c /path/to/cpmpy -o models  # (re)generate the seed models
+```
+
+4) Run the fuzz tester
+```
 python fuzz_test.py --max-failed-tests 1
 ```
 
@@ -20,93 +35,116 @@ pip install -r requirements.txt # install the necessary packages
 ```
 ### Usage
 #### fuzz_test
-Run the fuzz_test.py (with or without parameters)
-The fuzz_test has 5 different verifiers:
+Run mutation-based fuzz tests for CPMpy solvers:
+
+```bash
+python fuzz_test.py [-h] [-s SOLVER] [-m MODELS] [-o OUTPUT_DIR] [-g]
+                    [--max-failed-tests MAX_FAILED_TESTS] [--max-minutes MAX_MINUTES]
+                    [--max-fuzz-seconds MAX_FUZZ_SECONDS] [-mpm MUTATIONS_PER_MODEL]
+                    [-p AMOUNT_OF_PROCESSES] [--seed SEED] [--agent] [--non-interactive]
+                    [--quiet] [--output {text,json}] [--progress {auto,curses,dots,none}]
+                    [--dry-run]
+```
+
+The fuzz test has 5 different verifiers:
 - metamorphic_verifier.py : Satisifiability check
 - equivalance_verifier.py : All-Solutions check
 - model_counting_verifier.py: Solution count check
 - optimization_verifier.py: Optimisation check
 - solution_check_verifier.py: 1-Solution check
 
-How does fuzz_test works? It works as follows: we take a random verifier, a random model, and random mutations on the chosen model. We will then run the chosen verifier on the chosen model with the random mutations and see if the checks hold. If the checks dont hold or an other error/bug occured the application will generate a log for each error separately in the output directory (can be set in the parameters). The logs will contain more details on how and why the error/bug occured.
+How does fuzz_test work? It picks a random verifier, a random model, and random mutations on that model, then runs the verifier and checks whether the results hold. If a check fails or another error occurs, the application writes a separate log for each failure in the output directory (configurable via `--output-dir`). The logs contain details on how and why the error occurred.
 
-#### prameters
-fuzz_test.py takes multiple optional parameters:
- - -s --solver : The solver to use to do the fuzz testing, these are all the solvers that are also availabe in cpmpy
- - -m --models : The directory were the models are located that you want to test, note the models diretory needs to have the following structure: 
- 
-      ```
-      ├──  models
-        ├──  pickle_examples
-          ├── sat
-            ├──  model1.pickle
-            ├──  model2.pickle
-            ├──  ...
-          ├── optimization
-            ├──  model1.pickle
-            ├──  model2.pickle
-            ├──  ...
-          ├──  ...
-        ├──  ...
-    ```
- - -o --output-dir: the directory were to store the outputs
- - -g --skip-global-constraints: an boolean value to determine if the global contraints will be skipped during the testing or not
- - --max-failed-tests: a positive int number to determine if the application needs to quit testing if it reached X amount of failed tests (default there is no limit)
- - --max-minutes: a positive int number to determine if the application needs to quit testing if it takes longer then X minutes (by default the tests run indefinitely). If the max-failed-tests was reached before max minutes the application will quit.
- - -mpm --mutations-per-model: the amount of mutations to execute on each model
- - -p --amount-of-processes: the amount of processes that will be used to run the tests
- - --agent: shortcut for `--non-interactive --quiet --output json --progress none`, intended for LLM agents and automation
- - --non-interactive: avoid terminal UI behavior and fail fast with actionable errors
- - --quiet: suppress startup banners, final text summaries, and progress output
- - --output {text,json}: choose the final stdout format; `json` prints one compact summary object
- - --progress {auto,curses,dots,none}: choose progress display; `auto` only uses curses in an interactive terminal
- - --dry-run: validate the run configuration and print the planned run without starting workers
+#### parameters
+| Option | Description |
+|--------|-------------|
+| `-h, --help` | Show help message and exit. |
+| `-s, --solver SOLVER` | Solver to use. |
+| `-m, --models MODELS` | Directory containing model folders. |
+| `-o, --output-dir OUTPUT_DIR` | Directory to store failure artifacts and `run_stats.json`. |
+| `-g, --skip-global-constraints` | Skip global constraints when testing. |
+| `--max-failed-tests MAX_FAILED_TESTS` | Stop after this many failed tests. Default: no limit. |
+| `--max-minutes MAX_MINUTES` | Maximum run time in minutes. Default: run indefinitely. |
+| `--max-fuzz-seconds MAX_FUZZ_SECONDS` | Maximum time in seconds for a single fuzz test. Default: 10. |
+| `-mpm, --mutations-per-model MUTATIONS_PER_MODEL` | Number of mutations executed on every model. |
+| `-p, --amount-of-processes AMOUNT_OF_PROCESSES` | Number of worker processes. |
+| `--seed SEED` | Master seed for reproducibility. |
+| `--agent` | Shortcut for `--non-interactive --quiet --output json --progress none`. |
+| `--non-interactive` | Fail fast and avoid terminal UI behavior. |
+| `--quiet` | Suppress progress and human-readable banners. |
+| `--output {text,json}` | Final stdout format. |
+| `--progress {auto,curses,dots,none}` | Progress display mode. |
+| `--dry-run` | Validate configuration and print the planned run without starting workers. |
 
-#### example
+The models directory should have category subfolders (for example `sat`, `optimization`, `unsat`) below generated test-suite folders:
+
+```
+├── models
+  ├── pickle_examples
+    ├── sat
+      ├── model1.pickle
+      ├── model2.pickle
+      ├── ...
+    ├── optimization
+      ├── model1.pickle
+      ├── model2.pickle
+      ├── ...
+    ├── ...
+  ├── ...
+```
+
+#### examples
 ```bash
-py fuzz_test.py # it will run with the default parameters, it will take the models from the /models dir and store the output in the /output dir
-
-py fuzz_test.py --max-minutes 10 # the tests will run for 10 minutes and then the application will quit
-
-py fuzz_test.py --max-failed-tests 5 # The test will run until 5 tests failed, then the application quits
-
-py fuzz_test.py --max-minutes 15 --max-failed-tests 100 # the tests will run until 100 tests failed or until 15 minutes have passed
-
-py fuzz_test.py --agent --max-minutes 1 -s ortools # compact JSON summary, no curses UI or progress stream
-
-py fuzz_test.py --dry-run --agent --models models --output-dir output # validate an agent run without starting workers
+python fuzz_test.py --max-minutes 10 -s ortools
+python fuzz_test.py --agent --max-minutes 1 -s ortools
+python fuzz_test.py --dry-run --agent --models models --output-dir output
+python fuzz_test.py --output json --progress none --max-failed-tests 1
 ```
 
 Agent-friendly runs always write `run_stats.json` to the output directory. Existing failure artifacts (`.pickle` and `.txt`) are still written as before.
 
 ## Rerun bugs
-The fuzz_test_rerunner.py script allows you to reproduce and debug errors that were found during fuzz testing. When the fuzz_test.py finds errors, it saves them as pickle files in the output directory. The rerunner helps you investigate these errors by:
+The `fuzz_test_rerunner.py` script reproduces and debugs errors found during fuzz testing. When `fuzz_test.py` finds errors, it saves them as pickle files in the output directory. The rerunner helps investigate these errors by:
 
 1. Loading and replaying the exact sequence of mutations that caused the error
-2. Check if bugs persist on other cpmpy branches.
+2. Checking if bugs persist on other CPMpy branches
 3. Allowing you to debug the specific conditions that triggered the failure
 
-To use the rerunner:
-#### Parameters
-The rerunner script accepts the following parameters:
-- `-m, --failed_model_file`: Path to a single pickle file or directory containing multiple pickle files (defaults to 'output')
-- `-o, --output-dir`: Directory to store output (will be created if it doesn't exist, defaults to "bug_output")
-- `-p, --amount-of-processes`: Number of processes to use for running tests (defaults to CPU count - 1)
-- `-e, --elaborate`: Enable elaborate printing to show filenames of re-run errors (defaults to False)
-- `-r, --remove`: Remove fixed error files
-- `-M, --move-dir`: Directory to move fixed error files to
+```bash
+python fuzz_test_rerunner.py [-h] [-m FAILED_MODEL_FILE] [-o OUTPUT_DIR] [-p AMOUNT_OF_PROCESSES]
+                             [-e ELABORATE] [-r] [-M MOVE_DIR] [--max-fuzz-seconds MAX_FUZZ_SECONDS]
+                             [--mutator-indices MUTATOR_INDICES]
+```
+
+#### parameters
+| Option | Description |
+|--------|-------------|
+| `-h, --help` | Show help message and exit. |
+| `-m, --failed_model_file FAILED_MODEL_FILE` | Path to a single pickle file or a directory containing multiple pickle files. |
+| `-o, --output-dir OUTPUT_DIR` | Directory to store the output (will be created if it does not exist). |
+| `-p, --amount-of-processes AMOUNT_OF_PROCESSES` | Number of worker processes. |
+| `-e, --elaborate ELABORATE` | Elaborate print; also show filenames of errors that are re-run. |
+| `-r, --remove` | Remove fixed error files. |
+| `-M, --move-dir MOVE_DIR` | Directory to move fixed error files to. |
+| `--max-fuzz-seconds MAX_FUZZ_SECONDS` | |
+| `--mutator-indices MUTATOR_INDICES` | Comma-separated list of mutator indices to re-apply (e.g. `0,2,4`), or `none` to apply no mutators. If not provided, all mutators are re-applied. |
 
 #### output
-There will be output printed telling you how many tests still failed, and how many no longer failed.
-You have the option of (re)moving files that no longer fail.
+The rerunner prints how many tests still failed and how many no longer failed. You can optionally remove or move files that no longer fail.
 
 ## Model Generator
-The model_generator.py script extracts solvable test models from CPMpy's unittest suite. This provides a diverse set of real-world models that can be used as input for fuzz testing.
+A Python application to generate models from the CPMpy tests. It extracts solvable test models from CPMpy's unittest suite, providing a diverse set of real-world models that can be used as input for fuzz testing.
 
-#### Parameters
-The model generator accepts the following parameters:
-- `-c, --cpmpy-dir`: The directory where CPMpy is located (required)
-- `-o, --output-dir`: Directory to store the extracted models (defaults to 'solved_models', will be created if it doesn't exist)
+```bash
+python model_generator.py [-h] -c CPMPY_DIR [-o OUTPUT_DIR]
+```
+
+#### parameters
+| Option | Description |
+|--------|-------------|
+| `-h, --help` | Show help message and exit. |
+| `-c, --cpmpy-dir CPMPY_DIR` | The directory were cpmpy is located. |
+| `-o, --output-dir OUTPUT_DIR` | The directory to store the output (will be created if it does not exist). |
 
 The script works by:
 1. Running all unittest cases from the specified CPMpy installation
