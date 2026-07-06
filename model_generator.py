@@ -127,6 +127,13 @@ if __name__ == "__main__":
                     self._shadow_model = Model()
                 return self._shadow_model
 
+            def has_direct(cpm_expr):
+                if isinstance(cpm_expr, DirectConstraint):
+                    return True
+                if isinstance(cpm_expr, (list, tuple)):
+                    return any(has_direct(sub) for sub in cpm_expr)
+                return False
+
             def strip_direct(cpm_expr):
                 # DirectConstraints are solver-specific, useless cross-solver
                 if isinstance(cpm_expr, DirectConstraint):
@@ -137,17 +144,28 @@ if __name__ == "__main__":
 
             def patched_add(self, cpm_expr):
                 result = original_add(self, cpm_expr)
-                mirror = strip_direct(cpm_expr)
-                if mirror is not None and not (isinstance(mirror, list) and len(mirror) == 0):
-                    shadow(self).add(mirror)
+                try:  # best effort: what a generic Model can't hold is not captured
+                    mirror = cpm_expr
+                    if has_direct(cpm_expr):
+                        # stripping makes the shadow weaker than the real model,
+                        # an unsat result would not carry over to it
+                        self._shadow_incomplete = True
+                        mirror = strip_direct(cpm_expr)
+                    if mirror is not None and not (isinstance(mirror, list) and len(mirror) == 0):
+                        shadow(self).add(mirror)
+                except Exception:
+                    self._shadow_incomplete = True
                 return result
 
             def patched_objective(self, expr, minimize):
                 result = original_objective(self, expr, minimize)
-                if minimize:
-                    shadow(self).minimize(expr)
-                else:
-                    shadow(self).maximize(expr)
+                try:  # best effort: e.g. Model() rejects float objectives some solvers accept
+                    if minimize:
+                        shadow(self).minimize(expr)
+                    else:
+                        shadow(self).maximize(expr)
+                except Exception:
+                    pass
                 return result
 
             def patched_solver_solve(self, *args, **kwargs):
@@ -155,7 +173,10 @@ if __name__ == "__main__":
                 # skip when called from Model.solve(): that model is captured already
                 if model_solve_depth == 0 and hasattr(self, "_shadow_model"):
                     m = self._shadow_model
-                    if len(m.constraints) > 0 or m.objective_ is not None:
+                    # an incomplete shadow (constraints that could not be mirrored)
+                    # is only valid when sat: sat carries over to a subset, unsat does not
+                    valid = result or not getattr(self, "_shadow_incomplete", False)
+                    if valid and (len(m.constraints) > 0 or m.objective_ is not None):
                         capture_model(m, result)
                 return result
 
