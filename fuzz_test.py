@@ -5,6 +5,7 @@ import json
 import math
 import os
 import random
+import shutil
 import sys
 import time
 import traceback
@@ -32,6 +33,7 @@ Examples:
   python fuzz_test.py --agent --max-minutes 1 -s ortools
   python fuzz_test.py --dry-run --agent --models models --output-dir output
   python fuzz_test.py --output json --progress none --max-failed-tests 1
+  python fuzz_test.py --clean --agent --max-failed-tests 1 -s ortools
 """
     parser = argparse.ArgumentParser(
         description="Run mutation-based fuzz tests for CPMpy solvers.",
@@ -46,6 +48,11 @@ Examples:
         help="Directory to store failure artifacts and run_stats.json.",
         default="output",
         type=str,
+    )
+    parser.add_argument(
+        "--clean",
+        help="Remove existing contents of the output directory before starting.",
+        action="store_true",
     )
     parser.add_argument(
         "-g",
@@ -199,6 +206,18 @@ def validate_output_dir(output_dir: str, dry_run: bool) -> None:
         path.mkdir(parents=True, exist_ok=True)
 
 
+def clean_output_dir(output_dir: str, dry_run: bool = False) -> bool:
+    path = Path(output_dir)
+    if not path.exists():
+        return False
+    if not path.is_dir():
+        raise ValueError(f"Output path exists but is not a directory: {output_dir}")
+    if dry_run:
+        return True
+    shutil.rmtree(path)
+    return True
+
+
 def select_progress_mode(args) -> str:
     if args.quiet or args.output == "json":
         return "none"
@@ -257,6 +276,7 @@ def dry_run_summary(args, models: List[str], progress_mode: str) -> dict:
         "models": args.models,
         "model_directories": len(models),
         "output_dir": args.output_dir,
+        "clean": args.clean,
         "max_failed_tests": None if args.max_failed_tests == math.inf else args.max_failed_tests,
         "max_minutes": None if args.max_minutes == math.inf else args.max_minutes,
         "max_fuzz_seconds": args.max_fuzz_seconds if args.max_fuzz_seconds is not None else 10,
@@ -326,6 +346,8 @@ def print_dry_run_text(payload: dict) -> None:
     print(f"solver: {payload['solver']}")
     print(f"models: {payload['models']} ({payload['model_directories']} directories)")
     print(f"output_dir: {payload['output_dir']}")
+    if payload.get("clean"):
+        print("clean: true")
     print(f"processes: {payload['amount_of_processes']}")
     print(f"progress: {payload['progress']}")
 
@@ -581,6 +603,11 @@ def main(argv=None) -> int:
         args.solver = validate_solver(cp, args.solver)
         models = discover_models(args.models)
         validate_output_dir(args.output_dir, dry_run=args.dry_run)
+        output_dir_cleaned = False
+        if args.clean:
+            output_dir_cleaned = clean_output_dir(args.output_dir, dry_run=args.dry_run)
+            if output_dir_cleaned and not args.dry_run:
+                validate_output_dir(args.output_dir, dry_run=False)
         progress_mode = select_progress_mode(args)
 
         if args.dry_run:
@@ -592,6 +619,8 @@ def main(argv=None) -> int:
             return 0
 
         if not args.quiet and args.output == "text":
+            if output_dir_cleaned and not args.dry_run:
+                print(f"Cleaned output directory '{args.output_dir}'.", flush=True)
             print(
                 f"\nUsing solver '{args.solver}' with models in '{args.models}' "
                 f"and writing to '{args.output_dir}'.",
