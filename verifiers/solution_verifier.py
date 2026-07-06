@@ -46,18 +46,18 @@ class Solution_Verifier(Verifier):
         self.mutators = [(copy.deepcopy(self.cons), self.seed)] #keep track of list of cons alternated with random seed and mutators that transformed it into the next list of cons.
             
     def verify_model(self) -> dict:
+        initial_processed_cons = None
+        if len(self.mutators) > 0:
+            if isinstance(self.mutators[0], tuple) and len(self.mutators[0]) == 2:
+                initial_processed_cons = self.mutators[0][0]
+            elif isinstance(self.mutators[0], list):
+                initial_processed_cons = self.mutators[0]
+
+        model = None
         try:
             model = cp.Model(toplevel_list([self.cons, self.solution]))
             time_limit = max(min(200,self.time_limit),1)
             sat = model.solve(solver=self.solver, time_limit=time_limit)
-
-            # Extract initial processed constraints from mutators (stored right after initialize_run())
-            initial_processed_cons = None
-            if len(self.mutators) > 0:
-                if isinstance(self.mutators[0], tuple) and len(self.mutators[0]) == 2:
-                    initial_processed_cons = self.mutators[0][0]
-                elif isinstance(self.mutators[0], list):
-                    initial_processed_cons = self.mutators[0]
 
             if self.solve_timed_out(model):
                 # timeout, skip
