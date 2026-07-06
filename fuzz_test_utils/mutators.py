@@ -121,7 +121,7 @@ def flatten_morph(cons, flatten_all=False):
 
 def simplify_boolean_morph(cons):
     try:
-        return simplify_boolean(cons)
+        return simplify_boolean(push_down_negation(cons))
     except Exception as e:
         raise MetamorphicError(simplify_boolean, cons, e)
 
