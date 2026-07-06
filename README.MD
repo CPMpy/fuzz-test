@@ -13,6 +13,7 @@ git clone https://github.com/CPMpy/fuzz-test.git
 cd fuzz-test
 git checkout overhaul
 pip install -r requirements.txt
+pip install -e /path/to/cpmpy[all,io.all]
 ```
 
 3) (Re)-generate the models (must be redone upon every API change)
