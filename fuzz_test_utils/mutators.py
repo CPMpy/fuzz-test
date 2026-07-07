@@ -924,8 +924,11 @@ def pickaritmetic(con,log=[], candidates=[]):
                     return res
             elif is_any_list(arg):
                 return pickaritmetic((arg,log+[j],candidates))
-            else:
+            elif isinstance(arg, Expression):
                 return pickaritmetic(arg,log+[j],candidates+[log+[j]])
+            # else: a raw constant (e.g. a DFA state-name string inside a
+            # `regular` global constraint) is not an arithmetic sub-expression
+            # we can mutate, so skip it instead of picking it as a candidate.
 
     return candidates
 
@@ -952,10 +955,13 @@ def pickaritmeticComparison(con,log=[], candidates=[]):
                 res = pickaritmeticComparison(arg,log+[j], candidates)
                 if res != []:
                     return res
-            else:
+            elif isinstance(arg, Expression):
                 if isinstance(con,Comparison):
                     return pickaritmeticComparison(arg,log+[j],candidates+[log])
                 else:
                     return pickaritmeticComparison(arg,log+[j],candidates)
+            # else: a raw constant (e.g. a DFA state-name string inside a
+            # `regular` global constraint) is not an arithmetic sub-expression,
+            # so skip it instead of recursing into a non-expression.
 
     return candidates
