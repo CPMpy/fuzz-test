@@ -48,7 +48,7 @@ def get_supported_verifiers(solver: str) -> list:
         skipped = [v.__name__ for v in verifiers if getattr(v, "requires_objective", False)]
         verifiers = [v for v in verifiers if not getattr(v, "requires_objective", False)]
         if skipped:
-            warnings.warn(
+            print(
                 f"\nSolver '{solver}' does not support objective functions; "
                 f"skipping verifier(s): {', '.join(skipped)}",
                 flush=True,
