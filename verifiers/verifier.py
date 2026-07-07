@@ -109,6 +109,10 @@ class Verifier():
     The base class containing the base functions for each verifier.
     """
 
+    # Set to True by verifiers that build models with an objective function and
+    # therefore require a solver that supports optimization.
+    requires_objective = False
+
     def __init__(self, name: str, type: str, solver: str, mutations_per_model: int, exclude_dict: dict , time_limit: float, seed: int):
         self.name = name
         self.type = type

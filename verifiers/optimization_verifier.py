@@ -7,6 +7,8 @@ class Optimization_Verifier(Verifier):
         The Optimization Verifier will verify if all objective value remains unchanged after multiple muations
     """
 
+    requires_objective = True
+
     def __init__(self,solver: str, mutations_per_model: int, exclude_dict: dict, time_limit: float, seed: int):
         super().__init__("optimization verifier", 'optimization',solver,mutations_per_model,exclude_dict,time_limit,seed)
         self.mm_mutators = [xor_morph, and_morph, or_morph, implies_morph, not_morph,

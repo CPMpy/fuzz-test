@@ -19,8 +19,41 @@ from fuzz_test_utils.fuzz_test_errors import FuzzTestErrorType
 from verifiers import *
 from verifiers.utils import FuzzExit
 from fuzz_test_utils import FuzzTestErrorType
+
+# Satisfaction-only solvers that raise NotSupportedError when given a model with
+# an objective function. Objective-requiring verifiers are skipped for these to
+# avoid crashing (and flooding the output directory) on every optimization run.
+SATISFACTION_ONLY_SOLVERS = frozenset({"pindakaas", "pysat", "pysdd"})
+
+
 def get_all_verifiers() -> list:
     return [Solution_Verifier,Optimization_Verifier,Metamorphic_Verifier]  # Disable TEMPORARY: ,Model_Count_Verifier,Equivalance_Verifier
+
+
+def solver_supports_objective(solver: str) -> bool:
+    """
+    Return whether `solver` supports objective functions.
+
+    Solver names may include a subsolver (e.g. "pysat:glucose"), so we match on
+    the base name before the colon.
+    """
+    base_solver = (solver or "").split(":", 1)[0]
+    return base_solver not in SATISFACTION_ONLY_SOLVERS
+
+
+def get_supported_verifiers(solver: str) -> list:
+    """Return the verifiers that are compatible with the given solver."""
+    verifiers = get_all_verifiers()
+    if not solver_supports_objective(solver):
+        skipped = [v.__name__ for v in verifiers if getattr(v, "requires_objective", False)]
+        verifiers = [v for v in verifiers if not getattr(v, "requires_objective", False)]
+        if skipped:
+            warnings.warn(
+                f"\nSolver '{solver}' does not support objective functions; "
+                f"skipping verifier(s): {', '.join(skipped)}",
+                flush=True,
+            )
+    return verifiers
 
 def run_verifiers(
         current_amount_of_tests, current_amount_of_error, current_amount_of_timeouts, 
@@ -69,6 +102,14 @@ def run_verifiers(
         "time_limit": fuzz_time_limit
     }
 
+    # Determine which verifiers are compatible with this solver (once, up front).
+    # Solvers that don't support objective functions (e.g. pindakaas) would
+    # otherwise crash on every optimization run and flood the output directory.
+    available_verifiers = get_supported_verifiers(solver)
+    if len(available_verifiers) == 0:
+        warnings.warn(f"No compatible verifiers for solver '{solver}', nothing to run.")
+        return
+
     execution_time = 0
     start = time.time()
     
@@ -87,7 +128,7 @@ def run_verifiers(
             random_seed = seed_generator.randint(0, 2**32 - 1)
             # 2) random verifier
             random_verifier: Verifier
-            random_verifier = random.choice(get_all_verifiers())(**(verifier_kwargs | {"seed": random_seed}))
+            random_verifier = random.choice(available_verifiers)(**(verifier_kwargs | {"seed": random_seed}))
             # 3) random model
             fmodels = []
             for folder in folders:

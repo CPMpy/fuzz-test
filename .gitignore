@@ -4,3 +4,10 @@ output/*
 **/__pycache__/
 testfiles/__pycache__/*
 *.pickle
+
+# Virtual environments
+.venv/
+venv/
+
+# Debug/log output
+*.log
