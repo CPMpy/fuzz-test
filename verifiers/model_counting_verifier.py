@@ -34,7 +34,11 @@ class Model_Count_Verifier(Verifier):
 
         assert (len(self.cons)>0), f"{self.model_file} has no constraints"
         self.cons = toplevel_list(self.cons)
-        self.sol_count = cp.Model(self.cons).solveAll(solver=self.solver,time_limit=max(1,min(250,self.time_limit-time.time())))
+        if self.solver == 'gurobi':
+            self.sol_lim = 10000  # Should this be hardcoded?
+            self.sol_count = cp.Model(self.cons).solveAll(solver=self.solver,time_limit=max(1,min(250,self.time_limit-time.time())), solution_limit=self.sol_lim)
+        else:
+            self.sol_count = cp.Model(self.cons).solveAll(solver=self.solver,time_limit=max(1,min(250,self.time_limit-time.time())))
         self.mutators = [copy.deepcopy(self.cons)] #keep track of list of cons alternated with mutators that transformed it into the next list of cons.
         
     def verify_model(self) -> dict:
@@ -42,7 +46,10 @@ class Model_Count_Verifier(Verifier):
             model = cp.Model(self.cons)
             time_limit=max(1,min(200,self.time_limit-time.time())) # set the max time limit to the given time limit or to 1 if the self.time_limit-time.time() would be smaller then 1
 
-            new_count = model.solveAll(solver=self.solver, time_limit=time_limit)
+            if hasattr(self, 'sol_lim'):
+                new_count = model.solveAll(solver=self.solver, time_limit=time_limit, solution_limit=self.sol_lim)
+            else:
+                new_count = model.solveAll(solver=self.solver, time_limit=time_limit)
             if model.status().runtime > time_limit-10:
                 # timeout, skip
                 print('T', end='', flush=True)
